@@ -1,0 +1,9 @@
+# Lokale DB-Konfig
+config.json
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Logs (falls später benötigt)
+logs/
