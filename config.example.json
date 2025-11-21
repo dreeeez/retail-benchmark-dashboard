@@ -1,0 +1,6 @@
+{
+    "server": "YOUR_SERVER",
+    "database": "YOUR_DB",
+    "username": "YOUR_USERNAME",
+    "password": "YOUR_PASSWORD"
+  }
