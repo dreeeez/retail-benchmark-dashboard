@@ -16,6 +16,3 @@ def get_connection():
 
     return pyodbc.connect(conn_str)
 
-#   Test branch 
-# if __name__ == "__main__":
-# HAHAHAHA
