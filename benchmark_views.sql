@@ -1,458 +1,406 @@
--- ============================================================
--- BENCHMARK VIEWS - Systemkonzept Phase 4
+-- ============================================================================
+-- BENCHMARK VIEWS für Filialvergleich Rosenheim (ID=14) vs. Freiburg (ID=5)
+-- Phase 4 - Systemkonzept Benchmarking
 -- Gruppe 18: Marco, Harun, Duy
--- Benchmarking-System für Filialen Rosenheim & Freiburg/Karlsruhe
--- ============================================================
+--
+-- Namenskonventionen gemäß Vorgaben Datenbankentwicklung:
+-- - Schema: list_views für Anzeige-Views
+-- - View-Namen: V_LIST_ (Anzeige), GROSSBUCHSTABEN, Snake_Case
+-- - Spaltennamen in Views: CamelCase (z.B. RevenueEur)
+-- - Tabellen-Spaltennamen: GROSSBUCHSTABEN
+-- ============================================================================
 
--- ============================================================
--- 4.1 STANDARDISIERUNGS- UND BEREINIGUNGS-VIEWS
--- ============================================================
-
--- 4.1.1 View V_BENCHMARK_SALES_STD
--- Diese View vereinheitlicht das Monatsformat, reichert Filialstammdaten an
--- und weist Artikel Benchmark-Kategorien zu.
--- ============================================================
-IF OBJECT_ID('dbo.V_BENCHMARK_SALES_STD', 'V') IS NOT NULL
-    DROP VIEW dbo.V_BENCHMARK_SALES_STD;
-GO
-
-CREATE VIEW dbo.V_BENCHMARK_SALES_STD AS
+-- ============================================================================
+-- 4.1.1 V_LIST_G18_BENCHMARK_SALES_STD - Standardisierungs- und Bereinigungs-View
+-- Vereinheitlicht Monatsformat, reichert Filialstammdaten an,
+-- weist Artikel Benchmark-Kategorien zu
+-- ============================================================================
+CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_SALES_STD AS
 SELECT
-    s.ID_STORE,
-    so.STORE_LOCATION AS STORE_NAME,
-    s.ID_CALMONTH,
-    FORMAT(s.ID_CALMONTH, 'yyyy-MM') AS ID_CALMONTH_STD,
-    s.ID_MATERIAL,
-    m.MAT_NR,
-    m.MAT_DESCR,
-    s.ID_CATEGORY,
-    pc.CATEGORY,
-    pc.PRODUCT_LINE,
-    -- Benchmark-Kategorie Zuordnung
+    s.ID_STORE                                          AS IdStore,
+    s.ID_CALMONTH                                       AS IdCalmonth,
+    FORMAT(s.ID_CALMONTH, 'yyyy-MM')                    AS IdCalmonthStd,
+    YEAR(s.ID_CALMONTH)                                 AS Jahr,
+    MONTH(s.ID_CALMONTH)                                AS Monat,
+    so.STORE_LOCATION                                   AS StoreName,
+    loc.LOC_SIZE_M2                                     AS StoreM2,
+    s.ID_MATERIAL                                       AS IdMaterial,
+    m.MAT_NR                                            AS MatNr,
+    m.MAT_DESCR                                         AS MatDescr,
+    s.ID_CATEGORY                                       AS IdCategory,
+    pc.CATEGORY                                         AS Category,
+    pc.PRODUCT_LINE                                     AS ProductLine,
     CASE
-        WHEN pc.PRODUCT_LINE = 'E-Bike' AND pc.CATEGORY = 'Mountainbike' THEN 'E-MTB'
-        WHEN pc.PRODUCT_LINE = 'E-Bike' AND pc.CATEGORY = 'Citybike' THEN 'E-City'
-        WHEN pc.PRODUCT_LINE = 'E-Bike' AND pc.CATEGORY = 'Trekkingrad' THEN 'E-Trekking'
-        WHEN pc.PRODUCT_LINE = 'BioBike' AND pc.CATEGORY = 'Mountainbike' THEN 'MTB'
-        WHEN pc.PRODUCT_LINE = 'BioBike' AND pc.CATEGORY = 'Citybike' THEN 'City'
-        WHEN pc.PRODUCT_LINE = 'BioBike' AND pc.CATEGORY = 'Trekkingrad' THEN 'Trekking'
-        WHEN pc.CATEGORY = 'Kinderrad' THEN 'Kinder'
-        WHEN pc.CATEGORY = 'Rennrad' THEN 'Rennrad'
+        WHEN pc.PRODUCT_LINE = 'E-Bike' THEN 'E-Bike'
+        WHEN pc.CATEGORY = 'Mountain Bikes' THEN 'MTB'
+        WHEN pc.CATEGORY IN ('City Bikes', 'Trekking Bikes') THEN 'City/Trekking'
+        WHEN pc.CATEGORY = 'Kid Bikes' THEN 'Kinder'
+        WHEN pc.CATEGORY = 'Race Bikes' THEN 'Rennrad'
         ELSE 'Sonstige'
-    END AS BENCHMARK_CATEGORY,
-    s.ID_SEGMENT,
-    ps.SEGMENT AS PRICE_SEGMENT,
-    s.ID_EMPLOYEE,
-    s.ID_CAMPAIGN,
-    s.SALES_AMOUNT,
-    s.TRANSFER_PRICE_EUR,
-    s.SALES_PRICE_EUR,
-    s.DISCOUNT_PCT,
-    s.REVENUE,
-    s.DISCOUNT_IN_EUR,
-    s.GROSS_PROFIT_EUR
+    END                                                 AS BenchmarkCategory,
+    s.ID_EMPLOYEE                                       AS IdEmployee,
+    s.ID_CAMPAIGN                                       AS IdCampaign,
+    s.SALES_AMOUNT                                      AS SalesAmount,
+    s.TRANSFER_PRICE_EUR                                AS TransferPriceEur,
+    s.SALES_PRICE_EUR                                   AS SalesPriceEur,
+    s.DISCOUNT_PCT                                      AS DiscountPct,
+    s.DISCOUNT_IN_EUR                                   AS DiscountEur,
+    s.REVENUE                                           AS RevenueEur,
+    s.GROSS_PROFIT_EUR                                  AS GrossProfitEur,
+    CASE
+        WHEN s.SALES_AMOUNT > 0 THEN s.REVENUE / s.SALES_AMOUNT
+        ELSE NULL
+    END                                                 AS AvgSalesPriceEur
 FROM dbo.T_ETL_MONTHLY_SALES s
 INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
-INNER JOIN dbo.T_MATERIAL m ON s.ID_MATERIAL = m.ID_MAT
-INNER JOIN dbo.T_PRODUCT_CATEGORY pc ON s.ID_CATEGORY = pc.ID_CATEGORY
-INNER JOIN dbo.T_PRICE_SEGMENT ps ON s.ID_SEGMENT = ps.ID_SEGMENT
-WHERE so.STORE_LOCATION IN ('Rosenheim', 'Freiburg', 'Karlsruhe', 'Freiburg/Karlsruhe');
+LEFT JOIN dbo.T_LOCATION loc ON s.ID_STORE = loc.ID_STORE
+LEFT JOIN dbo.T_MATERIAL m ON s.ID_MATERIAL = m.ID_MAT
+LEFT JOIN dbo.T_PRODUCT_CATEGORY pc ON s.ID_CATEGORY = pc.ID_CATEGORY
+WHERE s.ID_STORE IN (5, 14);
 GO
 
--- 4.1.2 View V_BENCHMARK_SALES_ERRORS (optional)
--- Zeigt Datensätze mit fehlerhaften Werten
--- ============================================================
-IF OBJECT_ID('dbo.V_BENCHMARK_SALES_ERRORS', 'V') IS NOT NULL
-    DROP VIEW dbo.V_BENCHMARK_SALES_ERRORS;
-GO
-
-CREATE VIEW dbo.V_BENCHMARK_SALES_ERRORS AS
+-- ============================================================================
+-- 4.1.2 V_LIST_G18_BENCHMARK_SALES_ERRORS - Fehler-View (optional)
+-- Zeigt Datensätze mit Umsatz <= 0 oder negativem Bruttogewinn
+-- ============================================================================
+CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_SALES_ERRORS AS
 SELECT
-    s.*,
+    IdStore,
+    IdCalmonth,
+    IdCalmonthStd,
+    StoreName,
+    IdMaterial,
+    MatNr,
+    MatDescr,
+    BenchmarkCategory,
+    SalesAmount,
+    RevenueEur,
+    GrossProfitEur,
     CASE
-        WHEN s.REVENUE <= 0 THEN 'Umsatz <= 0'
-        WHEN s.GROSS_PROFIT_EUR < 0 THEN 'Negativer Bruttogewinn'
-        WHEN s.SALES_AMOUNT <= 0 THEN 'Verkaufsmenge <= 0'
+        WHEN RevenueEur <= 0 THEN 'Umsatz <= 0'
+        WHEN GrossProfitEur < 0 THEN 'Negativer Bruttogewinn'
         ELSE 'Unbekannter Fehler'
-    END AS ERROR_TYPE
-FROM dbo.V_BENCHMARK_SALES_STD s
-WHERE s.REVENUE <= 0
-   OR s.GROSS_PROFIT_EUR < 0
-   OR s.SALES_AMOUNT <= 0;
+    END                                                 AS ErrorType
+FROM list_views.V_LIST_G18_BENCHMARK_SALES_STD
+WHERE RevenueEur <= 0 OR GrossProfitEur < 0;
 GO
 
--- ============================================================
--- 4.2 AGGREGATIONS-VIEWS
--- ============================================================
-
--- 4.2.1 View V_BENCHMARK_SALES_AGG
--- Aggregation der Verkaufsdaten je Monat, Filiale, Kategorie
--- ============================================================
-IF OBJECT_ID('dbo.V_BENCHMARK_SALES_AGG', 'V') IS NOT NULL
-    DROP VIEW dbo.V_BENCHMARK_SALES_AGG;
-GO
-
-CREATE VIEW dbo.V_BENCHMARK_SALES_AGG AS
+-- ============================================================================
+-- 4.2.1 V_LIST_G18_BENCHMARK_SALES_AGG - Aggregation der Verkaufsdaten
+-- Aggregation je Monat, Filiale, Kategorie
+-- ============================================================================
+CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_SALES_AGG AS
 SELECT
-    ID_STORE,
-    STORE_NAME,
-    ID_CALMONTH,
-    ID_CALMONTH_STD,
-    BENCHMARK_CATEGORY,
-    COUNT(*) AS TRANSACTION_COUNT,
-    SUM(SALES_AMOUNT) AS TOTAL_SALES_AMOUNT,
-    SUM(REVENUE) AS TOTAL_REVENUE_EUR,
-    SUM(GROSS_PROFIT_EUR) AS TOTAL_GROSS_PROFIT_EUR,
-    SUM(TRANSFER_PRICE_EUR * SALES_AMOUNT) AS TOTAL_TRANSFER_COST_EUR,
-    SUM(DISCOUNT_IN_EUR) AS TOTAL_DISCOUNT_EUR,
-    AVG(SALES_PRICE_EUR) AS AVG_SALES_PRICE_EUR,
-    AVG(DISCOUNT_PCT) AS AVG_DISCOUNT_PCT
-FROM dbo.V_BENCHMARK_SALES_STD
+    IdStore,
+    IdCalmonth,
+    IdCalmonthStd,
+    Jahr,
+    Monat,
+    StoreName,
+    StoreM2,
+    BenchmarkCategory,
+    SUM(SalesAmount)                                    AS TotalSalesAmount,
+    SUM(RevenueEur)                                     AS RevenueEur,
+    SUM(GrossProfitEur)                                 AS GrossProfitEur,
+    SUM(TransferPriceEur * SalesAmount)                 AS TransferCostEur,
+    SUM(DiscountEur)                                    AS TotalDiscountEur,
+    CASE
+        WHEN SUM(SalesAmount) > 0 THEN SUM(RevenueEur) / SUM(SalesAmount)
+        ELSE NULL
+    END                                                 AS AvgSalesPriceEur,
+    COUNT(*)                                            AS TransactionCount
+FROM list_views.V_LIST_G18_BENCHMARK_SALES_STD
 GROUP BY
-    ID_STORE,
-    STORE_NAME,
-    ID_CALMONTH,
-    ID_CALMONTH_STD,
-    BENCHMARK_CATEGORY;
+    IdStore,
+    IdCalmonth,
+    IdCalmonthStd,
+    Jahr,
+    Monat,
+    StoreName,
+    StoreM2,
+    BenchmarkCategory;
 GO
 
--- 4.2.2 View V_BENCHMARK_COSTS_AGG
--- Aggregation der Kosten je Monat, Filiale und Kostenart
--- ============================================================
-IF OBJECT_ID('dbo.V_BENCHMARK_COSTS_AGG', 'V') IS NOT NULL
-    DROP VIEW dbo.V_BENCHMARK_COSTS_AGG;
-GO
-
-CREATE VIEW dbo.V_BENCHMARK_COSTS_AGG AS
+-- ============================================================================
+-- 4.2.2 V_LIST_G18_BENCHMARK_COSTS_AGG - Aggregation der Kosten
+-- Aggregation je Monat, Filiale und Kostenkategorie
+-- ============================================================================
+CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_COSTS_AGG AS
 SELECT
-    c.ID_STORE,
-    so.STORE_LOCATION AS STORE_NAME,
-    c.ID_CALMONTH,
-    FORMAT(c.ID_CALMONTH, 'yyyy-MM') AS ID_CALMONTH_STD,
-    cr.COST_CATEGORY,
-    SUM(c.VALUE) AS TOTAL_COST_EUR
+    c.ID_STORE                                          AS IdStore,
+    c.ID_CALMONTH                                       AS IdCalmonth,
+    FORMAT(c.ID_CALMONTH, 'yyyy-MM')                    AS IdCalmonthStd,
+    YEAR(c.ID_CALMONTH)                                 AS Jahr,
+    MONTH(c.ID_CALMONTH)                                AS Monat,
+    so.STORE_LOCATION                                   AS StoreName,
+    SUM(CASE WHEN cr.ID_COST_CATEGORY IN (1, 2, 11) THEN c.VALUE ELSE 0 END)
+                                                        AS PersonnelCostsEur,
+    SUM(CASE WHEN cr.ID_COST_CATEGORY = 3 THEN c.VALUE ELSE 0 END)
+                                                        AS RentCostsEur,
+    SUM(CASE WHEN cr.ID_COST_CATEGORY = 10 THEN c.VALUE ELSE 0 END)
+                                                        AS MarketingCostsEur,
+    SUM(CASE WHEN cr.ID_COST_CATEGORY = 12 THEN c.VALUE ELSE 0 END)
+                                                        AS AdditionalProcurementEur,
+    SUM(CASE WHEN cr.ID_COST_CATEGORY = 4 THEN c.VALUE ELSE 0 END)
+                                                        AS TransferCostsEur,
+    SUM(CASE WHEN cr.ID_COST_CATEGORY IN (3, 10) THEN c.VALUE ELSE 0 END)
+                                                        AS OperatingCostsEur,
+    SUM(c.VALUE)                                        AS TotalCostsEur
 FROM dbo.T_ETL_MONTHLY_COSTS c
 INNER JOIN dbo.T_COST_RECORD cr
-    ON c.ID_GAME = cr.ID_GAME
+    ON c.ID_COST_RECORD = cr.ID_COST_RECORD
     AND c.ID_STORE = cr.ID_STORE
-    AND c.ID_COST_RECORD = cr.ID_COST_RECORD
+    AND c.ID_GAME = cr.ID_GAME
 INNER JOIN dbo.T_SALESORG so ON c.ID_STORE = so.SALESORG_ID
-WHERE so.STORE_LOCATION IN ('Rosenheim', 'Freiburg', 'Karlsruhe', 'Freiburg/Karlsruhe')
+WHERE c.ID_STORE IN (5, 14)
 GROUP BY
     c.ID_STORE,
-    so.STORE_LOCATION,
     c.ID_CALMONTH,
-    cr.COST_CATEGORY;
+    so.STORE_LOCATION;
 GO
 
--- 4.2.3 View V_BENCHMARK_COSTS_TOTAL
--- Gesamtkosten je Monat und Filiale
--- ============================================================
-IF OBJECT_ID('dbo.V_BENCHMARK_COSTS_TOTAL', 'V') IS NOT NULL
-    DROP VIEW dbo.V_BENCHMARK_COSTS_TOTAL;
-GO
-
-CREATE VIEW dbo.V_BENCHMARK_COSTS_TOTAL AS
+-- ============================================================================
+-- 4.2.3 V_LIST_G18_BENCHMARK_HEADCOUNT - Mitarbeiteranzahl je Filiale
+-- ============================================================================
+CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_HEADCOUNT AS
 SELECT
-    ID_STORE,
-    STORE_NAME,
-    ID_CALMONTH,
-    ID_CALMONTH_STD,
-    SUM(CASE WHEN COST_CATEGORY LIKE '%Personal%' OR COST_CATEGORY LIKE '%Gehalt%' OR COST_CATEGORY LIKE '%Lohn%'
-        THEN TOTAL_COST_EUR ELSE 0 END) AS PERSONNEL_COSTS_EUR,
-    SUM(CASE WHEN COST_CATEGORY LIKE '%Betrieb%' OR COST_CATEGORY LIKE '%Miete%' OR COST_CATEGORY LIKE '%Energie%'
-        THEN TOTAL_COST_EUR ELSE 0 END) AS OPERATING_COSTS_EUR,
-    SUM(CASE WHEN COST_CATEGORY LIKE '%Marketing%' OR COST_CATEGORY LIKE '%Werbung%'
-        THEN TOTAL_COST_EUR ELSE 0 END) AS MARKETING_COSTS_EUR,
-    SUM(TOTAL_COST_EUR) AS TOTAL_COSTS_EUR
-FROM dbo.V_BENCHMARK_COSTS_AGG
-GROUP BY
-    ID_STORE,
-    STORE_NAME,
-    ID_CALMONTH,
-    ID_CALMONTH_STD;
-GO
-
--- 4.2.4 View V_BENCHMARK_HEADCOUNT
--- Mitarbeiteranzahl je Filiale
--- ============================================================
-IF OBJECT_ID('dbo.V_BENCHMARK_HEADCOUNT', 'V') IS NOT NULL
-    DROP VIEW dbo.V_BENCHMARK_HEADCOUNT;
-GO
-
-CREATE VIEW dbo.V_BENCHMARK_HEADCOUNT AS
-SELECT
-    e.ID_SALESORG AS ID_STORE,
-    so.STORE_LOCATION AS STORE_NAME,
-    COUNT(e.ID_EMP) AS EMPLOYEE_COUNT
+    e.ID_SALESORG                                       AS IdStore,
+    so.STORE_LOCATION                                   AS StoreName,
+    COUNT(DISTINCT e.ID_EMP)                            AS EmployeeCount,
+    SUM(e.EMP_SALARY_OFFERED)                           AS TotalSalaryOffered
 FROM dbo.T_EMPLOYEE e
 INNER JOIN dbo.T_SALESORG so ON e.ID_SALESORG = so.SALESORG_ID
-WHERE e.DELETE_YN = 0
-  AND so.STORE_LOCATION IN ('Rosenheim', 'Freiburg', 'Karlsruhe', 'Freiburg/Karlsruhe')
+WHERE e.ID_SALESORG IN (5, 14)
+  AND e.DELETE_YN = 0
 GROUP BY
     e.ID_SALESORG,
     so.STORE_LOCATION;
 GO
 
--- ============================================================
--- 4.3 KPI-/BENCHMARK-VIEW
--- ============================================================
-
--- 4.3.1 View V_BENCHMARK_KPI
--- Zentrale View für das Datenobjekt "Filialkennzahlen"
--- ============================================================
-IF OBJECT_ID('dbo.V_BENCHMARK_KPI', 'V') IS NOT NULL
-    DROP VIEW dbo.V_BENCHMARK_KPI;
-GO
-
-CREATE VIEW dbo.V_BENCHMARK_KPI AS
+-- ============================================================================
+-- 4.3.1 V_LIST_G18_BENCHMARK_KPI - Zentrale KPI-View für Filialkennzahlen
+-- ============================================================================
+CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_KPI AS
 SELECT
-    sa.ID_STORE,
-    sa.STORE_NAME,
-    sa.ID_CALMONTH,
-    sa.ID_CALMONTH_STD,
-    sa.BENCHMARK_CATEGORY,
+    s.IdStore,
+    s.IdCalmonth,
+    s.IdCalmonthStd,
+    s.Jahr,
+    s.Monat,
+    s.StoreName,
+    s.StoreM2,
+    s.BenchmarkCategory,
 
-    -- Basisgroessen
-    sa.TOTAL_SALES_AMOUNT,
-    sa.TOTAL_REVENUE_EUR AS REVENUE_EUR,
-    sa.TOTAL_GROSS_PROFIT_EUR AS GROSS_PROFIT_EUR,
-    sa.TOTAL_TRANSFER_COST_EUR AS TRANSFER_COST_EUR,
-    sa.TOTAL_DISCOUNT_EUR AS DISCOUNT_EUR,
-    sa.AVG_SALES_PRICE_EUR,
+    -- Basisgroessen Umsatz
+    s.TotalSalesAmount,
+    s.RevenueEur,
+    s.GrossProfitEur,
+    s.TransferCostEur,
+    s.TotalDiscountEur,
+    s.AvgSalesPriceEur,
 
-    -- Kosten (auf Monat/Filiale-Ebene, anteilig auf Kategorie verteilt)
-    ISNULL(ct.PERSONNEL_COSTS_EUR, 0) AS PERSONNEL_COSTS_EUR,
-    ISNULL(ct.OPERATING_COSTS_EUR, 0) AS OPERATING_COSTS_EUR,
-    ISNULL(ct.MARKETING_COSTS_EUR, 0) AS MARKETING_COSTS_EUR,
-    ISNULL(ct.TOTAL_COSTS_EUR, 0) AS TOTAL_COSTS_EUR,
+    -- Kosten
+    c.PersonnelCostsEur,
+    c.RentCostsEur,
+    c.MarketingCostsEur,
+    c.AdditionalProcurementEur,
+    c.OperatingCostsEur,
+    c.TotalCostsEur,
 
     -- Gesamtkosten inkl. Wareneinsatz
-    sa.TOTAL_TRANSFER_COST_EUR + ISNULL(ct.TOTAL_COSTS_EUR, 0) AS TOTAL_EXPENSES_EUR,
+    ISNULL(s.TransferCostEur, 0) + ISNULL(c.OperatingCostsEur, 0) +
+    ISNULL(c.PersonnelCostsEur, 0) + ISNULL(c.AdditionalProcurementEur, 0)
+                                                        AS TotalCostsFullEur,
 
     -- Nettogewinn
-    sa.TOTAL_GROSS_PROFIT_EUR - ISNULL(ct.TOTAL_COSTS_EUR, 0) AS NET_PROFIT_EUR,
+    s.GrossProfitEur - ISNULL(c.OperatingCostsEur, 0) -
+    ISNULL(c.PersonnelCostsEur, 0) - ISNULL(c.AdditionalProcurementEur, 0)
+                                                        AS NetProfitEur,
 
     -- Mitarbeiter
-    ISNULL(hc.EMPLOYEE_COUNT, 0) AS EMPLOYEE_COUNT,
-
-    -- ============================================================
-    -- KENNZAHLEN (KPIs)
-    -- ============================================================
+    h.EmployeeCount,
 
     -- Bruttogewinn-Marge (%)
     CASE
-        WHEN sa.TOTAL_REVENUE_EUR > 0
-        THEN ROUND((sa.TOTAL_GROSS_PROFIT_EUR / sa.TOTAL_REVENUE_EUR) * 100, 2)
+        WHEN s.RevenueEur > 0 THEN (s.GrossProfitEur / s.RevenueEur) * 100
         ELSE NULL
-    END AS GROSS_MARGIN_PCT,
+    END                                                 AS GrossProfitMarginPct,
 
     -- Nettogewinn-Marge (%)
     CASE
-        WHEN sa.TOTAL_REVENUE_EUR > 0
-        THEN ROUND(((sa.TOTAL_GROSS_PROFIT_EUR - ISNULL(ct.TOTAL_COSTS_EUR, 0)) / sa.TOTAL_REVENUE_EUR) * 100, 2)
+        WHEN s.RevenueEur > 0 THEN
+            ((s.GrossProfitEur - ISNULL(c.OperatingCostsEur, 0) -
+              ISNULL(c.PersonnelCostsEur, 0) - ISNULL(c.AdditionalProcurementEur, 0))
+             / s.RevenueEur) * 100
         ELSE NULL
-    END AS NET_MARGIN_PCT,
+    END                                                 AS NetProfitMarginPct,
 
     -- Betriebskosten-Quote (%)
     CASE
-        WHEN sa.TOTAL_REVENUE_EUR > 0
-        THEN ROUND((ISNULL(ct.OPERATING_COSTS_EUR, 0) / sa.TOTAL_REVENUE_EUR) * 100, 2)
+        WHEN s.RevenueEur > 0 THEN (ISNULL(c.OperatingCostsEur, 0) / s.RevenueEur) * 100
         ELSE NULL
-    END AS OPERATING_COST_RATIO_PCT,
+    END                                                 AS OperatingCostRatioPct,
 
     -- Personalkosten-Anteil (%)
     CASE
-        WHEN sa.TOTAL_REVENUE_EUR > 0
-        THEN ROUND((ISNULL(ct.PERSONNEL_COSTS_EUR, 0) / sa.TOTAL_REVENUE_EUR) * 100, 2)
+        WHEN s.RevenueEur > 0 THEN (ISNULL(c.PersonnelCostsEur, 0) / s.RevenueEur) * 100
         ELSE NULL
-    END AS PERSONNEL_COST_RATIO_PCT,
+    END                                                 AS PersonnelCostRatioPct,
 
     -- Umsatz pro Mitarbeiter
     CASE
-        WHEN ISNULL(hc.EMPLOYEE_COUNT, 0) > 0
-        THEN ROUND(sa.TOTAL_REVENUE_EUR / hc.EMPLOYEE_COUNT, 2)
+        WHEN ISNULL(h.EmployeeCount, 0) > 0 THEN s.RevenueEur / h.EmployeeCount
         ELSE NULL
-    END AS REVENUE_PER_EMPLOYEE,
+    END                                                 AS RevenuePerEmployee,
 
-    -- Durchschnittlicher Rabatt (%)
-    sa.AVG_DISCOUNT_PCT AS AVG_DISCOUNT_PCT
+    -- Umsatz pro Quadratmeter
+    CASE
+        WHEN ISNULL(s.StoreM2, 0) > 0 THEN s.RevenueEur / s.StoreM2
+        ELSE NULL
+    END                                                 AS RevenuePerM2,
 
-FROM dbo.V_BENCHMARK_SALES_AGG sa
-LEFT JOIN dbo.V_BENCHMARK_COSTS_TOTAL ct
-    ON sa.ID_STORE = ct.ID_STORE
-    AND sa.ID_CALMONTH = ct.ID_CALMONTH
-LEFT JOIN dbo.V_BENCHMARK_HEADCOUNT hc
-    ON sa.ID_STORE = hc.ID_STORE;
+    -- Brutto-Marketingbeitrag
+    s.RevenueEur - ISNULL(c.MarketingCostsEur, 0)       AS GrossMarketingContribution
+
+FROM list_views.V_LIST_G18_BENCHMARK_SALES_AGG s
+LEFT JOIN list_views.V_LIST_G18_BENCHMARK_COSTS_AGG c
+    ON s.IdStore = c.IdStore
+    AND s.IdCalmonth = c.IdCalmonth
+LEFT JOIN list_views.V_LIST_G18_BENCHMARK_HEADCOUNT h
+    ON s.IdStore = h.IdStore;
 GO
 
--- ============================================================
--- 4.4 VERGLEICHS-VIEW (FILIAL-BENCHMARKING)
--- ============================================================
-
--- 4.4.1 View V_BENCHMARK_STORE_COMPARISON
--- Vergleich der Filialen Freiburg/Karlsruhe und Rosenheim je Monat und Kategorie
--- ============================================================
-IF OBJECT_ID('dbo.V_BENCHMARK_STORE_COMPARISON', 'V') IS NOT NULL
-    DROP VIEW dbo.V_BENCHMARK_STORE_COMPARISON;
-GO
-
-CREATE VIEW dbo.V_BENCHMARK_STORE_COMPARISON AS
-WITH RosenheimData AS (
-    SELECT
-        ID_CALMONTH,
-        ID_CALMONTH_STD,
-        BENCHMARK_CATEGORY,
-        REVENUE_EUR AS ROS_REVENUE_EUR,
-        GROSS_PROFIT_EUR AS ROS_GROSS_PROFIT_EUR,
-        NET_PROFIT_EUR AS ROS_NET_PROFIT_EUR,
-        TOTAL_SALES_AMOUNT AS ROS_SALES_AMOUNT,
-        GROSS_MARGIN_PCT AS ROS_GROSS_MARGIN_PCT,
-        NET_MARGIN_PCT AS ROS_NET_MARGIN_PCT,
-        OPERATING_COST_RATIO_PCT AS ROS_OPERATING_COST_RATIO_PCT,
-        PERSONNEL_COST_RATIO_PCT AS ROS_PERSONNEL_COST_RATIO_PCT,
-        REVENUE_PER_EMPLOYEE AS ROS_REVENUE_PER_EMPLOYEE
-    FROM dbo.V_BENCHMARK_KPI
-    WHERE STORE_NAME = 'Rosenheim'
-),
-FreiburgData AS (
-    SELECT
-        ID_CALMONTH,
-        ID_CALMONTH_STD,
-        BENCHMARK_CATEGORY,
-        REVENUE_EUR AS FRK_REVENUE_EUR,
-        GROSS_PROFIT_EUR AS FRK_GROSS_PROFIT_EUR,
-        NET_PROFIT_EUR AS FRK_NET_PROFIT_EUR,
-        TOTAL_SALES_AMOUNT AS FRK_SALES_AMOUNT,
-        GROSS_MARGIN_PCT AS FRK_GROSS_MARGIN_PCT,
-        NET_MARGIN_PCT AS FRK_NET_MARGIN_PCT,
-        OPERATING_COST_RATIO_PCT AS FRK_OPERATING_COST_RATIO_PCT,
-        PERSONNEL_COST_RATIO_PCT AS FRK_PERSONNEL_COST_RATIO_PCT,
-        REVENUE_PER_EMPLOYEE AS FRK_REVENUE_PER_EMPLOYEE
-    FROM dbo.V_BENCHMARK_KPI
-    WHERE STORE_NAME IN ('Freiburg', 'Karlsruhe', 'Freiburg/Karlsruhe')
-)
+-- ============================================================================
+-- 4.4.1 V_LIST_G18_BENCHMARK_STORE_COMPARISON - Filialvergleich
+-- Vergleich Freiburg (ID=5) vs. Rosenheim (ID=14) je Monat und Kategorie
+-- ============================================================================
+CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_STORE_COMPARISON AS
 SELECT
-    COALESCE(r.ID_CALMONTH, f.ID_CALMONTH) AS ID_CALMONTH,
-    COALESCE(r.ID_CALMONTH_STD, f.ID_CALMONTH_STD) AS ID_CALMONTH_STD,
-    COALESCE(r.BENCHMARK_CATEGORY, f.BENCHMARK_CATEGORY) AS BENCHMARK_CATEGORY,
+    COALESCE(f.IdCalmonth, r.IdCalmonth)                AS IdCalmonth,
+    COALESCE(f.IdCalmonthStd, r.IdCalmonthStd)          AS IdCalmonthStd,
+    COALESCE(f.Jahr, r.Jahr)                            AS Jahr,
+    COALESCE(f.Monat, r.Monat)                          AS Monat,
+    COALESCE(f.BenchmarkCategory, r.BenchmarkCategory)  AS BenchmarkCategory,
 
-    -- Rosenheim Werte
-    ISNULL(r.ROS_REVENUE_EUR, 0) AS ROS_REVENUE_EUR,
-    ISNULL(r.ROS_GROSS_PROFIT_EUR, 0) AS ROS_GROSS_PROFIT_EUR,
-    ISNULL(r.ROS_NET_PROFIT_EUR, 0) AS ROS_NET_PROFIT_EUR,
-    ISNULL(r.ROS_SALES_AMOUNT, 0) AS ROS_SALES_AMOUNT,
-    r.ROS_GROSS_MARGIN_PCT,
-    r.ROS_NET_MARGIN_PCT,
+    -- Freiburg Kennzahlen
+    f.RevenueEur                                        AS FreiburgRevenueEur,
+    f.GrossProfitEur                                    AS FreiburgGrossProfitEur,
+    f.TotalSalesAmount                                  AS FreiburgSalesAmount,
+    f.GrossProfitMarginPct                              AS FreiburgMarginPct,
+    f.RevenuePerEmployee                                AS FreiburgRevPerEmployee,
+    f.RevenuePerM2                                      AS FreiburgRevPerM2,
 
-    -- Freiburg/Karlsruhe Werte
-    ISNULL(f.FRK_REVENUE_EUR, 0) AS FRK_REVENUE_EUR,
-    ISNULL(f.FRK_GROSS_PROFIT_EUR, 0) AS FRK_GROSS_PROFIT_EUR,
-    ISNULL(f.FRK_NET_PROFIT_EUR, 0) AS FRK_NET_PROFIT_EUR,
-    ISNULL(f.FRK_SALES_AMOUNT, 0) AS FRK_SALES_AMOUNT,
-    f.FRK_GROSS_MARGIN_PCT,
-    f.FRK_NET_MARGIN_PCT,
+    -- Rosenheim Kennzahlen
+    r.RevenueEur                                        AS RosenheimRevenueEur,
+    r.GrossProfitEur                                    AS RosenheimGrossProfitEur,
+    r.TotalSalesAmount                                  AS RosenheimSalesAmount,
+    r.GrossProfitMarginPct                              AS RosenheimMarginPct,
+    r.RevenuePerEmployee                                AS RosenheimRevPerEmployee,
+    r.RevenuePerM2                                      AS RosenheimRevPerM2,
 
-    -- Differenzen (Rosenheim - Freiburg/Karlsruhe)
-    ISNULL(r.ROS_REVENUE_EUR, 0) - ISNULL(f.FRK_REVENUE_EUR, 0) AS DIFF_REVENUE_EUR,
-    ISNULL(r.ROS_GROSS_PROFIT_EUR, 0) - ISNULL(f.FRK_GROSS_PROFIT_EUR, 0) AS DIFF_GROSS_PROFIT_EUR,
-    ISNULL(r.ROS_NET_PROFIT_EUR, 0) - ISNULL(f.FRK_NET_PROFIT_EUR, 0) AS DIFF_NET_PROFIT_EUR,
-    ISNULL(r.ROS_SALES_AMOUNT, 0) - ISNULL(f.FRK_SALES_AMOUNT, 0) AS DIFF_SALES_AMOUNT,
-    ISNULL(r.ROS_GROSS_MARGIN_PCT, 0) - ISNULL(f.FRK_GROSS_MARGIN_PCT, 0) AS DIFF_GROSS_MARGIN_PCT,
-    ISNULL(r.ROS_NET_MARGIN_PCT, 0) - ISNULL(f.FRK_NET_MARGIN_PCT, 0) AS DIFF_NET_MARGIN_PCT,
+    -- Differenzen (Rosenheim - Freiburg)
+    ISNULL(r.RevenueEur, 0) - ISNULL(f.RevenueEur, 0)   AS DiffRevenueEur,
+    ISNULL(r.GrossProfitEur, 0) - ISNULL(f.GrossProfitEur, 0)
+                                                        AS DiffGrossProfitEur,
+    ISNULL(r.TotalSalesAmount, 0) - ISNULL(f.TotalSalesAmount, 0)
+                                                        AS DiffSalesAmount,
+    ISNULL(r.GrossProfitMarginPct, 0) - ISNULL(f.GrossProfitMarginPct, 0)
+                                                        AS DiffMarginPct,
 
     -- Prozentuale Abweichung Umsatz
     CASE
-        WHEN ISNULL(f.FRK_REVENUE_EUR, 0) > 0
-        THEN ROUND(((ISNULL(r.ROS_REVENUE_EUR, 0) - ISNULL(f.FRK_REVENUE_EUR, 0)) / f.FRK_REVENUE_EUR) * 100, 2)
+        WHEN ISNULL(f.RevenueEur, 0) > 0
+        THEN ((ISNULL(r.RevenueEur, 0) - f.RevenueEur) / f.RevenueEur) * 100
         ELSE NULL
-    END AS REVENUE_DIFF_PCT
+    END                                                 AS DiffRevenuePct
 
-FROM RosenheimData r
-FULL OUTER JOIN FreiburgData f
-    ON r.ID_CALMONTH = f.ID_CALMONTH
-    AND r.BENCHMARK_CATEGORY = f.BENCHMARK_CATEGORY;
+FROM (SELECT * FROM list_views.V_LIST_G18_BENCHMARK_KPI WHERE IdStore = 5) f
+FULL OUTER JOIN (SELECT * FROM list_views.V_LIST_G18_BENCHMARK_KPI WHERE IdStore = 14) r
+    ON f.IdCalmonth = r.IdCalmonth
+    AND f.BenchmarkCategory = r.BenchmarkCategory;
 GO
 
--- ============================================================
--- 4.5 EXPORT- UND REPORTING-VIEW
--- ============================================================
-
--- 4.5.1 View V_BENCHMARK_EXPORT_MONTHLY
--- Standardisierte Export-Sicht für Reporting und Dashboards
--- ============================================================
-IF OBJECT_ID('dbo.V_BENCHMARK_EXPORT_MONTHLY', 'V') IS NOT NULL
-    DROP VIEW dbo.V_BENCHMARK_EXPORT_MONTHLY;
-GO
-
-CREATE VIEW dbo.V_BENCHMARK_EXPORT_MONTHLY AS
+-- ============================================================================
+-- 4.5.1 V_LIST_G18_BENCHMARK_EXPORT_MONTHLY - Export-View für Reporting
+-- ============================================================================
+CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_EXPORT_MONTHLY AS
 SELECT
-    -- Dimensionen
-    ID_STORE,
-    STORE_NAME,
-    ID_CALMONTH,
-    ID_CALMONTH_STD,
-    YEAR(ID_CALMONTH) AS YEAR,
-    MONTH(ID_CALMONTH) AS MONTH,
-    DATENAME(MONTH, ID_CALMONTH) AS MONTH_NAME,
-    BENCHMARK_CATEGORY,
-
-    -- Basisgroessen
-    TOTAL_SALES_AMOUNT,
-    REVENUE_EUR,
-    GROSS_PROFIT_EUR,
-    TRANSFER_COST_EUR,
-    DISCOUNT_EUR,
-    AVG_SALES_PRICE_EUR,
-
-    -- Kosten
-    PERSONNEL_COSTS_EUR,
-    OPERATING_COSTS_EUR,
-    MARKETING_COSTS_EUR,
-    TOTAL_COSTS_EUR,
-    TOTAL_EXPENSES_EUR,
-
-    -- Gewinn
-    NET_PROFIT_EUR,
-
-    -- Mitarbeiter
-    EMPLOYEE_COUNT,
-
-    -- KPIs
-    GROSS_MARGIN_PCT,
-    NET_MARGIN_PCT,
-    OPERATING_COST_RATIO_PCT,
-    PERSONNEL_COST_RATIO_PCT,
-    REVENUE_PER_EMPLOYEE,
-    AVG_DISCOUNT_PCT,
-
-    -- Metadaten
-    GETDATE() AS EXPORT_DATE
-
-FROM dbo.V_BENCHMARK_KPI;
+    IdStore,
+    IdCalmonth,
+    IdCalmonthStd,
+    Jahr,
+    Monat,
+    StoreName,
+    StoreM2,
+    BenchmarkCategory,
+    TotalSalesAmount,
+    RevenueEur,
+    GrossProfitEur,
+    TransferCostEur,
+    TotalDiscountEur,
+    AvgSalesPriceEur,
+    PersonnelCostsEur,
+    RentCostsEur,
+    MarketingCostsEur,
+    AdditionalProcurementEur,
+    OperatingCostsEur,
+    TotalCostsEur,
+    TotalCostsFullEur,
+    NetProfitEur,
+    EmployeeCount,
+    GrossProfitMarginPct,
+    NetProfitMarginPct,
+    OperatingCostRatioPct,
+    PersonnelCostRatioPct,
+    RevenuePerEmployee,
+    RevenuePerM2,
+    GrossMarketingContribution,
+    GETDATE()                                           AS ExportTimestamp
+FROM list_views.V_LIST_G18_BENCHMARK_KPI;
 GO
 
--- ============================================================
--- ROLLEN UND BERECHTIGUNGEN
--- ============================================================
+-- ============================================================================
+-- V_LIST_G18_BENCHMARK_MONTHLY_TOTALS - Aggregation ohne Kategorie
+-- ============================================================================
+CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_MONTHLY_TOTALS AS
+SELECT
+    IdStore,
+    IdCalmonth,
+    IdCalmonthStd,
+    Jahr,
+    Monat,
+    StoreName,
+    MAX(StoreM2)                                        AS StoreM2,
+    SUM(TotalSalesAmount)                               AS TotalSalesAmount,
+    SUM(RevenueEur)                                     AS RevenueEur,
+    SUM(GrossProfitEur)                                 AS GrossProfitEur,
+    SUM(TransferCostEur)                                AS TransferCostEur,
+    SUM(TotalDiscountEur)                               AS TotalDiscountEur,
+    MAX(PersonnelCostsEur)                              AS PersonnelCostsEur,
+    MAX(OperatingCostsEur)                              AS OperatingCostsEur,
+    MAX(TotalCostsEur)                                  AS TotalCostsEur,
+    MAX(EmployeeCount)                                  AS EmployeeCount,
+    CASE
+        WHEN SUM(RevenueEur) > 0 THEN (SUM(GrossProfitEur) / SUM(RevenueEur)) * 100
+        ELSE NULL
+    END                                                 AS GrossProfitMarginPct,
+    CASE
+        WHEN MAX(EmployeeCount) > 0 THEN SUM(RevenueEur) / MAX(EmployeeCount)
+        ELSE NULL
+    END                                                 AS RevenuePerEmployee,
+    CASE
+        WHEN MAX(StoreM2) > 0 THEN SUM(RevenueEur) / MAX(StoreM2)
+        ELSE NULL
+    END                                                 AS RevenuePerM2
+FROM list_views.V_LIST_G18_BENCHMARK_KPI
+GROUP BY
+    IdStore,
+    IdCalmonth,
+    IdCalmonthStd,
+    Jahr,
+    Monat,
+    StoreName;
+GO
 
--- Hinweis: Die folgenden Befehle muessen mit entsprechenden Rechten ausgefuehrt werden
-
--- Rolle: Management
--- GRANT SELECT ON dbo.V_BENCHMARK_KPI TO [Management_Role];
--- GRANT SELECT ON dbo.V_BENCHMARK_STORE_COMPARISON TO [Management_Role];
--- GRANT SELECT ON dbo.V_BENCHMARK_EXPORT_MONTHLY TO [Management_Role];
-
--- Rolle: Controlling
--- GRANT SELECT ON dbo.V_BENCHMARK_KPI TO [Controlling_Role];
--- GRANT SELECT ON dbo.V_BENCHMARK_STORE_COMPARISON TO [Controlling_Role];
--- GRANT SELECT ON dbo.V_BENCHMARK_EXPORT_MONTHLY TO [Controlling_Role];
--- GRANT SELECT ON dbo.V_BENCHMARK_SALES_AGG TO [Controlling_Role];
--- GRANT SELECT ON dbo.V_BENCHMARK_COSTS_AGG TO [Controlling_Role];
--- GRANT SELECT ON dbo.V_BENCHMARK_SALES_ERRORS TO [Controlling_Role];
-
--- Rolle: Vertrieb
--- GRANT SELECT ON dbo.V_BENCHMARK_KPI TO [Vertrieb_Role];
-
-PRINT 'Alle Benchmark-Views wurden erfolgreich erstellt.';
+PRINT 'Alle Benchmark Views wurden erfolgreich erstellt.';
 GO
