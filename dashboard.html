@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gruppe 18 - Benchmark Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #aaa;
+            font-size: 1.1em;
+        }
+
+        .kpi-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .kpi-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .kpi-card h3 {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .kpi-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .kpi-card .comparison {
+            font-size: 0.85em;
+            padding: 5px 10px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .positive { background: rgba(0, 255, 136, 0.2); color: #00ff88; }
+        .negative { background: rgba(255, 71, 87, 0.2); color: #ff4757; }
+
+        .rosenheim { color: #00d4ff; }
+        .freiburg { color: #7b2cbf; }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chart-container h2 {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chart-container h2::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, #00d4ff, #7b2cbf);
+            border-radius: 2px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .legend-custom {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .filter-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-section label {
+            font-weight: 500;
+        }
+
+        .filter-section select {
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        .filter-section select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: right;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+
+        th:first-child, td:first-child {
+            text-align: left;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .highlight-rosenheim {
+            border-left: 3px solid #00d4ff;
+        }
+
+        .highlight-freiburg {
+            border-left: 3px solid #7b2cbf;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Benchmark Dashboard</h1>
+        <p>Gruppe 18 | Rosenheim vs. Freiburg/Karlsruhe</p>
+    </div>
+
+    <div class="filter-section">
+        <label>Zeitraum:</label>
+        <select id="monthFilter" onchange="updateDashboard()">
+            <option value="all">Alle Monate (2024)</option>
+            <option value="2024-01">Januar 2024</option>
+            <option value="2024-02">Februar 2024</option>
+            <option value="2024-03">März 2024</option>
+            <option value="2024-04">April 2024</option>
+            <option value="2024-05">Mai 2024</option>
+            <option value="2024-06">Juni 2024</option>
+            <option value="2024-07">Juli 2024</option>
+            <option value="2024-08">August 2024</option>
+            <option value="2024-09">September 2024</option>
+            <option value="2024-10">Oktober 2024</option>
+            <option value="2024-11">November 2024</option>
+            <option value="2024-12">Dezember 2024</option>
+        </select>
+    </div>
+
+    <div class="kpi-cards" id="kpiCards">
+        <!-- KPI Cards werden dynamisch generiert -->
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="chart-container">
+            <h2>Umsatzentwicklung</h2>
+            <canvas id="revenueChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>Nettogewinn-Entwicklung</h2>
+            <canvas id="profitChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>Margen-Vergleich (%)</h2>
+            <canvas id="marginChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>Kostenstruktur</h2>
+            <canvas id="costChart"></canvas>
+        </div>
+
+        <div class="chart-container full-width">
+            <h2>KPI-Übersicht nach Monat</h2>
+            <canvas id="radarChart"></canvas>
+        </div>
+
+        <div class="chart-container full-width">
+            <h2>Detaillierte Monatsdaten</h2>
+            <div style="overflow-x: auto;">
+                <table id="dataTable">
+                    <!-- Tabelle wird dynamisch generiert -->
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =============================================
+        // ECHTE DATEN aus list_views.V_LIST_G18_BENCHMARK_EXPORT_MONTHLY
+        // =============================================
+        const benchmarkData = [
+            // Rosenheim
+            { Monat: "2024-01", Filialgruppe: "Rosenheim", UmsatzEur: 163906.98, BruttogewinnEur: 52897.38, GesamtkostenEur: 51467.32, PersonalkostenEur: 23739.59, BetriebskostenEur: 27727.73, NettogewinnEur: 1430.06, BruttogewinnMargeProzent: 32.27, BetriebskostenQuoteProzent: 16.92, PersonalkostenAnteilProzent: 46.13, NettogewinnMargeProzent: 0.87 },
+            { Monat: "2024-02", Filialgruppe: "Rosenheim", UmsatzEur: 412254.16, BruttogewinnEur: 129785.85, GesamtkostenEur: 51205.79, PersonalkostenEur: 23739.59, BetriebskostenEur: 27466.2, NettogewinnEur: 78580.06, BruttogewinnMargeProzent: 31.48, BetriebskostenQuoteProzent: 6.66, PersonalkostenAnteilProzent: 46.36, NettogewinnMargeProzent: 19.06 },
+            { Monat: "2024-03", Filialgruppe: "Rosenheim", UmsatzEur: 897127.16, BruttogewinnEur: 259838.99, GesamtkostenEur: 66545.17, PersonalkostenEur: 23739.59, BetriebskostenEur: 42085.58, NettogewinnEur: 193293.82, BruttogewinnMargeProzent: 28.96, BetriebskostenQuoteProzent: 4.69, PersonalkostenAnteilProzent: 35.67, NettogewinnMargeProzent: 21.55 },
+            { Monat: "2024-04", Filialgruppe: "Rosenheim", UmsatzEur: 1329821.06, BruttogewinnEur: 418786.76, GesamtkostenEur: 86114.08, PersonalkostenEur: 23739.59, BetriebskostenEur: 60439.49, NettogewinnEur: 332672.68, BruttogewinnMargeProzent: 31.49, BetriebskostenQuoteProzent: 4.54, PersonalkostenAnteilProzent: 27.57, NettogewinnMargeProzent: 25.02 },
+            { Monat: "2024-05", Filialgruppe: "Rosenheim", UmsatzEur: 1818521.78, BruttogewinnEur: 595775.67, GesamtkostenEur: 97349.67, PersonalkostenEur: 23739.59, BetriebskostenEur: 70685.08, NettogewinnEur: 498426.0, BruttogewinnMargeProzent: 32.76, BetriebskostenQuoteProzent: 3.89, PersonalkostenAnteilProzent: 24.39, NettogewinnMargeProzent: 27.41 },
+            { Monat: "2024-06", Filialgruppe: "Rosenheim", UmsatzEur: 1123600.26, BruttogewinnEur: 382166.64, GesamtkostenEur: 63917.94, PersonalkostenEur: 23739.59, BetriebskostenEur: 37883.35, NettogewinnEur: 318248.7, BruttogewinnMargeProzent: 34.01, BetriebskostenQuoteProzent: 3.37, PersonalkostenAnteilProzent: 37.14, NettogewinnMargeProzent: 28.32 },
+            { Monat: "2024-07", Filialgruppe: "Rosenheim", UmsatzEur: 1045460.78, BruttogewinnEur: 344216.73, GesamtkostenEur: 73808.33, PersonalkostenEur: 23739.59, BetriebskostenEur: 48763.74, NettogewinnEur: 270408.4, BruttogewinnMargeProzent: 32.92, BetriebskostenQuoteProzent: 4.66, PersonalkostenAnteilProzent: 32.16, NettogewinnMargeProzent: 25.86 },
+            { Monat: "2024-08", Filialgruppe: "Rosenheim", UmsatzEur: 404056.72, BruttogewinnEur: 139602.44, GesamtkostenEur: 43656.02, PersonalkostenEur: 23739.59, BetriebskostenEur: 19736.43, NettogewinnEur: 95946.42, BruttogewinnMargeProzent: 34.55, BetriebskostenQuoteProzent: 4.88, PersonalkostenAnteilProzent: 54.38, NettogewinnMargeProzent: 23.75 },
+            { Monat: "2024-09", Filialgruppe: "Rosenheim", UmsatzEur: 308188.88, BruttogewinnEur: 101349.33, GesamtkostenEur: 42205.79, PersonalkostenEur: 23739.59, BetriebskostenEur: 18466.2, NettogewinnEur: 59143.54, BruttogewinnMargeProzent: 32.88, BetriebskostenQuoteProzent: 5.99, PersonalkostenAnteilProzent: 56.25, NettogewinnMargeProzent: 19.19 },
+            { Monat: "2024-10", Filialgruppe: "Rosenheim", UmsatzEur: 296858.38, BruttogewinnEur: 97916.15, GesamtkostenEur: 45474.21, PersonalkostenEur: 23739.59, BetriebskostenEur: 21734.62, NettogewinnEur: 52441.94, BruttogewinnMargeProzent: 32.98, BetriebskostenQuoteProzent: 7.32, PersonalkostenAnteilProzent: 52.2, NettogewinnMargeProzent: 17.67 },
+            { Monat: "2024-11", Filialgruppe: "Rosenheim", UmsatzEur: 142747.06, BruttogewinnEur: 45357.61, GesamtkostenEur: 40967.32, PersonalkostenEur: 23739.59, BetriebskostenEur: 17227.73, NettogewinnEur: 4390.29, BruttogewinnMargeProzent: 31.77, BetriebskostenQuoteProzent: 12.07, PersonalkostenAnteilProzent: 57.95, NettogewinnMargeProzent: 3.08 },
+            { Monat: "2024-12", Filialgruppe: "Rosenheim", UmsatzEur: 163669.10, BruttogewinnEur: 55933.22, GesamtkostenEur: 41553.13, PersonalkostenEur: 23739.59, BetriebskostenEur: 17813.54, NettogewinnEur: 14380.09, BruttogewinnMargeProzent: 34.17, BetriebskostenQuoteProzent: 10.88, PersonalkostenAnteilProzent: 57.13, NettogewinnMargeProzent: 8.79 },
+
+            // Freiburg/Karlsruhe
+            { Monat: "2024-01", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 286800.12, BruttogewinnEur: 101984.09, GesamtkostenEur: 76252.04, PersonalkostenEur: 48758.43, BetriebskostenEur: 27493.61, NettogewinnEur: 25732.05, BruttogewinnMargeProzent: 35.55, BetriebskostenQuoteProzent: 9.59, PersonalkostenAnteilProzent: 63.94, NettogewinnMargeProzent: 8.97 },
+            { Monat: "2024-02", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 2237655.58, BruttogewinnEur: 692321.42, GesamtkostenEur: 125387.05, PersonalkostenEur: 48758.43, BetriebskostenEur: 76403.62, NettogewinnEur: 566934.37, BruttogewinnMargeProzent: 30.93, BetriebskostenQuoteProzent: 3.41, PersonalkostenAnteilProzent: 38.89, NettogewinnMargeProzent: 25.34 },
+            { Monat: "2024-03", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 4073173.50, BruttogewinnEur: 1311427.75, GesamtkostenEur: 115763.7, PersonalkostenEur: 48758.43, BetriebskostenEur: 64935.27, NettogewinnEur: 1195664.05, BruttogewinnMargeProzent: 32.19, BetriebskostenQuoteProzent: 1.59, PersonalkostenAnteilProzent: 42.12, NettogewinnMargeProzent: 29.35 },
+            { Monat: "2024-04", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 8949640.62, BruttogewinnEur: 2688751.46, GesamtkostenEur: 142451.25, PersonalkostenEur: 48758.43, BetriebskostenEur: 84737.82, NettogewinnEur: 2546300.21, BruttogewinnMargeProzent: 30.04, BetriebskostenQuoteProzent: 0.95, PersonalkostenAnteilProzent: 34.23, NettogewinnMargeProzent: 28.45 },
+            { Monat: "2024-05", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 11549823.78, BruttogewinnEur: 3702221.40, GesamtkostenEur: 161700.62, PersonalkostenEur: 48758.43, BetriebskostenEur: 103897.19, NettogewinnEur: 3540520.78, BruttogewinnMargeProzent: 32.05, BetriebskostenQuoteProzent: 0.9, PersonalkostenAnteilProzent: 30.15, NettogewinnMargeProzent: 30.65 },
+            { Monat: "2024-06", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 10637277.22, BruttogewinnEur: 3357214.07, GesamtkostenEur: 145022.18, PersonalkostenEur: 48758.43, BetriebskostenEur: 88658.75, NettogewinnEur: 3212191.89, BruttogewinnMargeProzent: 31.56, BetriebskostenQuoteProzent: 0.83, PersonalkostenAnteilProzent: 33.62, NettogewinnMargeProzent: 30.2 },
+            { Monat: "2024-07", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 7991024.46, BruttogewinnEur: 2274166.27, GesamtkostenEur: 134015.35, PersonalkostenEur: 48758.43, BetriebskostenEur: 81386.92, NettogewinnEur: 2140150.92, BruttogewinnMargeProzent: 28.45, BetriebskostenQuoteProzent: 1.02, PersonalkostenAnteilProzent: 36.38, NettogewinnMargeProzent: 26.78 },
+            { Monat: "2024-08", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 3760792.56, BruttogewinnEur: 1214229.27, GesamtkostenEur: 124265.77, PersonalkostenEur: 48758.43, BetriebskostenEur: 74112.34, NettogewinnEur: 1089963.5, BruttogewinnMargeProzent: 32.28, BetriebskostenQuoteProzent: 1.97, PersonalkostenAnteilProzent: 39.24, NettogewinnMargeProzent: 28.98 },
+            { Monat: "2024-09", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 2254754.96, BruttogewinnEur: 731090.62, GesamtkostenEur: 104415.18, PersonalkostenEur: 48758.43, BetriebskostenEur: 55521.75, NettogewinnEur: 626675.44, BruttogewinnMargeProzent: 32.42, BetriebskostenQuoteProzent: 2.46, PersonalkostenAnteilProzent: 46.7, NettogewinnMargeProzent: 27.79 },
+            { Monat: "2024-10", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 1484708.60, BruttogewinnEur: 499379.79, GesamtkostenEur: 103125.21, PersonalkostenEur: 48758.43, BetriebskostenEur: 54366.78, NettogewinnEur: 396254.58, BruttogewinnMargeProzent: 33.63, BetriebskostenQuoteProzent: 3.66, PersonalkostenAnteilProzent: 47.28, NettogewinnMargeProzent: 26.69 },
+            { Monat: "2024-11", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 743511.82, BruttogewinnEur: 238027.22, GesamtkostenEur: 84227.3, PersonalkostenEur: 48758.43, BetriebskostenEur: 35468.87, NettogewinnEur: 153799.92, BruttogewinnMargeProzent: 32.01, BetriebskostenQuoteProzent: 4.77, PersonalkostenAnteilProzent: 57.89, NettogewinnMargeProzent: 20.69 },
+            { Monat: "2024-12", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 954743.38, BruttogewinnEur: 308354.95, GesamtkostenEur: 82959.43, PersonalkostenEur: 48758.43, BetriebskostenEur: 34201.0, NettogewinnEur: 225395.52, BruttogewinnMargeProzent: 32.29, BetriebskostenQuoteProzent: 3.58, PersonalkostenAnteilProzent: 58.77, NettogewinnMargeProzent: 23.61 }
+        ];
+
+        // Chart-Instanzen speichern für Updates
+        let charts = {};
+        const colors = {
+            rosenheim: '#00d4ff',
+            rosenheimBg: 'rgba(0, 212, 255, 0.2)',
+            freiburg: '#7b2cbf',
+            freiburgBg: 'rgba(123, 44, 191, 0.2)'
+        };
+
+        // Daten nach Filialgruppe filtern
+        function getDataByGroup(group, data = benchmarkData) {
+            return data.filter(d => d.Filialgruppe === group);
+        }
+
+        // Daten nach Monat filtern
+        function filterByMonth(month) {
+            if (month === 'all') return benchmarkData;
+            return benchmarkData.filter(d => d.Monat === month);
+        }
+
+        // Formatierung
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value);
+        }
+
+        function formatPercent(value) {
+            return value.toFixed(1) + '%';
+        }
+
+        // KPI Cards generieren
+        function generateKPICards(filteredData) {
+            const rosenheim = getDataByGroup('Rosenheim', filteredData);
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe', filteredData);
+
+            const sumRosenheim = {
+                umsatz: rosenheim.reduce((a, b) => a + b.UmsatzEur, 0),
+                nettogewinn: rosenheim.reduce((a, b) => a + b.NettogewinnEur, 0),
+                marge: rosenheim.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / rosenheim.length
+            };
+
+            const sumFreiburg = {
+                umsatz: freiburg.reduce((a, b) => a + b.UmsatzEur, 0),
+                nettogewinn: freiburg.reduce((a, b) => a + b.NettogewinnEur, 0),
+                marge: freiburg.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / freiburg.length
+            };
+
+            const umsatzDiff = ((sumRosenheim.umsatz / sumFreiburg.umsatz) - 1) * 100;
+            const margeDiff = sumRosenheim.marge - sumFreiburg.marge;
+            const gewinnDiff = ((sumRosenheim.nettogewinn / sumFreiburg.nettogewinn) - 1) * 100;
+
+            document.getElementById('kpiCards').innerHTML = `
+                <div class="kpi-card">
+                    <h3>Umsatz Rosenheim</h3>
+                    <div class="value rosenheim">${formatCurrency(sumRosenheim.umsatz)}</div>
+                    <span class="comparison ${umsatzDiff >= 0 ? 'negative' : 'positive'}">${umsatzDiff >= 0 ? '+' : ''}${umsatzDiff.toFixed(1)}% vs FK</span>
+                </div>
+                <div class="kpi-card">
+                    <h3>Umsatz Freiburg/Karlsruhe</h3>
+                    <div class="value freiburg">${formatCurrency(sumFreiburg.umsatz)}</div>
+                    <span class="comparison">Benchmark</span>
+                </div>
+                <div class="kpi-card">
+                    <h3>Ø Nettomarge Rosenheim</h3>
+                    <div class="value rosenheim">${formatPercent(sumRosenheim.marge)}</div>
+                    <span class="comparison ${margeDiff >= 0 ? 'positive' : 'negative'}">${margeDiff >= 0 ? '+' : ''}${margeDiff.toFixed(1)}pp vs FK</span>
+                </div>
+                <div class="kpi-card">
+                    <h3>Ø Nettomarge Freiburg/K.</h3>
+                    <div class="value freiburg">${formatPercent(sumFreiburg.marge)}</div>
+                    <span class="comparison">Benchmark</span>
+                </div>
+                <div class="kpi-card">
+                    <h3>Nettogewinn Rosenheim</h3>
+                    <div class="value rosenheim">${formatCurrency(sumRosenheim.nettogewinn)}</div>
+                    <span class="comparison ${gewinnDiff >= 0 ? 'negative' : 'positive'}">${gewinnDiff >= 0 ? '+' : ''}${gewinnDiff.toFixed(1)}% vs FK</span>
+                </div>
+                <div class="kpi-card">
+                    <h3>Nettogewinn Freiburg/K.</h3>
+                    <div class="value freiburg">${formatCurrency(sumFreiburg.nettogewinn)}</div>
+                    <span class="comparison">Benchmark</span>
+                </div>
+            `;
+        }
+
+        // Umsatz-Chart
+        function createRevenueChart() {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            const rosenheim = getDataByGroup('Rosenheim');
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe');
+
+            charts.revenue = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: rosenheim.map(d => d.Monat),
+                    datasets: [
+                        {
+                            label: 'Rosenheim',
+                            data: rosenheim.map(d => d.UmsatzEur),
+                            borderColor: colors.rosenheim,
+                            backgroundColor: colors.rosenheimBg,
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Freiburg/Karlsruhe',
+                            data: freiburg.map(d => d.UmsatzEur),
+                            borderColor: colors.freiburg,
+                            backgroundColor: colors.freiburgBg,
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                        y: { ticks: { color: '#aaa', callback: v => formatCurrency(v) }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                    }
+                }
+            });
+        }
+
+        // Gewinn-Chart
+        function createProfitChart() {
+            const ctx = document.getElementById('profitChart').getContext('2d');
+            const rosenheim = getDataByGroup('Rosenheim');
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe');
+
+            charts.profit = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: rosenheim.map(d => d.Monat),
+                    datasets: [
+                        {
+                            label: 'Rosenheim',
+                            data: rosenheim.map(d => d.NettogewinnEur),
+                            backgroundColor: colors.rosenheim,
+                            borderRadius: 5
+                        },
+                        {
+                            label: 'Freiburg/Karlsruhe',
+                            data: freiburg.map(d => d.NettogewinnEur),
+                            backgroundColor: colors.freiburg,
+                            borderRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                        y: { ticks: { color: '#aaa', callback: v => formatCurrency(v) }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                    }
+                }
+            });
+        }
+
+        // Margen-Chart
+        function createMarginChart() {
+            const ctx = document.getElementById('marginChart').getContext('2d');
+            const rosenheim = getDataByGroup('Rosenheim');
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe');
+
+            charts.margin = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: rosenheim.map(d => d.Monat),
+                    datasets: [
+                        {
+                            label: 'Bruttomarge Rosenheim',
+                            data: rosenheim.map(d => d.BruttogewinnMargeProzent),
+                            borderColor: colors.rosenheim,
+                            borderDash: [],
+                            tension: 0.4,
+                            pointRadius: 5
+                        },
+                        {
+                            label: 'Bruttomarge FK',
+                            data: freiburg.map(d => d.BruttogewinnMargeProzent),
+                            borderColor: colors.freiburg,
+                            borderDash: [],
+                            tension: 0.4,
+                            pointRadius: 5
+                        },
+                        {
+                            label: 'Nettomarge Rosenheim',
+                            data: rosenheim.map(d => d.NettogewinnMargeProzent),
+                            borderColor: colors.rosenheim,
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            pointRadius: 5
+                        },
+                        {
+                            label: 'Nettomarge FK',
+                            data: freiburg.map(d => d.NettogewinnMargeProzent),
+                            borderColor: colors.freiburg,
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            pointRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                        y: { ticks: { color: '#aaa', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                    }
+                }
+            });
+        }
+
+        // Kostenstruktur-Chart
+        function createCostChart() {
+            const ctx = document.getElementById('costChart').getContext('2d');
+            const rosenheim = getDataByGroup('Rosenheim');
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe');
+
+            const avgRosenheim = {
+                personal: rosenheim.reduce((a, b) => a + b.PersonalkostenAnteilProzent, 0) / rosenheim.length,
+                betrieb: rosenheim.reduce((a, b) => a + b.BetriebskostenQuoteProzent, 0) / rosenheim.length
+            };
+
+            const avgFreiburg = {
+                personal: freiburg.reduce((a, b) => a + b.PersonalkostenAnteilProzent, 0) / freiburg.length,
+                betrieb: freiburg.reduce((a, b) => a + b.BetriebskostenQuoteProzent, 0) / freiburg.length
+            };
+
+            charts.cost = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Personal Rosenheim', 'Betrieb Rosenheim', 'Personal FK', 'Betrieb FK'],
+                    datasets: [{
+                        data: [avgRosenheim.personal, avgRosenheim.betrieb, avgFreiburg.personal, avgFreiburg.betrieb],
+                        backgroundColor: [colors.rosenheim, colors.rosenheimBg, colors.freiburg, colors.freiburgBg],
+                        borderWidth: 2,
+                        borderColor: '#1a1a2e'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff' },
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Radar-Chart
+        function createRadarChart() {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            const rosenheim = getDataByGroup('Rosenheim');
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe');
+
+            // Durchschnittswerte für Radar
+            const avgR = {
+                brutto: rosenheim.reduce((a, b) => a + b.BruttogewinnMargeProzent, 0) / rosenheim.length,
+                netto: rosenheim.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / rosenheim.length,
+                betrieb: 10 - rosenheim.reduce((a, b) => a + b.BetriebskostenQuoteProzent, 0) / rosenheim.length, // invertiert
+                personal: 100 - rosenheim.reduce((a, b) => a + b.PersonalkostenAnteilProzent, 0) / rosenheim.length // invertiert
+            };
+
+            const avgF = {
+                brutto: freiburg.reduce((a, b) => a + b.BruttogewinnMargeProzent, 0) / freiburg.length,
+                netto: freiburg.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / freiburg.length,
+                betrieb: 10 - freiburg.reduce((a, b) => a + b.BetriebskostenQuoteProzent, 0) / freiburg.length,
+                personal: 100 - freiburg.reduce((a, b) => a + b.PersonalkostenAnteilProzent, 0) / freiburg.length
+            };
+
+            charts.radar = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Bruttomarge', 'Nettomarge', 'Betriebseffizienz', 'Personalkosteneffizienz'],
+                    datasets: [
+                        {
+                            label: 'Rosenheim',
+                            data: [avgR.brutto, avgR.netto, avgR.betrieb, avgR.personal],
+                            borderColor: colors.rosenheim,
+                            backgroundColor: colors.rosenheimBg,
+                            pointBackgroundColor: colors.rosenheim
+                        },
+                        {
+                            label: 'Freiburg/Karlsruhe',
+                            data: [avgF.brutto, avgF.netto, avgF.betrieb, avgF.personal],
+                            borderColor: colors.freiburg,
+                            backgroundColor: colors.freiburgBg,
+                            pointBackgroundColor: colors.freiburg
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255,255,255,0.1)' },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            pointLabels: { color: '#fff' },
+                            ticks: { color: '#aaa', backdropColor: 'transparent' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Datentabelle generieren
+        function generateDataTable(filteredData) {
+            const tableHTML = `
+                <thead>
+                    <tr>
+                        <th>Monat</th>
+                        <th>Filialgruppe</th>
+                        <th>Umsatz</th>
+                        <th>Bruttogewinn</th>
+                        <th>Nettogewinn</th>
+                        <th>Bruttomarge</th>
+                        <th>Nettomarge</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filteredData.map(d => `
+                        <tr class="${d.Filialgruppe === 'Rosenheim' ? 'highlight-rosenheim' : 'highlight-freiburg'}">
+                            <td>${d.Monat}</td>
+                            <td>${d.Filialgruppe}</td>
+                            <td>${formatCurrency(d.UmsatzEur)}</td>
+                            <td>${formatCurrency(d.BruttogewinnEur)}</td>
+                            <td>${formatCurrency(d.NettogewinnEur)}</td>
+                            <td>${formatPercent(d.BruttogewinnMargeProzent)}</td>
+                            <td>${formatPercent(d.NettogewinnMargeProzent)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            document.getElementById('dataTable').innerHTML = tableHTML;
+        }
+
+        // Dashboard aktualisieren
+        function updateDashboard() {
+            const month = document.getElementById('monthFilter').value;
+            const filteredData = filterByMonth(month);
+            generateKPICards(filteredData);
+            generateDataTable(filteredData);
+        }
+
+        // Initialisierung
+        document.addEventListener('DOMContentLoaded', () => {
+            generateKPICards(benchmarkData);
+            createRevenueChart();
+            createProfitChart();
+            createMarginChart();
+            createCostChart();
+            createRadarChart();
+            generateDataTable(benchmarkData);
+        });
+    </script>
+</body>
+</html>
