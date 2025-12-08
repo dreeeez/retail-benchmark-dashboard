@@ -18,20 +18,28 @@
             min-height: 100vh;
             color: #fff;
             padding: 20px;
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
+            margin-bottom: 20px;
+            padding: 15px 20px;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 15px;
             backdrop-filter: blur(10px);
         }
 
         .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
+            font-size: clamp(1.5em, 4vw, 2.5em);
+            margin-bottom: 5px;
             background: linear-gradient(90deg, #00d4ff, #7b2cbf);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -40,48 +48,55 @@
 
         .header p {
             color: #aaa;
-            font-size: 1.1em;
+            font-size: clamp(0.9em, 2vw, 1.1em);
         }
 
         .kpi-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
         }
 
         .kpi-card {
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 15px;
             text-align: center;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             transition: transform 0.3s ease;
+            min-width: 0;
         }
 
         .kpi-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-3px);
         }
 
         .kpi-card h3 {
-            font-size: 0.9em;
+            font-size: clamp(0.7em, 1.5vw, 0.85em);
             color: #aaa;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .kpi-card .value {
-            font-size: 2em;
+            font-size: clamp(1.1em, 2.5vw, 1.6em);
             font-weight: bold;
             margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .kpi-card .comparison {
-            font-size: 0.85em;
-            padding: 5px 10px;
-            border-radius: 20px;
+            font-size: clamp(0.7em, 1.2vw, 0.8em);
+            padding: 4px 8px;
+            border-radius: 15px;
             display: inline-block;
         }
 
@@ -94,88 +109,100 @@
         .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            margin-bottom: 30px;
+            gap: 15px;
+            margin-bottom: 20px;
         }
 
-        @media (max-width: 1200px) {
+        @media (max-width: 1024px) {
             .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .kpi-cards {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .kpi-card {
+                padding: 12px 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .kpi-cards {
                 grid-template-columns: 1fr;
             }
         }
 
         .chart-container {
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 15px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 0;
+            overflow: hidden;
         }
 
         .chart-container h2 {
-            font-size: 1.2em;
-            margin-bottom: 15px;
+            font-size: clamp(0.95em, 2vw, 1.1em);
+            margin-bottom: 12px;
             color: #fff;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .chart-container h2::before {
             content: '';
-            width: 4px;
-            height: 20px;
+            width: 3px;
+            height: 16px;
             background: linear-gradient(180deg, #00d4ff, #7b2cbf);
             border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            max-height: 300px;
         }
 
         .full-width {
             grid-column: 1 / -1;
         }
 
-        .legend-custom {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin-top: 15px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9em;
-        }
-
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-        }
-
         .filter-section {
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 15px 20px;
-            margin-bottom: 20px;
+            border-radius: 12px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 15px;
             flex-wrap: wrap;
         }
 
         .filter-section label {
             font-weight: 500;
+            font-size: clamp(0.9em, 1.5vw, 1em);
         }
 
         .filter-section select {
-            padding: 8px 15px;
+            padding: 8px 12px;
             border-radius: 8px;
             border: none;
             background: rgba(255, 255, 255, 0.2);
             color: #fff;
-            font-size: 1em;
+            font-size: clamp(0.85em, 1.5vw, 1em);
             cursor: pointer;
+            min-width: 150px;
         }
 
         .filter-section select option {
@@ -183,16 +210,27 @@
             color: #fff;
         }
 
+        .month-indicator {
+            margin-left: auto;
+            padding: 6px 12px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: clamp(0.8em, 1.3vw, 0.9em);
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
+            font-size: clamp(0.75em, 1.3vw, 0.9em);
         }
 
         th, td {
-            padding: 12px;
+            padding: 10px 8px;
             text-align: right;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
         }
 
         th {
@@ -200,7 +238,7 @@
             font-weight: 600;
             text-transform: uppercase;
             font-size: 0.85em;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
 
         th:first-child, td:first-child {
@@ -218,69 +256,107 @@
         .highlight-freiburg {
             border-left: 3px solid #7b2cbf;
         }
+
+        .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Single Month View - Bar Charts nebeneinander */
+        .single-month-compare {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: end;
+        }
+
+        .single-bar-container {
+            text-align: center;
+        }
+
+        .single-bar-container .bar-label {
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            color: #aaa;
+        }
+
+        .single-bar-container .bar-value {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Benchmark Dashboard</h1>
-        <p>Gruppe 18 | Rosenheim vs. Freiburg/Karlsruhe</p>
-    </div>
-
-    <div class="filter-section">
-        <label>Zeitraum:</label>
-        <select id="monthFilter" onchange="updateDashboard()">
-            <option value="all">Alle Monate (2024)</option>
-            <option value="2024-01">Januar 2024</option>
-            <option value="2024-02">Februar 2024</option>
-            <option value="2024-03">März 2024</option>
-            <option value="2024-04">April 2024</option>
-            <option value="2024-05">Mai 2024</option>
-            <option value="2024-06">Juni 2024</option>
-            <option value="2024-07">Juli 2024</option>
-            <option value="2024-08">August 2024</option>
-            <option value="2024-09">September 2024</option>
-            <option value="2024-10">Oktober 2024</option>
-            <option value="2024-11">November 2024</option>
-            <option value="2024-12">Dezember 2024</option>
-        </select>
-    </div>
-
-    <div class="kpi-cards" id="kpiCards">
-        <!-- KPI Cards werden dynamisch generiert -->
-    </div>
-
-    <div class="dashboard-grid">
-        <div class="chart-container">
-            <h2>Umsatzentwicklung</h2>
-            <canvas id="revenueChart"></canvas>
+    <div class="container">
+        <div class="header">
+            <h1>Benchmark Dashboard</h1>
+            <p>Gruppe 18 | Rosenheim vs. Freiburg/Karlsruhe</p>
         </div>
 
-        <div class="chart-container">
-            <h2>Nettogewinn-Entwicklung</h2>
-            <canvas id="profitChart"></canvas>
+        <div class="filter-section">
+            <label>Zeitraum:</label>
+            <select id="monthFilter" onchange="updateDashboard()">
+                <option value="all">Alle Monate (2024)</option>
+                <option value="2024-01">Januar 2024</option>
+                <option value="2024-02">Februar 2024</option>
+                <option value="2024-03">März 2024</option>
+                <option value="2024-04">April 2024</option>
+                <option value="2024-05">Mai 2024</option>
+                <option value="2024-06">Juni 2024</option>
+                <option value="2024-07">Juli 2024</option>
+                <option value="2024-08">August 2024</option>
+                <option value="2024-09">September 2024</option>
+                <option value="2024-10">Oktober 2024</option>
+                <option value="2024-11">November 2024</option>
+                <option value="2024-12">Dezember 2024</option>
+            </select>
+            <span class="month-indicator" id="monthIndicator">Gesamtjahr 2024</span>
         </div>
 
-        <div class="chart-container">
-            <h2>Margen-Vergleich (%)</h2>
-            <canvas id="marginChart"></canvas>
-        </div>
+        <div class="kpi-cards" id="kpiCards"></div>
 
-        <div class="chart-container">
-            <h2>Kostenstruktur</h2>
-            <canvas id="costChart"></canvas>
-        </div>
+        <div class="dashboard-grid">
+            <div class="chart-container">
+                <h2 id="revenueTitle">Umsatzentwicklung</h2>
+                <div class="chart-wrapper">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
 
-        <div class="chart-container full-width">
-            <h2>KPI-Übersicht nach Monat</h2>
-            <canvas id="radarChart"></canvas>
-        </div>
+            <div class="chart-container">
+                <h2 id="profitTitle">Nettogewinn-Entwicklung</h2>
+                <div class="chart-wrapper">
+                    <canvas id="profitChart"></canvas>
+                </div>
+            </div>
 
-        <div class="chart-container full-width">
-            <h2>Detaillierte Monatsdaten</h2>
-            <div style="overflow-x: auto;">
-                <table id="dataTable">
-                    <!-- Tabelle wird dynamisch generiert -->
-                </table>
+            <div class="chart-container">
+                <h2 id="marginTitle">Margen-Vergleich (%)</h2>
+                <div class="chart-wrapper">
+                    <canvas id="marginChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2>Kostenstruktur</h2>
+                <div class="chart-wrapper">
+                    <canvas id="costChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container full-width">
+                <h2>KPI-Vergleich</h2>
+                <div class="chart-wrapper" style="max-height: 350px;">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container full-width">
+                <h2>Detaillierte Daten</h2>
+                <div class="table-wrapper">
+                    <table id="dataTable"></table>
+                </div>
             </div>
         </div>
     </div>
@@ -319,6 +395,13 @@
             { Monat: "2024-12", Filialgruppe: "Freiburg/Karlsruhe", UmsatzEur: 954743.38, BruttogewinnEur: 308354.95, GesamtkostenEur: 82959.43, PersonalkostenEur: 48758.43, BetriebskostenEur: 34201.0, NettogewinnEur: 225395.52, BruttogewinnMargeProzent: 32.29, BetriebskostenQuoteProzent: 3.58, PersonalkostenAnteilProzent: 58.77, NettogewinnMargeProzent: 23.61 }
         ];
 
+        const monthNames = {
+            '2024-01': 'Januar 2024', '2024-02': 'Februar 2024', '2024-03': 'März 2024',
+            '2024-04': 'April 2024', '2024-05': 'Mai 2024', '2024-06': 'Juni 2024',
+            '2024-07': 'Juli 2024', '2024-08': 'August 2024', '2024-09': 'September 2024',
+            '2024-10': 'Oktober 2024', '2024-11': 'November 2024', '2024-12': 'Dezember 2024'
+        };
+
         // Chart-Instanzen speichern für Updates
         let charts = {};
         const colors = {
@@ -341,7 +424,13 @@
 
         // Formatierung
         function formatCurrency(value) {
-            return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value);
+            return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
+        }
+
+        function formatCurrencyShort(value) {
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + ' Mio €';
+            if (value >= 1000) return (value / 1000).toFixed(0) + ' Tsd €';
+            return formatCurrency(value);
         }
 
         function formatPercent(value) {
@@ -356,249 +445,337 @@
             const sumRosenheim = {
                 umsatz: rosenheim.reduce((a, b) => a + b.UmsatzEur, 0),
                 nettogewinn: rosenheim.reduce((a, b) => a + b.NettogewinnEur, 0),
-                marge: rosenheim.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / rosenheim.length
+                marge: rosenheim.length > 0 ? rosenheim.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / rosenheim.length : 0
             };
 
             const sumFreiburg = {
                 umsatz: freiburg.reduce((a, b) => a + b.UmsatzEur, 0),
                 nettogewinn: freiburg.reduce((a, b) => a + b.NettogewinnEur, 0),
-                marge: freiburg.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / freiburg.length
+                marge: freiburg.length > 0 ? freiburg.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / freiburg.length : 0
             };
 
-            const umsatzDiff = ((sumRosenheim.umsatz / sumFreiburg.umsatz) - 1) * 100;
+            const umsatzDiff = sumFreiburg.umsatz > 0 ? ((sumRosenheim.umsatz / sumFreiburg.umsatz) - 1) * 100 : 0;
             const margeDiff = sumRosenheim.marge - sumFreiburg.marge;
-            const gewinnDiff = ((sumRosenheim.nettogewinn / sumFreiburg.nettogewinn) - 1) * 100;
+            const gewinnDiff = sumFreiburg.nettogewinn > 0 ? ((sumRosenheim.nettogewinn / sumFreiburg.nettogewinn) - 1) * 100 : 0;
 
             document.getElementById('kpiCards').innerHTML = `
                 <div class="kpi-card">
                     <h3>Umsatz Rosenheim</h3>
-                    <div class="value rosenheim">${formatCurrency(sumRosenheim.umsatz)}</div>
-                    <span class="comparison ${umsatzDiff >= 0 ? 'negative' : 'positive'}">${umsatzDiff >= 0 ? '+' : ''}${umsatzDiff.toFixed(1)}% vs FK</span>
+                    <div class="value rosenheim">${formatCurrencyShort(sumRosenheim.umsatz)}</div>
+                    <span class="comparison ${umsatzDiff >= 0 ? 'positive' : 'negative'}">${umsatzDiff >= 0 ? '+' : ''}${umsatzDiff.toFixed(1)}% vs FK</span>
                 </div>
                 <div class="kpi-card">
-                    <h3>Umsatz Freiburg/Karlsruhe</h3>
-                    <div class="value freiburg">${formatCurrency(sumFreiburg.umsatz)}</div>
+                    <h3>Umsatz Freiburg/K.</h3>
+                    <div class="value freiburg">${formatCurrencyShort(sumFreiburg.umsatz)}</div>
                     <span class="comparison">Benchmark</span>
                 </div>
                 <div class="kpi-card">
-                    <h3>Ø Nettomarge Rosenheim</h3>
+                    <h3>Nettomarge Rosenheim</h3>
                     <div class="value rosenheim">${formatPercent(sumRosenheim.marge)}</div>
-                    <span class="comparison ${margeDiff >= 0 ? 'positive' : 'negative'}">${margeDiff >= 0 ? '+' : ''}${margeDiff.toFixed(1)}pp vs FK</span>
+                    <span class="comparison ${margeDiff >= 0 ? 'positive' : 'negative'}">${margeDiff >= 0 ? '+' : ''}${margeDiff.toFixed(1)}pp</span>
                 </div>
                 <div class="kpi-card">
-                    <h3>Ø Nettomarge Freiburg/K.</h3>
+                    <h3>Nettomarge Freiburg/K.</h3>
                     <div class="value freiburg">${formatPercent(sumFreiburg.marge)}</div>
                     <span class="comparison">Benchmark</span>
                 </div>
                 <div class="kpi-card">
-                    <h3>Nettogewinn Rosenheim</h3>
-                    <div class="value rosenheim">${formatCurrency(sumRosenheim.nettogewinn)}</div>
-                    <span class="comparison ${gewinnDiff >= 0 ? 'negative' : 'positive'}">${gewinnDiff >= 0 ? '+' : ''}${gewinnDiff.toFixed(1)}% vs FK</span>
+                    <h3>Gewinn Rosenheim</h3>
+                    <div class="value rosenheim">${formatCurrencyShort(sumRosenheim.nettogewinn)}</div>
+                    <span class="comparison ${gewinnDiff >= 0 ? 'positive' : 'negative'}">${gewinnDiff >= 0 ? '+' : ''}${gewinnDiff.toFixed(1)}%</span>
                 </div>
                 <div class="kpi-card">
-                    <h3>Nettogewinn Freiburg/K.</h3>
-                    <div class="value freiburg">${formatCurrency(sumFreiburg.nettogewinn)}</div>
+                    <h3>Gewinn Freiburg/K.</h3>
+                    <div class="value freiburg">${formatCurrencyShort(sumFreiburg.nettogewinn)}</div>
                     <span class="comparison">Benchmark</span>
                 </div>
             `;
         }
 
-        // Umsatz-Chart
-        function createRevenueChart() {
+        // Chart-Optionen (gemeinsam)
+        function getChartOptions(yCallback) {
+            return {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        labels: { color: '#fff', boxWidth: 12, padding: 10 },
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#aaa', maxRotation: 45, minRotation: 45, font: { size: 10 } },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    },
+                    y: {
+                        ticks: { color: '#aaa', callback: yCallback, font: { size: 10 } },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    }
+                }
+            };
+        }
+
+        // Alle Charts zerstören
+        function destroyCharts() {
+            Object.values(charts).forEach(chart => {
+                if (chart) chart.destroy();
+            });
+            charts = {};
+        }
+
+        // Umsatz-Chart erstellen/aktualisieren
+        function updateRevenueChart(filteredData, isSingleMonth) {
             const ctx = document.getElementById('revenueChart').getContext('2d');
-            const rosenheim = getDataByGroup('Rosenheim');
-            const freiburg = getDataByGroup('Freiburg/Karlsruhe');
+            if (charts.revenue) charts.revenue.destroy();
 
-            charts.revenue = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: rosenheim.map(d => d.Monat),
-                    datasets: [
-                        {
-                            label: 'Rosenheim',
-                            data: rosenheim.map(d => d.UmsatzEur),
-                            borderColor: colors.rosenheim,
-                            backgroundColor: colors.rosenheimBg,
-                            fill: true,
-                            tension: 0.4
-                        },
-                        {
-                            label: 'Freiburg/Karlsruhe',
-                            data: freiburg.map(d => d.UmsatzEur),
-                            borderColor: colors.freiburg,
-                            backgroundColor: colors.freiburgBg,
-                            fill: true,
-                            tension: 0.4
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { labels: { color: '#fff' } }
+            const rosenheim = getDataByGroup('Rosenheim', filteredData);
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe', filteredData);
+
+            if (isSingleMonth) {
+                // Einzelner Monat: Balkenvergleich
+                document.getElementById('revenueTitle').textContent = 'Umsatz-Vergleich';
+                charts.revenue = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Rosenheim', 'Freiburg/Karlsruhe'],
+                        datasets: [{
+                            data: [rosenheim[0]?.UmsatzEur || 0, freiburg[0]?.UmsatzEur || 0],
+                            backgroundColor: [colors.rosenheim, colors.freiburg],
+                            borderRadius: 8
+                        }]
                     },
-                    scales: {
-                        x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                        y: { ticks: { color: '#aaa', callback: v => formatCurrency(v) }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                    options: {
+                        ...getChartOptions(v => formatCurrencyShort(v)),
+                        plugins: { legend: { display: false } },
+                        indexAxis: 'y'
                     }
-                }
-            });
+                });
+            } else {
+                // Alle Monate: Liniendiagramm
+                document.getElementById('revenueTitle').textContent = 'Umsatzentwicklung';
+                charts.revenue = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: rosenheim.map(d => d.Monat),
+                        datasets: [
+                            {
+                                label: 'Rosenheim',
+                                data: rosenheim.map(d => d.UmsatzEur),
+                                borderColor: colors.rosenheim,
+                                backgroundColor: colors.rosenheimBg,
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Freiburg/Karlsruhe',
+                                data: freiburg.map(d => d.UmsatzEur),
+                                borderColor: colors.freiburg,
+                                backgroundColor: colors.freiburgBg,
+                                fill: true,
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: getChartOptions(v => formatCurrencyShort(v))
+                });
+            }
         }
 
-        // Gewinn-Chart
-        function createProfitChart() {
+        // Gewinn-Chart erstellen/aktualisieren
+        function updateProfitChart(filteredData, isSingleMonth) {
             const ctx = document.getElementById('profitChart').getContext('2d');
-            const rosenheim = getDataByGroup('Rosenheim');
-            const freiburg = getDataByGroup('Freiburg/Karlsruhe');
+            if (charts.profit) charts.profit.destroy();
 
-            charts.profit = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: rosenheim.map(d => d.Monat),
-                    datasets: [
-                        {
-                            label: 'Rosenheim',
-                            data: rosenheim.map(d => d.NettogewinnEur),
-                            backgroundColor: colors.rosenheim,
-                            borderRadius: 5
-                        },
-                        {
-                            label: 'Freiburg/Karlsruhe',
-                            data: freiburg.map(d => d.NettogewinnEur),
-                            backgroundColor: colors.freiburg,
-                            borderRadius: 5
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { labels: { color: '#fff' } }
+            const rosenheim = getDataByGroup('Rosenheim', filteredData);
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe', filteredData);
+
+            if (isSingleMonth) {
+                document.getElementById('profitTitle').textContent = 'Nettogewinn-Vergleich';
+                charts.profit = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Rosenheim', 'Freiburg/Karlsruhe'],
+                        datasets: [{
+                            data: [rosenheim[0]?.NettogewinnEur || 0, freiburg[0]?.NettogewinnEur || 0],
+                            backgroundColor: [colors.rosenheim, colors.freiburg],
+                            borderRadius: 8
+                        }]
                     },
-                    scales: {
-                        x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                        y: { ticks: { color: '#aaa', callback: v => formatCurrency(v) }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                    options: {
+                        ...getChartOptions(v => formatCurrencyShort(v)),
+                        plugins: { legend: { display: false } },
+                        indexAxis: 'y'
                     }
-                }
-            });
+                });
+            } else {
+                document.getElementById('profitTitle').textContent = 'Nettogewinn-Entwicklung';
+                charts.profit = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: rosenheim.map(d => d.Monat),
+                        datasets: [
+                            {
+                                label: 'Rosenheim',
+                                data: rosenheim.map(d => d.NettogewinnEur),
+                                backgroundColor: colors.rosenheim,
+                                borderRadius: 5
+                            },
+                            {
+                                label: 'Freiburg/Karlsruhe',
+                                data: freiburg.map(d => d.NettogewinnEur),
+                                backgroundColor: colors.freiburg,
+                                borderRadius: 5
+                            }
+                        ]
+                    },
+                    options: getChartOptions(v => formatCurrencyShort(v))
+                });
+            }
         }
 
-        // Margen-Chart
-        function createMarginChart() {
+        // Margen-Chart erstellen/aktualisieren
+        function updateMarginChart(filteredData, isSingleMonth) {
             const ctx = document.getElementById('marginChart').getContext('2d');
-            const rosenheim = getDataByGroup('Rosenheim');
-            const freiburg = getDataByGroup('Freiburg/Karlsruhe');
+            if (charts.margin) charts.margin.destroy();
 
-            charts.margin = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: rosenheim.map(d => d.Monat),
-                    datasets: [
-                        {
-                            label: 'Bruttomarge Rosenheim',
-                            data: rosenheim.map(d => d.BruttogewinnMargeProzent),
-                            borderColor: colors.rosenheim,
-                            borderDash: [],
-                            tension: 0.4,
-                            pointRadius: 5
-                        },
-                        {
-                            label: 'Bruttomarge FK',
-                            data: freiburg.map(d => d.BruttogewinnMargeProzent),
-                            borderColor: colors.freiburg,
-                            borderDash: [],
-                            tension: 0.4,
-                            pointRadius: 5
-                        },
-                        {
-                            label: 'Nettomarge Rosenheim',
-                            data: rosenheim.map(d => d.NettogewinnMargeProzent),
-                            borderColor: colors.rosenheim,
-                            borderDash: [5, 5],
-                            tension: 0.4,
-                            pointRadius: 5
-                        },
-                        {
-                            label: 'Nettomarge FK',
-                            data: freiburg.map(d => d.NettogewinnMargeProzent),
-                            borderColor: colors.freiburg,
-                            borderDash: [5, 5],
-                            tension: 0.4,
-                            pointRadius: 5
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { labels: { color: '#fff' } }
+            const rosenheim = getDataByGroup('Rosenheim', filteredData);
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe', filteredData);
+
+            if (isSingleMonth) {
+                document.getElementById('marginTitle').textContent = 'Margen-Vergleich (%)';
+                charts.margin = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Bruttomarge', 'Nettomarge'],
+                        datasets: [
+                            {
+                                label: 'Rosenheim',
+                                data: [rosenheim[0]?.BruttogewinnMargeProzent || 0, rosenheim[0]?.NettogewinnMargeProzent || 0],
+                                backgroundColor: colors.rosenheim,
+                                borderRadius: 5
+                            },
+                            {
+                                label: 'Freiburg/Karlsruhe',
+                                data: [freiburg[0]?.BruttogewinnMargeProzent || 0, freiburg[0]?.NettogewinnMargeProzent || 0],
+                                backgroundColor: colors.freiburg,
+                                borderRadius: 5
+                            }
+                        ]
                     },
-                    scales: {
-                        x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                        y: { ticks: { color: '#aaa', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.1)' } }
-                    }
-                }
-            });
+                    options: getChartOptions(v => v + '%')
+                });
+            } else {
+                document.getElementById('marginTitle').textContent = 'Margen-Vergleich (%)';
+                charts.margin = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: rosenheim.map(d => d.Monat),
+                        datasets: [
+                            {
+                                label: 'Bruttomarge Rosenheim',
+                                data: rosenheim.map(d => d.BruttogewinnMargeProzent),
+                                borderColor: colors.rosenheim,
+                                tension: 0.4,
+                                pointRadius: 4
+                            },
+                            {
+                                label: 'Bruttomarge FK',
+                                data: freiburg.map(d => d.BruttogewinnMargeProzent),
+                                borderColor: colors.freiburg,
+                                tension: 0.4,
+                                pointRadius: 4
+                            },
+                            {
+                                label: 'Nettomarge Rosenheim',
+                                data: rosenheim.map(d => d.NettogewinnMargeProzent),
+                                borderColor: colors.rosenheim,
+                                borderDash: [5, 5],
+                                tension: 0.4,
+                                pointRadius: 4
+                            },
+                            {
+                                label: 'Nettomarge FK',
+                                data: freiburg.map(d => d.NettogewinnMargeProzent),
+                                borderColor: colors.freiburg,
+                                borderDash: [5, 5],
+                                tension: 0.4,
+                                pointRadius: 4
+                            }
+                        ]
+                    },
+                    options: getChartOptions(v => v + '%')
+                });
+            }
         }
 
-        // Kostenstruktur-Chart
-        function createCostChart() {
+        // Kostenstruktur-Chart erstellen/aktualisieren
+        function updateCostChart(filteredData) {
             const ctx = document.getElementById('costChart').getContext('2d');
-            const rosenheim = getDataByGroup('Rosenheim');
-            const freiburg = getDataByGroup('Freiburg/Karlsruhe');
+            if (charts.cost) charts.cost.destroy();
+
+            const rosenheim = getDataByGroup('Rosenheim', filteredData);
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe', filteredData);
 
             const avgRosenheim = {
-                personal: rosenheim.reduce((a, b) => a + b.PersonalkostenAnteilProzent, 0) / rosenheim.length,
-                betrieb: rosenheim.reduce((a, b) => a + b.BetriebskostenQuoteProzent, 0) / rosenheim.length
+                personal: rosenheim.length > 0 ? rosenheim.reduce((a, b) => a + b.PersonalkostenEur, 0) : 0,
+                betrieb: rosenheim.length > 0 ? rosenheim.reduce((a, b) => a + b.BetriebskostenEur, 0) : 0
             };
 
             const avgFreiburg = {
-                personal: freiburg.reduce((a, b) => a + b.PersonalkostenAnteilProzent, 0) / freiburg.length,
-                betrieb: freiburg.reduce((a, b) => a + b.BetriebskostenQuoteProzent, 0) / freiburg.length
+                personal: freiburg.length > 0 ? freiburg.reduce((a, b) => a + b.PersonalkostenEur, 0) : 0,
+                betrieb: freiburg.length > 0 ? freiburg.reduce((a, b) => a + b.BetriebskostenEur, 0) : 0
             };
 
             charts.cost = new Chart(ctx, {
-                type: 'doughnut',
+                type: 'bar',
                 data: {
-                    labels: ['Personal Rosenheim', 'Betrieb Rosenheim', 'Personal FK', 'Betrieb FK'],
-                    datasets: [{
-                        data: [avgRosenheim.personal, avgRosenheim.betrieb, avgFreiburg.personal, avgFreiburg.betrieb],
-                        backgroundColor: [colors.rosenheim, colors.rosenheimBg, colors.freiburg, colors.freiburgBg],
-                        borderWidth: 2,
-                        borderColor: '#1a1a2e'
-                    }]
+                    labels: ['Rosenheim', 'Freiburg/Karlsruhe'],
+                    datasets: [
+                        {
+                            label: 'Personalkosten',
+                            data: [avgRosenheim.personal, avgFreiburg.personal],
+                            backgroundColor: [colors.rosenheim, colors.freiburg],
+                            borderRadius: 5
+                        },
+                        {
+                            label: 'Betriebskosten',
+                            data: [avgRosenheim.betrieb, avgFreiburg.betrieb],
+                            backgroundColor: [colors.rosenheimBg, colors.freiburgBg],
+                            borderRadius: 5
+                        }
+                    ]
                 },
                 options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            labels: { color: '#fff' },
-                            position: 'bottom'
-                        }
+                    ...getChartOptions(v => formatCurrencyShort(v)),
+                    scales: {
+                        x: { stacked: true, ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                        y: { stacked: true, ticks: { color: '#aaa', callback: v => formatCurrencyShort(v) }, grid: { color: 'rgba(255,255,255,0.1)' } }
                     }
                 }
             });
         }
 
-        // Radar-Chart
-        function createRadarChart() {
+        // Radar-Chart erstellen/aktualisieren
+        function updateRadarChart(filteredData) {
             const ctx = document.getElementById('radarChart').getContext('2d');
-            const rosenheim = getDataByGroup('Rosenheim');
-            const freiburg = getDataByGroup('Freiburg/Karlsruhe');
+            if (charts.radar) charts.radar.destroy();
 
-            // Durchschnittswerte für Radar
+            const rosenheim = getDataByGroup('Rosenheim', filteredData);
+            const freiburg = getDataByGroup('Freiburg/Karlsruhe', filteredData);
+
             const avgR = {
-                brutto: rosenheim.reduce((a, b) => a + b.BruttogewinnMargeProzent, 0) / rosenheim.length,
-                netto: rosenheim.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / rosenheim.length,
-                betrieb: 10 - rosenheim.reduce((a, b) => a + b.BetriebskostenQuoteProzent, 0) / rosenheim.length, // invertiert
-                personal: 100 - rosenheim.reduce((a, b) => a + b.PersonalkostenAnteilProzent, 0) / rosenheim.length // invertiert
+                brutto: rosenheim.length > 0 ? rosenheim.reduce((a, b) => a + b.BruttogewinnMargeProzent, 0) / rosenheim.length : 0,
+                netto: rosenheim.length > 0 ? rosenheim.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / rosenheim.length : 0,
+                betrieb: rosenheim.length > 0 ? 20 - rosenheim.reduce((a, b) => a + b.BetriebskostenQuoteProzent, 0) / rosenheim.length : 0,
+                personal: rosenheim.length > 0 ? 100 - rosenheim.reduce((a, b) => a + b.PersonalkostenAnteilProzent, 0) / rosenheim.length : 0
             };
 
             const avgF = {
-                brutto: freiburg.reduce((a, b) => a + b.BruttogewinnMargeProzent, 0) / freiburg.length,
-                netto: freiburg.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / freiburg.length,
-                betrieb: 10 - freiburg.reduce((a, b) => a + b.BetriebskostenQuoteProzent, 0) / freiburg.length,
-                personal: 100 - freiburg.reduce((a, b) => a + b.PersonalkostenAnteilProzent, 0) / freiburg.length
+                brutto: freiburg.length > 0 ? freiburg.reduce((a, b) => a + b.BruttogewinnMargeProzent, 0) / freiburg.length : 0,
+                netto: freiburg.length > 0 ? freiburg.reduce((a, b) => a + b.NettogewinnMargeProzent, 0) / freiburg.length : 0,
+                betrieb: freiburg.length > 0 ? 20 - freiburg.reduce((a, b) => a + b.BetriebskostenQuoteProzent, 0) / freiburg.length : 0,
+                personal: freiburg.length > 0 ? 100 - freiburg.reduce((a, b) => a + b.PersonalkostenAnteilProzent, 0) / freiburg.length : 0
             };
 
             charts.radar = new Chart(ctx, {
@@ -624,6 +801,7 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: true,
                     plugins: {
                         legend: { labels: { color: '#fff' } }
                     },
@@ -631,7 +809,7 @@
                         r: {
                             angleLines: { color: 'rgba(255,255,255,0.1)' },
                             grid: { color: 'rgba(255,255,255,0.1)' },
-                            pointLabels: { color: '#fff' },
+                            pointLabels: { color: '#fff', font: { size: 11 } },
                             ticks: { color: '#aaa', backdropColor: 'transparent' }
                         }
                     }
@@ -645,22 +823,22 @@
                 <thead>
                     <tr>
                         <th>Monat</th>
-                        <th>Filialgruppe</th>
+                        <th>Filiale</th>
                         <th>Umsatz</th>
                         <th>Bruttogewinn</th>
                         <th>Nettogewinn</th>
-                        <th>Bruttomarge</th>
-                        <th>Nettomarge</th>
+                        <th>Brutto-%</th>
+                        <th>Netto-%</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${filteredData.map(d => `
                         <tr class="${d.Filialgruppe === 'Rosenheim' ? 'highlight-rosenheim' : 'highlight-freiburg'}">
                             <td>${d.Monat}</td>
-                            <td>${d.Filialgruppe}</td>
-                            <td>${formatCurrency(d.UmsatzEur)}</td>
-                            <td>${formatCurrency(d.BruttogewinnEur)}</td>
-                            <td>${formatCurrency(d.NettogewinnEur)}</td>
+                            <td>${d.Filialgruppe === 'Freiburg/Karlsruhe' ? 'FK' : 'RO'}</td>
+                            <td>${formatCurrencyShort(d.UmsatzEur)}</td>
+                            <td>${formatCurrencyShort(d.BruttogewinnEur)}</td>
+                            <td>${formatCurrencyShort(d.NettogewinnEur)}</td>
                             <td>${formatPercent(d.BruttogewinnMargeProzent)}</td>
                             <td>${formatPercent(d.NettogewinnMargeProzent)}</td>
                         </tr>
@@ -670,23 +848,29 @@
             document.getElementById('dataTable').innerHTML = tableHTML;
         }
 
-        // Dashboard aktualisieren
+        // Dashboard komplett aktualisieren
         function updateDashboard() {
             const month = document.getElementById('monthFilter').value;
             const filteredData = filterByMonth(month);
+            const isSingleMonth = month !== 'all';
+
+            // Monat-Indikator aktualisieren
+            document.getElementById('monthIndicator').textContent =
+                month === 'all' ? 'Gesamtjahr 2024' : monthNames[month];
+
+            // Alle Komponenten aktualisieren
             generateKPICards(filteredData);
+            updateRevenueChart(filteredData, isSingleMonth);
+            updateProfitChart(filteredData, isSingleMonth);
+            updateMarginChart(filteredData, isSingleMonth);
+            updateCostChart(filteredData);
+            updateRadarChart(filteredData);
             generateDataTable(filteredData);
         }
 
         // Initialisierung
         document.addEventListener('DOMContentLoaded', () => {
-            generateKPICards(benchmarkData);
-            createRevenueChart();
-            createProfitChart();
-            createMarginChart();
-            createCostChart();
-            createRadarChart();
-            generateDataTable(benchmarkData);
+            updateDashboard();
         });
     </script>
 </body>
