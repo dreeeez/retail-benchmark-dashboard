@@ -61,46 +61,60 @@ st.markdown("""
     .kpi-card {
         background: rgba(255, 255, 255, 0.1);
         border-radius: 12px;
-        padding: 20px;
+        padding: 15px 10px;
         text-align: center;
         border: 1px solid rgba(255, 255, 255, 0.1);
+        height: 150px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
     }
     .kpi-title {
-        font-size: 0.85em;
+        font-size: 0.7em;
         color: #aaa;
         text-transform: uppercase;
-        margin-bottom: 10px;
+        height: 35px;
+        line-height: 1.2;
     }
     .kpi-value-rosenheim {
-        font-size: 1.8em;
+        font-size: 1.5em;
         font-weight: bold;
         color: #00d4ff;
+        height: 50px;
+        line-height: 50px;
     }
     .kpi-value-freiburg {
-        font-size: 1.8em;
+        font-size: 1.5em;
         font-weight: bold;
         color: #7b2cbf;
+        height: 50px;
+        line-height: 50px;
     }
     .kpi-comparison-positive {
         background: rgba(0, 255, 136, 0.2);
         color: #00ff88;
-        padding: 4px 12px;
+        padding: 4px 8px;
         border-radius: 15px;
-        font-size: 0.85em;
+        font-size: 0.75em;
+        display: inline-block;
     }
     .kpi-comparison-negative {
         background: rgba(255, 71, 87, 0.2);
         color: #ff4757;
-        padding: 4px 12px;
+        padding: 4px 8px;
         border-radius: 15px;
-        font-size: 0.85em;
+        font-size: 0.75em;
+        display: inline-block;
     }
     .kpi-comparison-neutral {
         background: rgba(255, 255, 255, 0.1);
         color: #aaa;
-        padding: 4px 12px;
+        padding: 4px 8px;
         border-radius: 15px;
-        font-size: 0.85em;
+        font-size: 0.75em;
+        display: inline-block;
     }
     .month-indicator {
         background: linear-gradient(90deg, #00d4ff, #7b2cbf);
@@ -109,6 +123,13 @@ st.markdown("""
         font-weight: 600;
         color: white;
         display: inline-block;
+    }
+    .hover-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .hover-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -207,41 +228,259 @@ if df is not None and len(df) > 0:
         # =============================================
         # TABS OBEN
         # =============================================
-        tab_main, tab_categories, tab_data = st.tabs(["📊 Dashboard", "🚲 Produktkategorien", "📋 Rohdaten"])
+        tab_summary, tab_main, tab_categories, tab_data = st.tabs(["🏆 Executive Summary", "📊 Dashboard", "🚲 Produktkategorien", "📋 Rohdaten"])
 
         if rosenheim_name and freiburg_name:
             df_rosenheim = filtered_df[filtered_df[filiale_col] == rosenheim_name]
             df_freiburg = filtered_df[filtered_df[filiale_col] == freiburg_name]
 
+            # KPIs berechnen (für alle Tabs verfügbar)
+            umsatz_ros = safe_sum(df_rosenheim, 'umsatz')
+            umsatz_fre = safe_sum(df_freiburg, 'umsatz')
+            nettogewinn_ros = safe_sum(df_rosenheim, 'nettogewinn')
+            nettogewinn_fre = safe_sum(df_freiburg, 'nettogewinn')
+            marge_ros = safe_mean(df_rosenheim, 'nettogewinnmarge')
+            marge_fre = safe_mean(df_freiburg, 'nettogewinnmarge')
+
+            umsatz_diff = ((umsatz_ros / umsatz_fre) - 1) * 100 if umsatz_fre > 0 else 0
+            marge_diff = marge_ros - marge_fre
+            gewinn_diff = ((nettogewinn_ros / nettogewinn_fre) - 1) * 100 if nettogewinn_fre > 0 else 0
+
+            # =============================================
+            # TAB 0: EXECUTIVE SUMMARY
+            # =============================================
+            with tab_summary:
+                st.subheader("🏆 Executive Summary")
+
+                # Gewinner/Verlierer Box
+                winner = "Rosenheim" if nettogewinn_ros > nettogewinn_fre else "Freiburg/Karlsruhe"
+                winner_color = COLORS['rosenheim'] if winner == "Rosenheim" else COLORS['freiburg']
+                gewinn_vorteil = abs(nettogewinn_ros - nettogewinn_fre)
+
+                col_winner, col_loser = st.columns(2)
+
+                with col_winner:
+                    st.markdown(f"""
+                    <div class="hover-card" style="background: linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,255,136,0.05));
+                                border: 2px solid #00ff88; border-radius: 15px; padding: 25px; text-align: center;">
+                        <div style="font-size: 3em;">🏆</div>
+                        <div style="font-size: 1.5em; font-weight: bold; color: #00ff88; margin: 10px 0;">GEWINNER</div>
+                        <div style="font-size: 2em; font-weight: bold; color: {winner_color};">{winner}</div>
+                        <div style="color: #aaa; margin-top: 10px;">+{format_currency(gewinn_vorteil)} Nettogewinn-Vorsprung</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                loser = "Freiburg/Karlsruhe" if winner == "Rosenheim" else "Rosenheim"
+                loser_color = COLORS['freiburg'] if winner == "Rosenheim" else COLORS['rosenheim']
+
+                with col_loser:
+                    st.markdown(f"""
+                    <div class="hover-card" style="background: linear-gradient(135deg, rgba(255,71,87,0.2), rgba(255,71,87,0.05));
+                                border: 2px solid #ff4757; border-radius: 15px; padding: 25px; text-align: center;">
+                        <div style="font-size: 3em;">📉</div>
+                        <div style="font-size: 1.5em; font-weight: bold; color: #ff4757; margin: 10px 0;">HERAUSFORDERUNGEN</div>
+                        <div style="font-size: 2em; font-weight: bold; color: {loser_color};">{loser}</div>
+                        <div style="color: #aaa; margin-top: 10px;">Aufholpotenzial identifiziert</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("---")
+
+                # Key Insights - Auto-generiert
+                st.markdown("### 💡 Key Insights")
+
+                insights = []
+
+                # Umsatz-Insight
+                if umsatz_diff > 5:
+                    insights.append(f"📈 **Umsatz-Leader:** Rosenheim liegt {umsatz_diff:.1f}% über Freiburg/Karlsruhe")
+                elif umsatz_diff < -5:
+                    insights.append(f"📈 **Umsatz-Leader:** Freiburg/Karlsruhe liegt {abs(umsatz_diff):.1f}% über Rosenheim")
+                else:
+                    insights.append(f"⚖️ **Umsatz-Parität:** Beide Regionen nahezu gleichauf ({abs(umsatz_diff):.1f}% Unterschied)")
+
+                # Marge-Insight
+                if marge_diff > 2:
+                    insights.append(f"💰 **Marge-Vorteil:** Rosenheim hat {marge_diff:.1f} Prozentpunkte bessere Nettomarge")
+                elif marge_diff < -2:
+                    insights.append(f"💰 **Marge-Vorteil:** Freiburg/Karlsruhe hat {abs(marge_diff):.1f} Prozentpunkte bessere Nettomarge")
+                else:
+                    insights.append(f"⚖️ **Marge-Parität:** Nettomargen nahezu identisch ({abs(marge_diff):.1f}pp Unterschied)")
+
+                # Gewinn-Insight
+                if gewinn_diff > 10:
+                    insights.append(f"🎯 **Profitabilität:** Rosenheim generiert {gewinn_diff:.1f}% mehr Nettogewinn")
+                elif gewinn_diff < -10:
+                    insights.append(f"🎯 **Profitabilität:** Freiburg/Karlsruhe generiert {abs(gewinn_diff):.1f}% mehr Nettogewinn")
+
+                # Handlungsempfehlung
+                if winner == "Rosenheim":
+                    insights.append("✅ **Empfehlung:** Best Practices aus Rosenheim auf andere Filialen übertragen")
+                else:
+                    insights.append("✅ **Empfehlung:** Rosenheim-Prozesse analysieren und Optimierungspotenziale identifizieren")
+
+                for insight in insights:
+                    st.markdown(f"""
+                    <div style="background: rgba(255,255,255,0.05); border-left: 4px solid #00d4ff;
+                                padding: 15px; margin: 10px 0; border-radius: 0 10px 10px 0;">
+                        {insight}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("---")
+
+                # Scorecard
+                st.markdown("### 📊 Performance Scorecard")
+
+                # Berechne Scores (0-100) - basierend auf relativem Anteil
+                # Score = Anteil am Gesamtergebnis beider Regionen
+                total_umsatz = umsatz_ros + umsatz_fre
+                total_gewinn = nettogewinn_ros + nettogewinn_fre
+
+                if total_umsatz > 0 and total_gewinn != 0:
+                    # Gewichtung: 40% Umsatz, 30% Gewinn, 30% Marge
+                    umsatz_score_ros = (umsatz_ros / total_umsatz) * 100
+                    gewinn_score_ros = (nettogewinn_ros / total_gewinn) * 100 if total_gewinn > 0 else 50
+                    marge_score_ros = 50 + (marge_diff * 2.5)  # +/- 2.5 Punkte pro Prozentpunkt Unterschied
+
+                    score_ros = (umsatz_score_ros * 0.4 + gewinn_score_ros * 0.3 + marge_score_ros * 0.3)
+                    score_ros = min(100, max(0, score_ros))
+                    score_fre = 100 - score_ros
+                else:
+                    score_ros = 50
+                    score_fre = 50
+
+                col_score1, col_score2 = st.columns(2)
+
+                with col_score1:
+                    st.markdown(f"""
+                    <div class="hover-card" style="background: rgba(0,212,255,0.1); border: 1px solid {COLORS['rosenheim']};
+                                border-radius: 15px; padding: 20px; text-align: center;">
+                        <div style="font-size: 0.9em; color: #aaa;">ROSENHEIM SCORE</div>
+                        <div style="font-size: 4em; font-weight: bold; color: {COLORS['rosenheim']};">{score_ros:.0f}</div>
+                        <div style="font-size: 0.8em; color: #aaa;">von 100 Punkten</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col_score2:
+                    st.markdown(f"""
+                    <div class="hover-card" style="background: rgba(123,44,191,0.1); border: 1px solid {COLORS['freiburg']};
+                                border-radius: 15px; padding: 20px; text-align: center;">
+                        <div style="font-size: 0.9em; color: #aaa;">FREIBURG/KARLSRUHE SCORE</div>
+                        <div style="font-size: 4em; font-weight: bold; color: {COLORS['freiburg']};">{score_fre:.0f}</div>
+                        <div style="font-size: 0.8em; color: #aaa;">von 100 Punkten</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("---")
+
+                # Trend Übersicht (wenn Gesamtjahr ausgewählt)
+                if selected_month == 'all':
+                    st.markdown("### 📈 Jahres-Trend Analyse")
+
+                    # Berechne Trends für jeden Monat
+                    df_trend = df.copy()
+                    df_ros_monthly = df_trend[df_trend[filiale_col] == rosenheim_name].sort_values(monat_col)
+                    df_fre_monthly = df_trend[df_trend[filiale_col] == freiburg_name].sort_values(monat_col)
+
+                    gewinn_col_name = next((c for c in df.columns if 'nettogewinn' in c.lower() and 'marge' not in c.lower() and 'prozent' not in c.lower()), None)
+
+                    if gewinn_col_name and len(df_ros_monthly) > 1:
+                        # Trend-Pfeil berechnen
+                        ros_first_half = df_ros_monthly[gewinn_col_name].iloc[:len(df_ros_monthly)//2].mean()
+                        ros_second_half = df_ros_monthly[gewinn_col_name].iloc[len(df_ros_monthly)//2:].mean()
+                        fre_first_half = df_fre_monthly[gewinn_col_name].iloc[:len(df_fre_monthly)//2].mean()
+                        fre_second_half = df_fre_monthly[gewinn_col_name].iloc[len(df_fre_monthly)//2:].mean()
+
+                        ros_trend = ((ros_second_half / ros_first_half) - 1) * 100 if ros_first_half > 0 else 0
+                        fre_trend = ((fre_second_half / fre_first_half) - 1) * 100 if fre_first_half > 0 else 0
+
+                        col_t1, col_t2 = st.columns(2)
+
+                        with col_t1:
+                            trend_arrow = "↗️" if ros_trend > 5 else "↘️" if ros_trend < -5 else "➡️"
+                            trend_color = "#00ff88" if ros_trend > 5 else "#ff4757" if ros_trend < -5 else "#ffd93d"
+                            st.markdown(f"""
+                            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 20px; text-align: center;">
+                                <div style="font-size: 2.5em;">{trend_arrow}</div>
+                                <div style="color: {COLORS['rosenheim']}; font-weight: bold;">Rosenheim Trend</div>
+                                <div style="color: {trend_color}; font-size: 1.5em; font-weight: bold;">{'+' if ros_trend > 0 else ''}{ros_trend:.1f}%</div>
+                                <div style="color: #aaa; font-size: 0.8em;">H2 vs H1</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        with col_t2:
+                            trend_arrow = "↗️" if fre_trend > 5 else "↘️" if fre_trend < -5 else "➡️"
+                            trend_color = "#00ff88" if fre_trend > 5 else "#ff4757" if fre_trend < -5 else "#ffd93d"
+                            st.markdown(f"""
+                            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 20px; text-align: center;">
+                                <div style="font-size: 2.5em;">{trend_arrow}</div>
+                                <div style="color: {COLORS['freiburg']}; font-weight: bold;">Freiburg/K. Trend</div>
+                                <div style="color: {trend_color}; font-size: 1.5em; font-weight: bold;">{'+' if fre_trend > 0 else ''}{fre_trend:.1f}%</div>
+                                <div style="color: #aaa; font-size: 0.8em;">H2 vs H1</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
             # =============================================
             # TAB 1: DASHBOARD
             # =============================================
             with tab_main:
-                # KPIs berechnen
-                umsatz_ros = safe_sum(df_rosenheim, 'umsatz')
-                umsatz_fre = safe_sum(df_freiburg, 'umsatz')
-                nettogewinn_ros = safe_sum(df_rosenheim, 'nettogewinn')
-                nettogewinn_fre = safe_sum(df_freiburg, 'nettogewinn')
-                marge_ros = safe_mean(df_rosenheim, 'nettogewinnmarge')
-                marge_fre = safe_mean(df_freiburg, 'nettogewinnmarge')
+                # Trend-Berechnung für Pfeile (Vormonat vs aktuell)
+                trend_umsatz_ros = 0
+                trend_umsatz_fre = 0
+                trend_gewinn_ros = 0
+                trend_gewinn_fre = 0
 
-                umsatz_diff = ((umsatz_ros / umsatz_fre) - 1) * 100 if umsatz_fre > 0 else 0
-                marge_diff = marge_ros - marge_fre
-                gewinn_diff = ((nettogewinn_ros / nettogewinn_fre) - 1) * 100 if nettogewinn_fre > 0 else 0
+                if selected_month != 'all':
+                    # Finde Vormonat
+                    all_months = sorted(df[monat_col].unique().tolist())
+                    current_idx = all_months.index(selected_month) if selected_month in all_months else -1
+                    if current_idx > 0:
+                        prev_month = all_months[current_idx - 1]
+                        df_prev = df[df[monat_col] == prev_month]
+                        df_ros_prev = df_prev[df_prev[filiale_col] == rosenheim_name]
+                        df_fre_prev = df_prev[df_prev[filiale_col] == freiburg_name]
 
-                # KPI Cards
+                        umsatz_ros_prev = safe_sum(df_ros_prev, 'umsatz')
+                        umsatz_fre_prev = safe_sum(df_fre_prev, 'umsatz')
+                        gewinn_ros_prev = safe_sum(df_ros_prev, 'nettogewinn')
+                        gewinn_fre_prev = safe_sum(df_fre_prev, 'nettogewinn')
+
+                        trend_umsatz_ros = ((umsatz_ros / umsatz_ros_prev) - 1) * 100 if umsatz_ros_prev > 0 else 0
+                        trend_umsatz_fre = ((umsatz_fre / umsatz_fre_prev) - 1) * 100 if umsatz_fre_prev > 0 else 0
+                        trend_gewinn_ros = ((nettogewinn_ros / gewinn_ros_prev) - 1) * 100 if gewinn_ros_prev > 0 else 0
+                        trend_gewinn_fre = ((nettogewinn_fre / gewinn_fre_prev) - 1) * 100 if gewinn_fre_prev > 0 else 0
+
+                def get_trend_arrow(trend_val):
+                    if trend_val > 3:
+                        return "↗️", "#00ff88"
+                    elif trend_val < -3:
+                        return "↘️", "#ff4757"
+                    else:
+                        return "➡️", "#ffd93d"
+
+                # KPI Cards mit Trend-Pfeilen
+                arrow_u_ros, color_u_ros = get_trend_arrow(trend_umsatz_ros)
+                arrow_u_fre, color_u_fre = get_trend_arrow(trend_umsatz_fre)
+                arrow_g_ros, color_g_ros = get_trend_arrow(trend_gewinn_ros)
+                arrow_g_fre, color_g_fre = get_trend_arrow(trend_gewinn_fre)
+
+                trend_display = selected_month != 'all'
+
                 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
                 with col1:
+                    trend_html = f'<span style="font-size: 1.2em; color: {color_u_ros};">{arrow_u_ros}</span>' if trend_display else ''
                     st.markdown(f"""<div class="kpi-card">
-                        <div class="kpi-title">Umsatz Rosenheim</div>
+                        <div class="kpi-title">Umsatz Rosenheim {trend_html}</div>
                         <div class="kpi-value-rosenheim">{format_currency(umsatz_ros)}</div>
                         <span class="{'kpi-comparison-positive' if umsatz_diff >= 0 else 'kpi-comparison-negative'}">{'+' if umsatz_diff >= 0 else ''}{umsatz_diff:.1f}% vs FK</span>
                     </div>""", unsafe_allow_html=True)
 
                 with col2:
+                    trend_html = f'<span style="font-size: 1.2em; color: {color_u_fre};">{arrow_u_fre}</span>' if trend_display else ''
                     st.markdown(f"""<div class="kpi-card">
-                        <div class="kpi-title">Umsatz Freiburg/K.</div>
+                        <div class="kpi-title">Umsatz Freiburg/K. {trend_html}</div>
                         <div class="kpi-value-freiburg">{format_currency(umsatz_fre)}</div>
                         <span class="kpi-comparison-neutral">Benchmark</span>
                     </div>""", unsafe_allow_html=True)
@@ -261,15 +500,17 @@ if df is not None and len(df) > 0:
                     </div>""", unsafe_allow_html=True)
 
                 with col5:
+                    trend_html = f'<span style="font-size: 1.2em; color: {color_g_ros};">{arrow_g_ros}</span>' if trend_display else ''
                     st.markdown(f"""<div class="kpi-card">
-                        <div class="kpi-title">Gewinn Rosenheim</div>
+                        <div class="kpi-title">Gewinn Rosenheim {trend_html}</div>
                         <div class="kpi-value-rosenheim">{format_currency(nettogewinn_ros)}</div>
                         <span class="{'kpi-comparison-positive' if gewinn_diff >= 0 else 'kpi-comparison-negative'}">{'+' if gewinn_diff >= 0 else ''}{gewinn_diff:.1f}%</span>
                     </div>""", unsafe_allow_html=True)
 
                 with col6:
+                    trend_html = f'<span style="font-size: 1.2em; color: {color_g_fre};">{arrow_g_fre}</span>' if trend_display else ''
                     st.markdown(f"""<div class="kpi-card">
-                        <div class="kpi-title">Gewinn Freiburg/K.</div>
+                        <div class="kpi-title">Gewinn Freiburg/K. {trend_html}</div>
                         <div class="kpi-value-freiburg">{format_currency(nettogewinn_fre)}</div>
                         <span class="kpi-comparison-neutral">Benchmark</span>
                     </div>""", unsafe_allow_html=True)
@@ -425,6 +666,73 @@ if df is not None and len(df) > 0:
                     profit_col = next((c for c in df_sales_agg.columns if 'profit' in c.lower()), None)
                     price_col = next((c for c in df_sales_agg.columns if 'price' in c.lower() or 'preis' in c.lower()), None)
 
+                    # === BEST/WORST PERFORMER ===
+                    if cat_col and store_col and profit_col:
+                        # Filtern nach Monat
+                        if selected_month != 'all' and month_col_agg:
+                            df_perf = df_sales_agg[df_sales_agg[month_col_agg] == selected_month]
+                        else:
+                            df_perf = df_sales_agg
+
+                        stores_perf = df_perf[store_col].unique().tolist()
+                        ros_store_perf = next((s for s in stores_perf if 'rosen' in s.lower()), None)
+                        fk_stores_perf = [s for s in stores_perf if 'frei' in s.lower() or 'karl' in s.lower()]
+
+                        # "Sonstige" ausschließen für sinnvollere Ergebnisse
+                        df_perf_filtered = df_perf[~df_perf[cat_col].str.lower().str.contains('sonstige')]
+
+                        if ros_store_perf and len(df_perf_filtered) > 0:
+                            df_ros_perf = df_perf_filtered[df_perf_filtered[store_col] == ros_store_perf].groupby(cat_col)[profit_col].sum().reset_index()
+                            df_fk_perf = df_perf_filtered[df_perf_filtered[store_col].isin(fk_stores_perf)].groupby(cat_col)[profit_col].sum().reset_index()
+
+                            if len(df_ros_perf) > 0 and len(df_fk_perf) > 0:
+                                best_ros = df_ros_perf.loc[df_ros_perf[profit_col].idxmax()]
+                                worst_ros = df_ros_perf.loc[df_ros_perf[profit_col].idxmin()]
+                                best_fk = df_fk_perf.loc[df_fk_perf[profit_col].idxmax()]
+                                worst_fk = df_fk_perf.loc[df_fk_perf[profit_col].idxmin()]
+
+                                st.markdown("### 🏆 Top-Kategorien nach Bruttogewinn")
+
+                                col1, col2, col3, col4 = st.columns(4)
+
+                                with col1:
+                                    st.markdown(f"""
+                                    <div class="hover-card" style="background: rgba(0,255,136,0.1); border: 1px solid #00ff88; border-radius: 10px; padding: 15px; text-align: center;">
+                                        <div style="color: #aaa; font-size: 0.75em;">TOP ROSENHEIM</div>
+                                        <div style="color: #00ff88; font-size: 1.2em; font-weight: bold; margin: 8px 0;">{best_ros[cat_col]}</div>
+                                        <div style="color: white; font-size: 0.9em;">{format_currency(best_ros[profit_col])}</div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                                with col2:
+                                    st.markdown(f"""
+                                    <div class="hover-card" style="background: rgba(255,71,87,0.1); border: 1px solid #ff4757; border-radius: 10px; padding: 15px; text-align: center;">
+                                        <div style="color: #aaa; font-size: 0.75em;">FLOP ROSENHEIM</div>
+                                        <div style="color: #ff4757; font-size: 1.2em; font-weight: bold; margin: 8px 0;">{worst_ros[cat_col]}</div>
+                                        <div style="color: white; font-size: 0.9em;">{format_currency(worst_ros[profit_col])}</div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                                with col3:
+                                    st.markdown(f"""
+                                    <div class="hover-card" style="background: rgba(0,255,136,0.1); border: 1px solid #00ff88; border-radius: 10px; padding: 15px; text-align: center;">
+                                        <div style="color: #aaa; font-size: 0.75em;">TOP FREIBURG/K.</div>
+                                        <div style="color: #00ff88; font-size: 1.2em; font-weight: bold; margin: 8px 0;">{best_fk[cat_col]}</div>
+                                        <div style="color: white; font-size: 0.9em;">{format_currency(best_fk[profit_col])}</div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                                with col4:
+                                    st.markdown(f"""
+                                    <div class="hover-card" style="background: rgba(255,71,87,0.1); border: 1px solid #ff4757; border-radius: 10px; padding: 15px; text-align: center;">
+                                        <div style="color: #aaa; font-size: 0.75em;">FLOP FREIBURG/K.</div>
+                                        <div style="color: #ff4757; font-size: 1.2em; font-weight: bold; margin: 8px 0;">{worst_fk[cat_col]}</div>
+                                        <div style="color: white; font-size: 0.9em;">{format_currency(worst_fk[profit_col])}</div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                                st.markdown("---")
+
                     if cat_col and store_col and revenue_col:
                         # Filtern nach Monat
                         if selected_month != 'all' and month_col_agg:
@@ -558,6 +866,88 @@ if df is not None and len(df) > 0:
                                               font_color='white', xaxis_title='Monat', yaxis_title='Umsatz (EUR)',
                                               title=f'Umsatzentwicklung: {selected_cat}')
                             st.plotly_chart(fig, use_container_width=True)
+
+                        # === HEATMAP KALENDER ===
+                        if month_col_agg and revenue_col:
+                            st.markdown("---")
+                            st.markdown("### 🗓️ Performance-Heatmap (Monat x Kategorie)")
+
+                            # Erstelle Pivot-Tabelle für Heatmap
+                            if ros_store:
+                                df_heatmap_ros = df_sales_agg[df_sales_agg[store_col] == ros_store].pivot_table(
+                                    index=cat_col, columns=month_col_agg, values=revenue_col, aggfunc='sum', fill_value=0
+                                )
+
+                                if len(df_heatmap_ros) > 0:
+                                    # Sortiere Monate
+                                    sorted_cols = sorted(df_heatmap_ros.columns.tolist())
+                                    df_heatmap_ros = df_heatmap_ros[sorted_cols]
+
+                                    # Monatsnamen kürzen
+                                    month_labels = [m[-2:] + '/' + m[2:4] for m in sorted_cols]
+
+                                    fig = go.Figure(data=go.Heatmap(
+                                        z=df_heatmap_ros.values,
+                                        x=month_labels,
+                                        y=df_heatmap_ros.index.tolist(),
+                                        colorscale=[
+                                            [0, '#1a1a2e'],
+                                            [0.25, '#16213e'],
+                                            [0.5, '#0f3460'],
+                                            [0.75, '#00d4ff'],
+                                            [1, '#00ff88']
+                                        ],
+                                        hoverongaps=False,
+                                        hovertemplate='Kategorie: %{y}<br>Monat: %{x}<br>Umsatz: €%{z:,.0f}<extra></extra>'
+                                    ))
+
+                                    fig.update_layout(
+                                        title='Rosenheim - Umsatz Heatmap',
+                                        paper_bgcolor='rgba(0,0,0,0)',
+                                        plot_bgcolor='rgba(0,0,0,0)',
+                                        font_color='white',
+                                        xaxis_title='Monat',
+                                        yaxis_title='Kategorie'
+                                    )
+
+                                    st.plotly_chart(fig, use_container_width=True)
+
+                            # FK Heatmap
+                            if fk_stores:
+                                df_heatmap_fk = df_sales_agg[df_sales_agg[store_col].isin(fk_stores)].pivot_table(
+                                    index=cat_col, columns=month_col_agg, values=revenue_col, aggfunc='sum', fill_value=0
+                                )
+
+                                if len(df_heatmap_fk) > 0:
+                                    sorted_cols = sorted(df_heatmap_fk.columns.tolist())
+                                    df_heatmap_fk = df_heatmap_fk[sorted_cols]
+                                    month_labels = [m[-2:] + '/' + m[2:4] for m in sorted_cols]
+
+                                    fig = go.Figure(data=go.Heatmap(
+                                        z=df_heatmap_fk.values,
+                                        x=month_labels,
+                                        y=df_heatmap_fk.index.tolist(),
+                                        colorscale=[
+                                            [0, '#1a1a2e'],
+                                            [0.25, '#2d1b4e'],
+                                            [0.5, '#4a2c7a'],
+                                            [0.75, '#7b2cbf'],
+                                            [1, '#c77dff']
+                                        ],
+                                        hoverongaps=False,
+                                        hovertemplate='Kategorie: %{y}<br>Monat: %{x}<br>Umsatz: €%{z:,.0f}<extra></extra>'
+                                    ))
+
+                                    fig.update_layout(
+                                        title='Freiburg/Karlsruhe - Umsatz Heatmap',
+                                        paper_bgcolor='rgba(0,0,0,0)',
+                                        plot_bgcolor='rgba(0,0,0,0)',
+                                        font_color='white',
+                                        xaxis_title='Monat',
+                                        yaxis_title='Kategorie'
+                                    )
+
+                                    st.plotly_chart(fig, use_container_width=True)
 
                         # === ROHDATEN ===
                         st.markdown("---")
