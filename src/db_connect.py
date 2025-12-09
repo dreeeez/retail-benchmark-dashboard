@@ -1,8 +1,11 @@
 import json
 import pyodbc
+from pathlib import Path
 
 def get_connection():
-    with open("config.json") as f:
+    # Config-Datei im Hauptverzeichnis (eine Ebene über src/)
+    config_path = Path(__file__).parent.parent / "config.json"
+    with open(config_path) as f:
         cfg = json.load(f)
 
     conn_str = (

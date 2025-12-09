@@ -5,28 +5,11 @@ Streamlit-basiertes Web-Dashboard für den Filialvergleich Rosenheim vs. Freibur
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
-from db_connect import get_connection
-
-# Farben wie im HTML-Dashboard
-COLORS = {
-    'rosenheim': '#00d4ff',
-    'rosenheim_bg': 'rgba(0, 212, 255, 0.2)',
-    'freiburg': '#7b2cbf',
-    'freiburg_bg': 'rgba(123, 44, 191, 0.2)',
-    'positive': '#00ff88',
-    'negative': '#ff4757'
-}
-
-# Kategorien-Farben
-CAT_COLORS = {
-    'E-Bike': '#00d4ff',
-    'MTB': '#7b2cbf',
-    'City/Trekking': '#00ff88',
-    'Kinder': '#ff6b6b',
-    'Sonstige': '#ffd93d'
-}
+from src.db_connect import get_connection
+from src.config import COLORS, CAT_COLORS, MONTH_NAMES
+from src.styles import DASHBOARD_CSS
+from src.utils import format_currency, format_percent, safe_sum, safe_mean, get_trend_arrow
 
 # Seiten-Konfiguration
 st.set_page_config(
@@ -36,103 +19,7 @@ st.set_page_config(
 )
 
 # Dark Theme CSS
-st.markdown("""
-<style>
-    .stApp {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    }
-    .main-header {
-        text-align: center;
-        padding: 20px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 15px;
-        margin-bottom: 20px;
-    }
-    .main-header h1 {
-        background: linear-gradient(90deg, #00d4ff, #7b2cbf);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 2.5em;
-        margin-bottom: 5px;
-    }
-    .main-header p {
-        color: #aaa;
-    }
-    .kpi-card {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 15px 10px;
-        text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        height: 150px;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .kpi-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    }
-    .kpi-title {
-        font-size: 0.7em;
-        color: #aaa;
-        text-transform: uppercase;
-        height: 35px;
-        line-height: 1.2;
-    }
-    .kpi-value-rosenheim {
-        font-size: 1.5em;
-        font-weight: bold;
-        color: #00d4ff;
-        height: 50px;
-        line-height: 50px;
-    }
-    .kpi-value-freiburg {
-        font-size: 1.5em;
-        font-weight: bold;
-        color: #7b2cbf;
-        height: 50px;
-        line-height: 50px;
-    }
-    .kpi-comparison-positive {
-        background: rgba(0, 255, 136, 0.2);
-        color: #00ff88;
-        padding: 4px 8px;
-        border-radius: 15px;
-        font-size: 0.75em;
-        display: inline-block;
-    }
-    .kpi-comparison-negative {
-        background: rgba(255, 71, 87, 0.2);
-        color: #ff4757;
-        padding: 4px 8px;
-        border-radius: 15px;
-        font-size: 0.75em;
-        display: inline-block;
-    }
-    .kpi-comparison-neutral {
-        background: rgba(255, 255, 255, 0.1);
-        color: #aaa;
-        padding: 4px 8px;
-        border-radius: 15px;
-        font-size: 0.75em;
-        display: inline-block;
-    }
-    .month-indicator {
-        background: linear-gradient(90deg, #00d4ff, #7b2cbf);
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-weight: 600;
-        color: white;
-        display: inline-block;
-    }
-    .hover-card {
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .hover-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    }
-</style>
-""", unsafe_allow_html=True)
+st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
 
 # Header
 st.markdown("""
@@ -141,15 +28,6 @@ st.markdown("""
     <p>Gruppe 18 | Rosenheim vs. Freiburg/Karlsruhe</p>
 </div>
 """, unsafe_allow_html=True)
-
-# Monatsnamen
-MONTH_NAMES = {
-    'all': 'Gesamtjahr 2024',
-    '2024-01': 'Januar 2024', '2024-02': 'Februar 2024', '2024-03': 'März 2024',
-    '2024-04': 'April 2024', '2024-05': 'Mai 2024', '2024-06': 'Juni 2024',
-    '2024-07': 'Juli 2024', '2024-08': 'August 2024', '2024-09': 'September 2024',
-    '2024-10': 'Oktober 2024', '2024-11': 'November 2024', '2024-12': 'Dezember 2024'
-}
 
 # Daten laden
 @st.cache_data(ttl=300)
@@ -173,26 +51,6 @@ def load_sales_agg_data():
     except:
         return None
 
-# Hilfsfunktionen
-def format_currency(value):
-    if value >= 1000000:
-        return f"{value/1000000:.1f} Mio €"
-    elif value >= 1000:
-        return f"{value/1000:.0f} Tsd €"
-    else:
-        return f"{value:,.0f} €"
-
-def format_percent(value):
-    return f"{value:.1f}%"
-
-def safe_sum(df, col_pattern):
-    col = next((c for c in df.columns if col_pattern.lower() in c.lower()), None)
-    return df[col].sum() if col else 0
-
-def safe_mean(df, col_pattern):
-    col = next((c for c in df.columns if col_pattern.lower() in c.lower()), None)
-    return df[col].mean() if col else 0
-
 # Daten laden
 df = load_data()
 
@@ -204,8 +62,15 @@ if df is not None and len(df) > 0:
     filiale_col = next((c for c in cols if 'filial' in c.lower() or 'store' in c.lower() or 'gruppe' in c.lower()), None)
 
     if monat_col and filiale_col:
-        # Filter Section - kompakter
-        col_filter, col_indicator, col_spacer = st.columns([1, 1, 2])
+        # Alle verfügbaren Sections definieren
+        dashboard_all_sections = ['KPI-Karten', 'Umsatz-Chart', 'Nettogewinn-Chart', 'Margen-Vergleich',
+                                  'Kostenstruktur', 'KPI-Radar', 'Datentabelle']
+        cat_all_sections = ['Top/Flop Kategorien', 'Umsatzverteilung (Donut)', 'Umsatz-Vergleich',
+                            'Stückzahlen', 'Durchschnittspreis', 'Bruttogewinn',
+                            'Umsatz-Trend', 'Heatmaps', 'Detaildaten']
+
+        # Filter Section
+        col_filter, col_indicator = st.columns([1, 3])
 
         with col_filter:
             available_months = ['all'] + sorted(df[monat_col].unique().tolist())
@@ -214,8 +79,14 @@ if df is not None and len(df) > 0:
                                           format_func=lambda x: month_options[x])
 
         with col_indicator:
-            st.markdown("<br>", unsafe_allow_html=True)  # Vertikale Ausrichtung
+            st.markdown("<br>", unsafe_allow_html=True)
             st.markdown(f'<div class="month-indicator">{month_options[selected_month]}</div>', unsafe_allow_html=True)
+
+        # Session State für Multiselects initialisieren
+        if 'dashboard_multiselect' not in st.session_state:
+            st.session_state['dashboard_multiselect'] = dashboard_all_sections.copy()
+        if 'cat_multiselect' not in st.session_state:
+            st.session_state['cat_multiselect'] = cat_all_sections.copy()
 
         # Daten filtern
         filtered_df = df if selected_month == 'all' else df[df[monat_col] == selected_month]
@@ -226,9 +97,58 @@ if df is not None and len(df) > 0:
         freiburg_name = next((f for f in filialen if 'frei' in f.lower() or 'karlsruhe' in f.lower()), filialen[1] if len(filialen) > 1 else None)
 
         # =============================================
-        # TABS OBEN
+        # TABS MIT SETTINGS BUTTON OBEN RECHTS
         # =============================================
-        tab_summary, tab_main, tab_categories, tab_data = st.tabs(["🏆 Executive Summary", "📊 Dashboard", "🚲 Produktkategorien", "📋 Rohdaten"])
+        # CSS für absolute Positionierung des Settings-Buttons
+        st.markdown("""
+        <style>
+        .settings-container {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"] > div > div > div[data-testid="stPopover"]) {
+            position: relative;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # Zeile mit Tabs und Settings-Button
+        col_tabs, col_settings = st.columns([20, 1])
+
+        with col_settings:
+            with st.popover("⚙️"):
+                st.markdown("**Anzeigeoptionen**")
+
+                # Dashboard Optionen
+                st.markdown("##### 📊 Dashboard")
+                if st.button("Alle anzeigen", key="reset_dashboard"):
+                    st.session_state['dashboard_multiselect'] = dashboard_all_sections.copy()
+                    st.rerun()
+                st.multiselect(
+                    "Dashboard Bereiche:",
+                    options=dashboard_all_sections,
+                    key="dashboard_multiselect",
+                    label_visibility="collapsed"
+                )
+
+                st.markdown("---")
+
+                # Produktkategorien Optionen
+                st.markdown("##### 🚲 Produktkategorien")
+                if st.button("Alle anzeigen", key="reset_cat"):
+                    st.session_state['cat_multiselect'] = cat_all_sections.copy()
+                    st.rerun()
+                st.multiselect(
+                    "Kategorien Bereiche:",
+                    options=cat_all_sections,
+                    key="cat_multiselect",
+                    label_visibility="collapsed"
+                )
+
+        with col_tabs:
+            tab_summary, tab_main, tab_categories, tab_data = st.tabs(["🏆 Executive Summary", "📊 Dashboard", "🚲 Produktkategorien", "📋 Rohdaten"])
 
         if rosenheim_name and freiburg_name:
             df_rosenheim = filtered_df[filtered_df[filiale_col] == rosenheim_name]
@@ -425,6 +345,9 @@ if df is not None and len(df) > 0:
             # TAB 1: DASHBOARD
             # =============================================
             with tab_main:
+                # Aktuelle Auswahl lesen
+                selected_dashboard_sections = st.session_state.get('dashboard_multiselect', dashboard_all_sections)
+
                 # Trend-Berechnung für Pfeile (Vormonat vs aktuell)
                 trend_umsatz_ros = 0
                 trend_umsatz_fre = 0
@@ -451,14 +374,6 @@ if df is not None and len(df) > 0:
                         trend_gewinn_ros = ((nettogewinn_ros / gewinn_ros_prev) - 1) * 100 if gewinn_ros_prev > 0 else 0
                         trend_gewinn_fre = ((nettogewinn_fre / gewinn_fre_prev) - 1) * 100 if gewinn_fre_prev > 0 else 0
 
-                def get_trend_arrow(trend_val):
-                    if trend_val > 3:
-                        return "↗️", "#00ff88"
-                    elif trend_val < -3:
-                        return "↘️", "#ff4757"
-                    else:
-                        return "➡️", "#ffd93d"
-
                 # KPI Cards mit Trend-Pfeilen
                 arrow_u_ros, color_u_ros = get_trend_arrow(trend_umsatz_ros)
                 arrow_u_fre, color_u_fre = get_trend_arrow(trend_umsatz_fre)
@@ -467,191 +382,212 @@ if df is not None and len(df) > 0:
 
                 trend_display = selected_month != 'all'
 
-                col1, col2, col3, col4, col5, col6 = st.columns(6)
+                # KPI-Karten
+                if 'KPI-Karten' in selected_dashboard_sections:
+                    col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-                with col1:
-                    trend_html = f'<span style="font-size: 1.2em; color: {color_u_ros};">{arrow_u_ros}</span>' if trend_display else ''
-                    st.markdown(f"""<div class="kpi-card">
-                        <div class="kpi-title">Umsatz Rosenheim {trend_html}</div>
-                        <div class="kpi-value-rosenheim">{format_currency(umsatz_ros)}</div>
-                        <span class="{'kpi-comparison-positive' if umsatz_diff >= 0 else 'kpi-comparison-negative'}">{'+' if umsatz_diff >= 0 else ''}{umsatz_diff:.1f}% vs FK</span>
-                    </div>""", unsafe_allow_html=True)
+                    with col1:
+                        trend_html = f'<span style="font-size: 1.2em; color: {color_u_ros};">{arrow_u_ros}</span>' if trend_display else ''
+                        st.markdown(f"""<div class="kpi-card">
+                            <div class="kpi-title">Umsatz Rosenheim {trend_html}</div>
+                            <div class="kpi-value-rosenheim">{format_currency(umsatz_ros)}</div>
+                            <span class="{'kpi-comparison-positive' if umsatz_diff >= 0 else 'kpi-comparison-negative'}">{'+' if umsatz_diff >= 0 else ''}{umsatz_diff:.1f}% vs FK</span>
+                        </div>""", unsafe_allow_html=True)
 
-                with col2:
-                    trend_html = f'<span style="font-size: 1.2em; color: {color_u_fre};">{arrow_u_fre}</span>' if trend_display else ''
-                    st.markdown(f"""<div class="kpi-card">
-                        <div class="kpi-title">Umsatz Freiburg/K. {trend_html}</div>
-                        <div class="kpi-value-freiburg">{format_currency(umsatz_fre)}</div>
-                        <span class="kpi-comparison-neutral">Benchmark</span>
-                    </div>""", unsafe_allow_html=True)
+                    with col2:
+                        trend_html = f'<span style="font-size: 1.2em; color: {color_u_fre};">{arrow_u_fre}</span>' if trend_display else ''
+                        st.markdown(f"""<div class="kpi-card">
+                            <div class="kpi-title">Umsatz Freiburg/K. {trend_html}</div>
+                            <div class="kpi-value-freiburg">{format_currency(umsatz_fre)}</div>
+                            <span class="kpi-comparison-neutral">Benchmark</span>
+                        </div>""", unsafe_allow_html=True)
 
-                with col3:
-                    st.markdown(f"""<div class="kpi-card">
-                        <div class="kpi-title">Nettomarge Rosenheim</div>
-                        <div class="kpi-value-rosenheim">{format_percent(marge_ros)}</div>
-                        <span class="{'kpi-comparison-positive' if marge_diff >= 0 else 'kpi-comparison-negative'}">{'+' if marge_diff >= 0 else ''}{marge_diff:.1f}pp</span>
-                    </div>""", unsafe_allow_html=True)
+                    with col3:
+                        st.markdown(f"""<div class="kpi-card">
+                            <div class="kpi-title">Nettomarge Rosenheim</div>
+                            <div class="kpi-value-rosenheim">{format_percent(marge_ros)}</div>
+                            <span class="{'kpi-comparison-positive' if marge_diff >= 0 else 'kpi-comparison-negative'}">{'+' if marge_diff >= 0 else ''}{marge_diff:.1f}pp</span>
+                        </div>""", unsafe_allow_html=True)
 
-                with col4:
-                    st.markdown(f"""<div class="kpi-card">
-                        <div class="kpi-title">Nettomarge Freiburg/K.</div>
-                        <div class="kpi-value-freiburg">{format_percent(marge_fre)}</div>
-                        <span class="kpi-comparison-neutral">Benchmark</span>
-                    </div>""", unsafe_allow_html=True)
+                    with col4:
+                        st.markdown(f"""<div class="kpi-card">
+                            <div class="kpi-title">Nettomarge Freiburg/K.</div>
+                            <div class="kpi-value-freiburg">{format_percent(marge_fre)}</div>
+                            <span class="kpi-comparison-neutral">Benchmark</span>
+                        </div>""", unsafe_allow_html=True)
 
-                with col5:
-                    trend_html = f'<span style="font-size: 1.2em; color: {color_g_ros};">{arrow_g_ros}</span>' if trend_display else ''
-                    st.markdown(f"""<div class="kpi-card">
-                        <div class="kpi-title">Gewinn Rosenheim {trend_html}</div>
-                        <div class="kpi-value-rosenheim">{format_currency(nettogewinn_ros)}</div>
-                        <span class="{'kpi-comparison-positive' if gewinn_diff >= 0 else 'kpi-comparison-negative'}">{'+' if gewinn_diff >= 0 else ''}{gewinn_diff:.1f}%</span>
-                    </div>""", unsafe_allow_html=True)
+                    with col5:
+                        trend_html = f'<span style="font-size: 1.2em; color: {color_g_ros};">{arrow_g_ros}</span>' if trend_display else ''
+                        st.markdown(f"""<div class="kpi-card">
+                            <div class="kpi-title">Gewinn Rosenheim {trend_html}</div>
+                            <div class="kpi-value-rosenheim">{format_currency(nettogewinn_ros)}</div>
+                            <span class="{'kpi-comparison-positive' if gewinn_diff >= 0 else 'kpi-comparison-negative'}">{'+' if gewinn_diff >= 0 else ''}{gewinn_diff:.1f}%</span>
+                        </div>""", unsafe_allow_html=True)
 
-                with col6:
-                    trend_html = f'<span style="font-size: 1.2em; color: {color_g_fre};">{arrow_g_fre}</span>' if trend_display else ''
-                    st.markdown(f"""<div class="kpi-card">
-                        <div class="kpi-title">Gewinn Freiburg/K. {trend_html}</div>
-                        <div class="kpi-value-freiburg">{format_currency(nettogewinn_fre)}</div>
-                        <span class="kpi-comparison-neutral">Benchmark</span>
-                    </div>""", unsafe_allow_html=True)
+                    with col6:
+                        trend_html = f'<span style="font-size: 1.2em; color: {color_g_fre};">{arrow_g_fre}</span>' if trend_display else ''
+                        st.markdown(f"""<div class="kpi-card">
+                            <div class="kpi-title">Gewinn Freiburg/K. {trend_html}</div>
+                            <div class="kpi-value-freiburg">{format_currency(nettogewinn_fre)}</div>
+                            <span class="kpi-comparison-neutral">Benchmark</span>
+                        </div>""", unsafe_allow_html=True)
 
-                st.markdown("---")
+                    st.markdown("---")
 
                 # Charts
                 is_single_month = selected_month != 'all'
-                col_chart1, col_chart2 = st.columns(2)
 
                 # Spaltennamen finden
                 umsatz_col_name = next((c for c in df.columns if 'umsatz' in c.lower() and 'eur' in c.lower()), None)
                 gewinn_col_name = next((c for c in df.columns if 'nettogewinn' in c.lower() and 'marge' not in c.lower() and 'prozent' not in c.lower()), None)
-
-                with col_chart1:
-                    st.subheader("Umsatz-Vergleich" if is_single_month else "Umsatzentwicklung")
-                    if is_single_month:
-                        fig = go.Figure(data=[go.Bar(y=['Rosenheim', 'Freiburg/Karlsruhe'], x=[umsatz_ros, umsatz_fre],
-                                                     orientation='h', marker_color=[COLORS['rosenheim'], COLORS['freiburg']])])
-                    else:
-                        fig = go.Figure()
-                        if umsatz_col_name:
-                            fig.add_trace(go.Scatter(x=df_rosenheim[monat_col], y=df_rosenheim[umsatz_col_name],
-                                                     name='Rosenheim', line=dict(color=COLORS['rosenheim']),
-                                                     fill='tozeroy', fillcolor=COLORS['rosenheim_bg']))
-                            fig.add_trace(go.Scatter(x=df_freiburg[monat_col], y=df_freiburg[umsatz_col_name],
-                                                     name='Freiburg/Karlsruhe', line=dict(color=COLORS['freiburg']),
-                                                     fill='tozeroy', fillcolor=COLORS['freiburg_bg']))
-                    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
-                    st.plotly_chart(fig, use_container_width=True)
-
-                with col_chart2:
-                    st.subheader("Nettogewinn-Vergleich" if is_single_month else "Nettogewinn-Entwicklung")
-                    if is_single_month:
-                        fig = go.Figure(data=[go.Bar(y=['Rosenheim', 'Freiburg/Karlsruhe'], x=[nettogewinn_ros, nettogewinn_fre],
-                                                     orientation='h', marker_color=[COLORS['rosenheim'], COLORS['freiburg']])])
-                    else:
-                        fig = go.Figure()
-                        if gewinn_col_name:
-                            fig.add_trace(go.Bar(x=df_rosenheim[monat_col], y=df_rosenheim[gewinn_col_name],
-                                                 name='Rosenheim', marker_color=COLORS['rosenheim']))
-                            fig.add_trace(go.Bar(x=df_freiburg[monat_col], y=df_freiburg[gewinn_col_name],
-                                                 name='Freiburg/Karlsruhe', marker_color=COLORS['freiburg']))
-                    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white', barmode='group')
-                    st.plotly_chart(fig, use_container_width=True)
-
-                # Zweite Reihe
-                col_chart3, col_chart4 = st.columns(2)
                 brutto_col = next((c for c in df.columns if 'brutto' in c.lower() and 'marge' in c.lower()), None)
                 netto_col = next((c for c in df.columns if 'netto' in c.lower() and 'marge' in c.lower()), None)
 
-                with col_chart3:
-                    st.subheader("Margen-Vergleich (%)")
-                    fig = go.Figure()
-                    if brutto_col and netto_col:
-                        if is_single_month:
-                            fig.add_trace(go.Bar(x=['Bruttomarge', 'Nettomarge'],
-                                                 y=[df_rosenheim[brutto_col].mean(), df_rosenheim[netto_col].mean()],
-                                                 name='Rosenheim', marker_color=COLORS['rosenheim']))
-                            fig.add_trace(go.Bar(x=['Bruttomarge', 'Nettomarge'],
-                                                 y=[df_freiburg[brutto_col].mean(), df_freiburg[netto_col].mean()],
-                                                 name='Freiburg/Karlsruhe', marker_color=COLORS['freiburg']))
-                        else:
-                            fig.add_trace(go.Scatter(x=df_rosenheim[monat_col], y=df_rosenheim[brutto_col],
-                                                     name='Bruttomarge RO', line=dict(color=COLORS['rosenheim'])))
-                            fig.add_trace(go.Scatter(x=df_freiburg[monat_col], y=df_freiburg[brutto_col],
-                                                     name='Bruttomarge FK', line=dict(color=COLORS['freiburg'])))
-                            fig.add_trace(go.Scatter(x=df_rosenheim[monat_col], y=df_rosenheim[netto_col],
-                                                     name='Nettomarge RO', line=dict(color=COLORS['rosenheim'], dash='dash')))
-                            fig.add_trace(go.Scatter(x=df_freiburg[monat_col], y=df_freiburg[netto_col],
-                                                     name='Nettomarge FK', line=dict(color=COLORS['freiburg'], dash='dash')))
-                    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white', barmode='group')
-                    st.plotly_chart(fig, use_container_width=True)
+                # Umsatz und Nettogewinn Charts
+                show_umsatz = 'Umsatz-Chart' in selected_dashboard_sections
+                show_gewinn = 'Nettogewinn-Chart' in selected_dashboard_sections
 
-                with col_chart4:
-                    st.subheader("Kostenstruktur")
-                    personal_col = next((c for c in df.columns if 'personal' in c.lower() and 'eur' in c.lower()), None)
-                    betriebs_col = next((c for c in df.columns if 'betrieb' in c.lower() and 'eur' in c.lower()), None)
-                    if personal_col and betriebs_col:
-                        fig = go.Figure()
-                        fig.add_trace(go.Bar(x=['Rosenheim', 'Freiburg/Karlsruhe'],
-                                             y=[df_rosenheim[personal_col].sum(), df_freiburg[personal_col].sum()],
-                                             name='Personalkosten', marker_color=[COLORS['rosenheim'], COLORS['freiburg']]))
-                        fig.add_trace(go.Bar(x=['Rosenheim', 'Freiburg/Karlsruhe'],
-                                             y=[df_rosenheim[betriebs_col].sum(), df_freiburg[betriebs_col].sum()],
-                                             name='Betriebskosten', marker_color=[COLORS['rosenheim_bg'], COLORS['freiburg_bg']]))
-                        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white', barmode='stack')
-                        st.plotly_chart(fig, use_container_width=True)
+                if show_umsatz or show_gewinn:
+                    col_chart1, col_chart2 = st.columns(2)
+
+                    if show_umsatz:
+                        with col_chart1:
+                            st.subheader("Umsatz-Vergleich" if is_single_month else "Umsatzentwicklung")
+                            if is_single_month:
+                                fig = go.Figure(data=[go.Bar(y=['Rosenheim', 'Freiburg/Karlsruhe'], x=[umsatz_ros, umsatz_fre],
+                                                             orientation='h', marker_color=[COLORS['rosenheim'], COLORS['freiburg']])])
+                            else:
+                                fig = go.Figure()
+                                if umsatz_col_name:
+                                    fig.add_trace(go.Scatter(x=df_rosenheim[monat_col], y=df_rosenheim[umsatz_col_name],
+                                                             name='Rosenheim', line=dict(color=COLORS['rosenheim']),
+                                                             fill='tozeroy', fillcolor=COLORS['rosenheim_bg']))
+                                    fig.add_trace(go.Scatter(x=df_freiburg[monat_col], y=df_freiburg[umsatz_col_name],
+                                                             name='Freiburg/Karlsruhe', line=dict(color=COLORS['freiburg']),
+                                                             fill='tozeroy', fillcolor=COLORS['freiburg_bg']))
+                            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
+                            st.plotly_chart(fig, width="stretch")
+
+                    if show_gewinn:
+                        with col_chart2:
+                            st.subheader("Nettogewinn-Vergleich" if is_single_month else "Nettogewinn-Entwicklung")
+                            if is_single_month:
+                                fig = go.Figure(data=[go.Bar(y=['Rosenheim', 'Freiburg/Karlsruhe'], x=[nettogewinn_ros, nettogewinn_fre],
+                                                             orientation='h', marker_color=[COLORS['rosenheim'], COLORS['freiburg']])])
+                            else:
+                                fig = go.Figure()
+                                if gewinn_col_name:
+                                    fig.add_trace(go.Bar(x=df_rosenheim[monat_col], y=df_rosenheim[gewinn_col_name],
+                                                         name='Rosenheim', marker_color=COLORS['rosenheim']))
+                                    fig.add_trace(go.Bar(x=df_freiburg[monat_col], y=df_freiburg[gewinn_col_name],
+                                                         name='Freiburg/Karlsruhe', marker_color=COLORS['freiburg']))
+                            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white', barmode='group')
+                            st.plotly_chart(fig, width="stretch")
+
+                # Margen und Kostenstruktur
+                show_margen = 'Margen-Vergleich' in selected_dashboard_sections
+                show_kosten = 'Kostenstruktur' in selected_dashboard_sections
+
+                if show_margen or show_kosten:
+                    col_chart3, col_chart4 = st.columns(2)
+
+                    if show_margen:
+                        with col_chart3:
+                            st.subheader("Margen-Vergleich (%)")
+                            fig = go.Figure()
+                            if brutto_col and netto_col:
+                                if is_single_month:
+                                    fig.add_trace(go.Bar(x=['Bruttomarge', 'Nettomarge'],
+                                                         y=[df_rosenheim[brutto_col].mean(), df_rosenheim[netto_col].mean()],
+                                                         name='Rosenheim', marker_color=COLORS['rosenheim']))
+                                    fig.add_trace(go.Bar(x=['Bruttomarge', 'Nettomarge'],
+                                                         y=[df_freiburg[brutto_col].mean(), df_freiburg[netto_col].mean()],
+                                                         name='Freiburg/Karlsruhe', marker_color=COLORS['freiburg']))
+                                else:
+                                    fig.add_trace(go.Scatter(x=df_rosenheim[monat_col], y=df_rosenheim[brutto_col],
+                                                             name='Bruttomarge RO', line=dict(color=COLORS['rosenheim'])))
+                                    fig.add_trace(go.Scatter(x=df_freiburg[monat_col], y=df_freiburg[brutto_col],
+                                                             name='Bruttomarge FK', line=dict(color=COLORS['freiburg'])))
+                                    fig.add_trace(go.Scatter(x=df_rosenheim[monat_col], y=df_rosenheim[netto_col],
+                                                             name='Nettomarge RO', line=dict(color=COLORS['rosenheim'], dash='dash')))
+                                    fig.add_trace(go.Scatter(x=df_freiburg[monat_col], y=df_freiburg[netto_col],
+                                                             name='Nettomarge FK', line=dict(color=COLORS['freiburg'], dash='dash')))
+                            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white', barmode='group')
+                            st.plotly_chart(fig, width="stretch")
+
+                    if show_kosten:
+                        with col_chart4:
+                            st.subheader("Kostenstruktur")
+                            personal_col = next((c for c in df.columns if 'personal' in c.lower() and 'eur' in c.lower()), None)
+                            betriebs_col = next((c for c in df.columns if 'betrieb' in c.lower() and 'eur' in c.lower()), None)
+                            if personal_col and betriebs_col:
+                                fig = go.Figure()
+                                fig.add_trace(go.Bar(x=['Rosenheim', 'Freiburg/Karlsruhe'],
+                                                     y=[df_rosenheim[personal_col].sum(), df_freiburg[personal_col].sum()],
+                                                     name='Personalkosten', marker_color=[COLORS['rosenheim'], COLORS['freiburg']]))
+                                fig.add_trace(go.Bar(x=['Rosenheim', 'Freiburg/Karlsruhe'],
+                                                     y=[df_rosenheim[betriebs_col].sum(), df_freiburg[betriebs_col].sum()],
+                                                     name='Betriebskosten', marker_color=[COLORS['rosenheim_bg'], COLORS['freiburg_bg']]))
+                                fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white', barmode='stack')
+                                st.plotly_chart(fig, width="stretch")
 
                 # Radar Chart
-                st.markdown("---")
-                st.subheader("KPI-Vergleich")
+                if 'KPI-Radar' in selected_dashboard_sections:
+                    st.markdown("---")
+                    st.subheader("KPI-Vergleich")
 
-                betriebs_quote_col = next((c for c in df.columns if 'betrieb' in c.lower() and 'quote' in c.lower()), None)
-                personal_anteil_col = next((c for c in df.columns if 'personal' in c.lower() and 'anteil' in c.lower()), None)
+                    betriebs_quote_col = next((c for c in df.columns if 'betrieb' in c.lower() and 'quote' in c.lower()), None)
+                    personal_anteil_col = next((c for c in df.columns if 'personal' in c.lower() and 'anteil' in c.lower()), None)
 
-                if brutto_col and netto_col:
-                    categories = ['Bruttomarge', 'Nettomarge', 'Betriebseffizienz', 'Personalkosteneffizienz']
-                    ros_values = [
-                        df_rosenheim[brutto_col].mean() if brutto_col else 0,
-                        df_rosenheim[netto_col].mean() if netto_col else 0,
-                        20 - df_rosenheim[betriebs_quote_col].mean() if betriebs_quote_col else 10,
-                        100 - df_rosenheim[personal_anteil_col].mean() if personal_anteil_col else 50
-                    ]
-                    fre_values = [
-                        df_freiburg[brutto_col].mean() if brutto_col else 0,
-                        df_freiburg[netto_col].mean() if netto_col else 0,
-                        20 - df_freiburg[betriebs_quote_col].mean() if betriebs_quote_col else 10,
-                        100 - df_freiburg[personal_anteil_col].mean() if personal_anteil_col else 50
-                    ]
+                    if brutto_col and netto_col:
+                        categories = ['Bruttomarge', 'Nettomarge', 'Betriebseffizienz', 'Personalkosteneffizienz']
+                        ros_values = [
+                            df_rosenheim[brutto_col].mean() if brutto_col else 0,
+                            df_rosenheim[netto_col].mean() if netto_col else 0,
+                            20 - df_rosenheim[betriebs_quote_col].mean() if betriebs_quote_col else 10,
+                            100 - df_rosenheim[personal_anteil_col].mean() if personal_anteil_col else 50
+                        ]
+                        fre_values = [
+                            df_freiburg[brutto_col].mean() if brutto_col else 0,
+                            df_freiburg[netto_col].mean() if netto_col else 0,
+                            20 - df_freiburg[betriebs_quote_col].mean() if betriebs_quote_col else 10,
+                            100 - df_freiburg[personal_anteil_col].mean() if personal_anteil_col else 50
+                        ]
 
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatterpolar(r=ros_values, theta=categories, fill='toself', name='Rosenheim',
-                                                  fillcolor=COLORS['rosenheim_bg'], line_color=COLORS['rosenheim']))
-                    fig.add_trace(go.Scatterpolar(r=fre_values, theta=categories, fill='toself', name='Freiburg/Karlsruhe',
-                                                  fillcolor=COLORS['freiburg_bg'], line_color=COLORS['freiburg']))
-                    fig.update_layout(
-                        polar=dict(
-                            bgcolor='rgba(0,0,0,0)',
-                            radialaxis=dict(visible=True, color='white', gridcolor='rgba(255,255,255,0.2)'),
-                            angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.2)')
-                        ),
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        font_color='white'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatterpolar(r=ros_values, theta=categories, fill='toself', name='Rosenheim',
+                                                      fillcolor=COLORS['rosenheim_bg'], line_color=COLORS['rosenheim']))
+                        fig.add_trace(go.Scatterpolar(r=fre_values, theta=categories, fill='toself', name='Freiburg/Karlsruhe',
+                                                      fillcolor=COLORS['freiburg_bg'], line_color=COLORS['freiburg']))
+                        fig.update_layout(
+                            polar=dict(
+                                bgcolor='rgba(0,0,0,0)',
+                                radialaxis=dict(visible=True, color='white', gridcolor='rgba(255,255,255,0.2)'),
+                                angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.2)')
+                            ),
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            font_color='white'
+                        )
+                        st.plotly_chart(fig, width="stretch")
 
                 # Datentabelle
-                st.markdown("---")
-                st.subheader("Detaillierte Daten")
-                display_cols = [c for c in df.columns if any(x in c.lower() for x in ['monat', 'filial', 'umsatz', 'gewinn', 'marge'])]
-                st.dataframe(filtered_df[display_cols] if display_cols else filtered_df, use_container_width=True, hide_index=True)
+                if 'Datentabelle' in selected_dashboard_sections:
+                    st.markdown("---")
+                    st.subheader("Detaillierte Daten")
+                    display_cols = [c for c in df.columns if any(x in c.lower() for x in ['monat', 'filial', 'umsatz', 'gewinn', 'marge'])]
+                    st.dataframe(filtered_df[display_cols] if display_cols else filtered_df, width="stretch", hide_index=True)
 
-                csv = filtered_df.to_csv(index=False)
-                st.download_button("📥 Daten als CSV herunterladen", csv, f"benchmark_export_{selected_month}.csv", "text/csv")
+                    csv = filtered_df.to_csv(index=False)
+                    st.download_button("📥 Daten als CSV herunterladen", csv, f"benchmark_export_{selected_month}.csv", "text/csv")
 
             # =============================================
             # TAB 2: PRODUKTKATEGORIEN
             # =============================================
             with tab_categories:
+                # Aktuelle Auswahl lesen
+                selected_cat_sections = st.session_state.get('cat_multiselect', cat_all_sections)
+
                 st.subheader("🚲 Produktkategorien-Analyse")
                 st.markdown("Umsatz und Performance nach Fahrrad-Kategorie")
 
@@ -667,7 +603,7 @@ if df is not None and len(df) > 0:
                     price_col = next((c for c in df_sales_agg.columns if 'price' in c.lower() or 'preis' in c.lower()), None)
 
                     # === BEST/WORST PERFORMER ===
-                    if cat_col and store_col and profit_col:
+                    if 'Top/Flop Kategorien' in selected_cat_sections and cat_col and store_col and profit_col:
                         # Filtern nach Monat
                         if selected_month != 'all' and month_col_agg:
                             df_perf = df_sales_agg[df_sales_agg[month_col_agg] == selected_month]
@@ -748,43 +684,47 @@ if df is not None and len(df) > 0:
                         df_fk_cat = df_cat[df_cat[store_col].isin(fk_stores)].groupby(cat_col)[revenue_col].sum().reset_index() if fk_stores else pd.DataFrame()
 
                         # === UMSATZ DONUT CHARTS ===
-                        st.markdown("### 💰 Umsatzverteilung")
-                        col1, col2 = st.columns(2)
+                        if 'Umsatzverteilung (Donut)' in selected_cat_sections:
+                            st.markdown("### 💰 Umsatzverteilung")
+                            col1, col2 = st.columns(2)
 
-                        with col1:
-                            st.markdown("#### Rosenheim")
-                            if len(df_ros_cat) > 0:
-                                fig = go.Figure(data=[go.Pie(labels=df_ros_cat[cat_col], values=df_ros_cat[revenue_col],
-                                                             marker_colors=[CAT_COLORS.get(c, '#888') for c in df_ros_cat[cat_col]], hole=0.4)])
-                                fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white')
-                                st.plotly_chart(fig, use_container_width=True)
+                            with col1:
+                                st.markdown("#### Rosenheim")
+                                if len(df_ros_cat) > 0:
+                                    fig = go.Figure(data=[go.Pie(labels=df_ros_cat[cat_col], values=df_ros_cat[revenue_col],
+                                                                 marker_colors=[CAT_COLORS.get(c, '#888') for c in df_ros_cat[cat_col]], hole=0.4)])
+                                    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                                    st.plotly_chart(fig, width="stretch")
 
-                        with col2:
-                            st.markdown("#### Freiburg/Karlsruhe")
-                            if len(df_fk_cat) > 0:
-                                fig = go.Figure(data=[go.Pie(labels=df_fk_cat[cat_col], values=df_fk_cat[revenue_col],
-                                                             marker_colors=[CAT_COLORS.get(c, '#888') for c in df_fk_cat[cat_col]], hole=0.4)])
-                                fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white')
-                                st.plotly_chart(fig, use_container_width=True)
+                            with col2:
+                                st.markdown("#### Freiburg/Karlsruhe")
+                                if len(df_fk_cat) > 0:
+                                    fig = go.Figure(data=[go.Pie(labels=df_fk_cat[cat_col], values=df_fk_cat[revenue_col],
+                                                                 marker_colors=[CAT_COLORS.get(c, '#888') for c in df_fk_cat[cat_col]], hole=0.4)])
+                                    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                                    st.plotly_chart(fig, width="stretch")
 
-                        # === UMSATZ BALKENVERGLEICH ===
-                        st.markdown("---")
-                        st.markdown("### 📊 Kategorien-Vergleich: Umsatz")
+                        # Alle Kategorien für spätere Verwendung
                         all_cats = sorted(set(list(df_ros_cat[cat_col].unique() if len(df_ros_cat) > 0 else []) +
                                              list(df_fk_cat[cat_col].unique() if len(df_fk_cat) > 0 else [])))
 
-                        ros_vals = [df_ros_cat[df_ros_cat[cat_col] == c][revenue_col].sum() if len(df_ros_cat) > 0 else 0 for c in all_cats]
-                        fk_vals = [df_fk_cat[df_fk_cat[cat_col] == c][revenue_col].sum() if len(df_fk_cat) > 0 else 0 for c in all_cats]
+                        # === UMSATZ BALKENVERGLEICH ===
+                        if 'Umsatz-Vergleich' in selected_cat_sections:
+                            st.markdown("---")
+                            st.markdown("### 📊 Kategorien-Vergleich: Umsatz")
 
-                        fig = go.Figure()
-                        fig.add_trace(go.Bar(name='Rosenheim', x=all_cats, y=ros_vals, marker_color=COLORS['rosenheim']))
-                        fig.add_trace(go.Bar(name='Freiburg/Karlsruhe', x=all_cats, y=fk_vals, marker_color=COLORS['freiburg']))
-                        fig.update_layout(barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                                          font_color='white', xaxis_title='Kategorie', yaxis_title='Umsatz (EUR)')
-                        st.plotly_chart(fig, use_container_width=True)
+                            ros_vals = [df_ros_cat[df_ros_cat[cat_col] == c][revenue_col].sum() if len(df_ros_cat) > 0 else 0 for c in all_cats]
+                            fk_vals = [df_fk_cat[df_fk_cat[cat_col] == c][revenue_col].sum() if len(df_fk_cat) > 0 else 0 for c in all_cats]
+
+                            fig = go.Figure()
+                            fig.add_trace(go.Bar(name='Rosenheim', x=all_cats, y=ros_vals, marker_color=COLORS['rosenheim']))
+                            fig.add_trace(go.Bar(name='Freiburg/Karlsruhe', x=all_cats, y=fk_vals, marker_color=COLORS['freiburg']))
+                            fig.update_layout(barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                              font_color='white', xaxis_title='Kategorie', yaxis_title='Umsatz (EUR)')
+                            st.plotly_chart(fig, width="stretch")
 
                         # === STÜCKZAHLEN VERGLEICH ===
-                        if quantity_col:
+                        if 'Stückzahlen' in selected_cat_sections and quantity_col:
                             st.markdown("---")
                             st.markdown("### 📦 Verkaufte Stückzahlen")
 
@@ -799,10 +739,10 @@ if df is not None and len(df) > 0:
                             fig.add_trace(go.Bar(name='Freiburg/Karlsruhe', x=all_cats, y=fk_qty, marker_color=COLORS['freiburg']))
                             fig.update_layout(barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                               font_color='white', xaxis_title='Kategorie', yaxis_title='Stückzahl')
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width="stretch")
 
                         # === DURCHSCHNITTSPREIS VERGLEICH ===
-                        if price_col:
+                        if 'Durchschnittspreis' in selected_cat_sections and price_col:
                             st.markdown("---")
                             st.markdown("### 💵 Durchschnittlicher Verkaufspreis")
 
@@ -817,10 +757,10 @@ if df is not None and len(df) > 0:
                             fig.add_trace(go.Bar(name='Freiburg/Karlsruhe', x=all_cats, y=fk_price, marker_color=COLORS['freiburg']))
                             fig.update_layout(barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                               font_color='white', xaxis_title='Kategorie', yaxis_title='Ø Preis (EUR)')
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width="stretch")
 
                         # === BRUTTOGEWINN VERGLEICH ===
-                        if profit_col:
+                        if 'Bruttogewinn' in selected_cat_sections and profit_col:
                             st.markdown("---")
                             st.markdown("### 📈 Bruttogewinn nach Kategorie")
 
@@ -835,10 +775,10 @@ if df is not None and len(df) > 0:
                             fig.add_trace(go.Bar(name='Freiburg/Karlsruhe', x=all_cats, y=fk_profit, marker_color=COLORS['freiburg']))
                             fig.update_layout(barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                               font_color='white', xaxis_title='Kategorie', yaxis_title='Bruttogewinn (EUR)')
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width="stretch")
 
                         # === ZEITLICHER TREND ===
-                        if month_col_agg and selected_month == 'all':
+                        if 'Umsatz-Trend' in selected_cat_sections and month_col_agg and selected_month == 'all':
                             st.markdown("---")
                             st.markdown("### 📅 Umsatz-Trend über Zeit")
 
@@ -865,10 +805,10 @@ if df is not None and len(df) > 0:
                             fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                               font_color='white', xaxis_title='Monat', yaxis_title='Umsatz (EUR)',
                                               title=f'Umsatzentwicklung: {selected_cat}')
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width="stretch")
 
                         # === HEATMAP KALENDER ===
-                        if month_col_agg and revenue_col:
+                        if 'Heatmaps' in selected_cat_sections and month_col_agg and revenue_col:
                             st.markdown("---")
                             st.markdown("### 🗓️ Performance-Heatmap (Monat x Kategorie)")
 
@@ -910,7 +850,7 @@ if df is not None and len(df) > 0:
                                         yaxis_title='Kategorie'
                                     )
 
-                                    st.plotly_chart(fig, use_container_width=True)
+                                    st.plotly_chart(fig, width="stretch")
 
                             # FK Heatmap
                             if fk_stores:
@@ -947,12 +887,13 @@ if df is not None and len(df) > 0:
                                         yaxis_title='Kategorie'
                                     )
 
-                                    st.plotly_chart(fig, use_container_width=True)
+                                    st.plotly_chart(fig, width="stretch")
 
                         # === ROHDATEN ===
-                        st.markdown("---")
-                        st.markdown("### 📋 Detaildaten")
-                        st.dataframe(df_cat, use_container_width=True, hide_index=True)
+                        if 'Detaildaten' in selected_cat_sections:
+                            st.markdown("---")
+                            st.markdown("### 📋 Detaildaten")
+                            st.dataframe(df_cat, width="stretch", hide_index=True)
                     else:
                         st.warning("Kategorien-Spalten nicht gefunden")
                 else:
@@ -965,12 +906,12 @@ if df is not None and len(df) > 0:
                 st.subheader("📋 Alle Rohdaten")
 
                 st.markdown("#### Export Monthly View")
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df, width="stretch", hide_index=True)
 
                 df_sales_full = load_sales_agg_data()
                 if df_sales_full is not None:
                     st.markdown("#### Sales Aggregation View")
-                    st.dataframe(df_sales_full, use_container_width=True, hide_index=True)
+                    st.dataframe(df_sales_full, width="stretch", hide_index=True)
 
         else:
             st.error("Filialen nicht identifiziert: " + str(filialen))
