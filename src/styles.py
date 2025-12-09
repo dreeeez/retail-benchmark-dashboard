@@ -98,5 +98,79 @@ DASHBOARD_CSS = """
         transform: translateY(-3px);
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
     }
+
+    /* Chart Animationen */
+    @keyframes chartSlideUp {
+        0% {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes chartScaleIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* Plotly Chart Container Animation */
+    div[data-testid="stPlotlyChart"] {
+        animation: chartSlideUp 0.5s ease-out forwards;
+        opacity: 0;
+    }
+
+    /* Gestaffelte Animation für Charts in Spalten */
+    div[data-testid="stColumn"]:nth-child(1) div[data-testid="stPlotlyChart"] {
+        animation-delay: 0s;
+    }
+    div[data-testid="stColumn"]:nth-child(2) div[data-testid="stPlotlyChart"] {
+        animation-delay: 0.15s;
+    }
+    div[data-testid="stColumn"]:nth-child(3) div[data-testid="stPlotlyChart"] {
+        animation-delay: 0.3s;
+    }
+    div[data-testid="stColumn"]:nth-child(4) div[data-testid="stPlotlyChart"] {
+        animation-delay: 0.45s;
+    }
+
+    /* DataFrames Animation */
+    div[data-testid="stDataFrame"] {
+        animation: chartScaleIn 0.4s ease-out forwards;
+        opacity: 0;
+    }
+
+    /* KPI Karten gestaffelte Animation */
+    div[data-testid="stColumn"]:nth-child(1) .kpi-card {
+        animation: chartSlideUp 0.4s ease-out 0.0s forwards;
+    }
+    div[data-testid="stColumn"]:nth-child(2) .kpi-card {
+        animation: chartSlideUp 0.4s ease-out 0.05s forwards;
+    }
+    div[data-testid="stColumn"]:nth-child(3) .kpi-card {
+        animation: chartSlideUp 0.4s ease-out 0.1s forwards;
+    }
+    div[data-testid="stColumn"]:nth-child(4) .kpi-card {
+        animation: chartSlideUp 0.4s ease-out 0.15s forwards;
+    }
+    div[data-testid="stColumn"]:nth-child(5) .kpi-card {
+        animation: chartSlideUp 0.4s ease-out 0.2s forwards;
+    }
+    div[data-testid="stColumn"]:nth-child(6) .kpi-card {
+        animation: chartSlideUp 0.4s ease-out 0.25s forwards;
+    }
+
+    /* Subheader Animation */
+    div[data-testid="stSubheader"] {
+        animation: chartSlideUp 0.3s ease-out forwards;
+    }
 </style>
 """

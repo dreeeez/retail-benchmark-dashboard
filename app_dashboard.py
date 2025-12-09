@@ -11,6 +11,14 @@ from src.config import COLORS, CAT_COLORS, MONTH_NAMES
 from src.styles import DASHBOARD_CSS
 from src.utils import format_currency, format_percent, safe_sum, safe_mean, get_trend_arrow
 
+# Animation-Konfiguration für Plotly-Charts
+def animate_fig(fig):
+    """Fügt dezente Animation zu einem Plotly-Chart hinzu"""
+    fig.update_layout(
+        transition={'duration': 600, 'easing': 'cubic-in-out'}
+    )
+    return fig
+
 # Seiten-Konfiguration
 st.set_page_config(
     page_title="Gruppe 18 - Benchmark Dashboard",
@@ -97,58 +105,9 @@ if df is not None and len(df) > 0:
         freiburg_name = next((f for f in filialen if 'frei' in f.lower() or 'karlsruhe' in f.lower()), filialen[1] if len(filialen) > 1 else None)
 
         # =============================================
-        # TABS MIT SETTINGS BUTTON OBEN RECHTS
+        # TABS
         # =============================================
-        # CSS für absolute Positionierung des Settings-Buttons
-        st.markdown("""
-        <style>
-        .settings-container {
-            position: absolute;
-            top: 0;
-            right: 0;
-            z-index: 1000;
-        }
-        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="stColumn"] > div > div > div[data-testid="stPopover"]) {
-            position: relative;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
-        # Zeile mit Tabs und Settings-Button
-        col_tabs, col_settings = st.columns([20, 1])
-
-        with col_settings:
-            with st.popover("⚙️"):
-                st.markdown("**Anzeigeoptionen**")
-
-                # Dashboard Optionen
-                st.markdown("##### 📊 Dashboard")
-                if st.button("Alle anzeigen", key="reset_dashboard"):
-                    st.session_state['dashboard_multiselect'] = dashboard_all_sections.copy()
-                    st.rerun()
-                st.multiselect(
-                    "Dashboard Bereiche:",
-                    options=dashboard_all_sections,
-                    key="dashboard_multiselect",
-                    label_visibility="collapsed"
-                )
-
-                st.markdown("---")
-
-                # Produktkategorien Optionen
-                st.markdown("##### 🚲 Produktkategorien")
-                if st.button("Alle anzeigen", key="reset_cat"):
-                    st.session_state['cat_multiselect'] = cat_all_sections.copy()
-                    st.rerun()
-                st.multiselect(
-                    "Kategorien Bereiche:",
-                    options=cat_all_sections,
-                    key="cat_multiselect",
-                    label_visibility="collapsed"
-                )
-
-        with col_tabs:
-            tab_summary, tab_main, tab_categories, tab_data = st.tabs(["🏆 Executive Summary", "📊 Dashboard", "🚲 Produktkategorien", "📋 Rohdaten"])
+        tab_summary, tab_main, tab_categories, tab_data = st.tabs(["🏆 Executive Summary", "📊 Dashboard", "🚲 Produktkategorien", "📋 Rohdaten"])
 
         if rosenheim_name and freiburg_name:
             df_rosenheim = filtered_df[filtered_df[filiale_col] == rosenheim_name]
@@ -345,6 +304,21 @@ if df is not None and len(df) > 0:
             # TAB 1: DASHBOARD
             # =============================================
             with tab_main:
+                # Settings-Button oben rechts im Tab
+                col_dash_space, col_dash_settings = st.columns([15, 1])
+                with col_dash_settings:
+                    with st.popover("⚙️"):
+                        st.markdown("**Anzeigeoptionen**")
+                        if st.button("Alle anzeigen", key="reset_dashboard"):
+                            st.session_state['dashboard_multiselect'] = dashboard_all_sections.copy()
+                            st.rerun()
+                        st.multiselect(
+                            "Bereiche:",
+                            options=dashboard_all_sections,
+                            key="dashboard_multiselect",
+                            label_visibility="collapsed"
+                        )
+
                 # Aktuelle Auswahl lesen
                 selected_dashboard_sections = st.session_state.get('dashboard_multiselect', dashboard_all_sections)
 
@@ -585,6 +559,21 @@ if df is not None and len(df) > 0:
             # TAB 2: PRODUKTKATEGORIEN
             # =============================================
             with tab_categories:
+                # Settings-Button oben rechts im Tab
+                col_cat_space, col_cat_settings = st.columns([15, 1])
+                with col_cat_settings:
+                    with st.popover("⚙️"):
+                        st.markdown("**Anzeigeoptionen**")
+                        if st.button("Alle anzeigen", key="reset_cat"):
+                            st.session_state['cat_multiselect'] = cat_all_sections.copy()
+                            st.rerun()
+                        st.multiselect(
+                            "Bereiche:",
+                            options=cat_all_sections,
+                            key="cat_multiselect",
+                            label_visibility="collapsed"
+                        )
+
                 # Aktuelle Auswahl lesen
                 selected_cat_sections = st.session_state.get('cat_multiselect', cat_all_sections)
 
