@@ -183,8 +183,8 @@ if df is not None and len(df) > 0:
     filiale_col = next((c for c in cols if 'filial' in c.lower() or 'store' in c.lower() or 'gruppe' in c.lower()), None)
 
     if monat_col and filiale_col:
-        # Filter Section
-        col_filter, col_indicator = st.columns([3, 1])
+        # Filter Section - kompakter
+        col_filter, col_indicator, col_spacer = st.columns([1, 1, 2])
 
         with col_filter:
             available_months = ['all'] + sorted(df[monat_col].unique().tolist())
@@ -193,6 +193,7 @@ if df is not None and len(df) > 0:
                                           format_func=lambda x: month_options[x])
 
         with col_indicator:
+            st.markdown("<br>", unsafe_allow_html=True)  # Vertikale Ausrichtung
             st.markdown(f'<div class="month-indicator">{month_options[selected_month]}</div>', unsafe_allow_html=True)
 
         # Daten filtern
@@ -420,6 +421,9 @@ if df is not None and len(df) > 0:
                     store_col = next((c for c in df_sales_agg.columns if 'store' in c.lower() and 'id' not in c.lower()), None)
                     month_col_agg = next((c for c in df_sales_agg.columns if 'month' in c.lower() or 'calmonth' in c.lower()), None)
                     revenue_col = next((c for c in df_sales_agg.columns if 'revenue' in c.lower()), None)
+                    quantity_col = next((c for c in df_sales_agg.columns if 'quantity' in c.lower()), None)
+                    profit_col = next((c for c in df_sales_agg.columns if 'profit' in c.lower()), None)
+                    price_col = next((c for c in df_sales_agg.columns if 'price' in c.lower() or 'preis' in c.lower()), None)
 
                     if cat_col and store_col and revenue_col:
                         # Filtern nach Monat
@@ -435,6 +439,8 @@ if df is not None and len(df) > 0:
                         df_ros_cat = df_cat[df_cat[store_col] == ros_store].groupby(cat_col)[revenue_col].sum().reset_index() if ros_store else pd.DataFrame()
                         df_fk_cat = df_cat[df_cat[store_col].isin(fk_stores)].groupby(cat_col)[revenue_col].sum().reset_index() if fk_stores else pd.DataFrame()
 
+                        # === UMSATZ DONUT CHARTS ===
+                        st.markdown("### 💰 Umsatzverteilung")
                         col1, col2 = st.columns(2)
 
                         with col1:
@@ -453,8 +459,9 @@ if df is not None and len(df) > 0:
                                 fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white')
                                 st.plotly_chart(fig, use_container_width=True)
 
-                        # Balkenvergleich
-                        st.markdown("#### Kategorien-Vergleich")
+                        # === UMSATZ BALKENVERGLEICH ===
+                        st.markdown("---")
+                        st.markdown("### 📊 Kategorien-Vergleich: Umsatz")
                         all_cats = sorted(set(list(df_ros_cat[cat_col].unique() if len(df_ros_cat) > 0 else []) +
                                              list(df_fk_cat[cat_col].unique() if len(df_fk_cat) > 0 else [])))
 
@@ -468,6 +475,93 @@ if df is not None and len(df) > 0:
                                           font_color='white', xaxis_title='Kategorie', yaxis_title='Umsatz (EUR)')
                         st.plotly_chart(fig, use_container_width=True)
 
+                        # === STÜCKZAHLEN VERGLEICH ===
+                        if quantity_col:
+                            st.markdown("---")
+                            st.markdown("### 📦 Verkaufte Stückzahlen")
+
+                            df_ros_qty = df_cat[df_cat[store_col] == ros_store].groupby(cat_col)[quantity_col].sum().reset_index() if ros_store else pd.DataFrame()
+                            df_fk_qty = df_cat[df_cat[store_col].isin(fk_stores)].groupby(cat_col)[quantity_col].sum().reset_index() if fk_stores else pd.DataFrame()
+
+                            ros_qty = [df_ros_qty[df_ros_qty[cat_col] == c][quantity_col].sum() if len(df_ros_qty) > 0 else 0 for c in all_cats]
+                            fk_qty = [df_fk_qty[df_fk_qty[cat_col] == c][quantity_col].sum() if len(df_fk_qty) > 0 else 0 for c in all_cats]
+
+                            fig = go.Figure()
+                            fig.add_trace(go.Bar(name='Rosenheim', x=all_cats, y=ros_qty, marker_color=COLORS['rosenheim']))
+                            fig.add_trace(go.Bar(name='Freiburg/Karlsruhe', x=all_cats, y=fk_qty, marker_color=COLORS['freiburg']))
+                            fig.update_layout(barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                              font_color='white', xaxis_title='Kategorie', yaxis_title='Stückzahl')
+                            st.plotly_chart(fig, use_container_width=True)
+
+                        # === DURCHSCHNITTSPREIS VERGLEICH ===
+                        if price_col:
+                            st.markdown("---")
+                            st.markdown("### 💵 Durchschnittlicher Verkaufspreis")
+
+                            df_ros_price = df_cat[df_cat[store_col] == ros_store].groupby(cat_col)[price_col].mean().reset_index() if ros_store else pd.DataFrame()
+                            df_fk_price = df_cat[df_cat[store_col].isin(fk_stores)].groupby(cat_col)[price_col].mean().reset_index() if fk_stores else pd.DataFrame()
+
+                            ros_price = [df_ros_price[df_ros_price[cat_col] == c][price_col].mean() if len(df_ros_price) > 0 and c in df_ros_price[cat_col].values else 0 for c in all_cats]
+                            fk_price = [df_fk_price[df_fk_price[cat_col] == c][price_col].mean() if len(df_fk_price) > 0 and c in df_fk_price[cat_col].values else 0 for c in all_cats]
+
+                            fig = go.Figure()
+                            fig.add_trace(go.Bar(name='Rosenheim', x=all_cats, y=ros_price, marker_color=COLORS['rosenheim']))
+                            fig.add_trace(go.Bar(name='Freiburg/Karlsruhe', x=all_cats, y=fk_price, marker_color=COLORS['freiburg']))
+                            fig.update_layout(barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                              font_color='white', xaxis_title='Kategorie', yaxis_title='Ø Preis (EUR)')
+                            st.plotly_chart(fig, use_container_width=True)
+
+                        # === BRUTTOGEWINN VERGLEICH ===
+                        if profit_col:
+                            st.markdown("---")
+                            st.markdown("### 📈 Bruttogewinn nach Kategorie")
+
+                            df_ros_profit = df_cat[df_cat[store_col] == ros_store].groupby(cat_col)[profit_col].sum().reset_index() if ros_store else pd.DataFrame()
+                            df_fk_profit = df_cat[df_cat[store_col].isin(fk_stores)].groupby(cat_col)[profit_col].sum().reset_index() if fk_stores else pd.DataFrame()
+
+                            ros_profit = [df_ros_profit[df_ros_profit[cat_col] == c][profit_col].sum() if len(df_ros_profit) > 0 else 0 for c in all_cats]
+                            fk_profit = [df_fk_profit[df_fk_profit[cat_col] == c][profit_col].sum() if len(df_fk_profit) > 0 else 0 for c in all_cats]
+
+                            fig = go.Figure()
+                            fig.add_trace(go.Bar(name='Rosenheim', x=all_cats, y=ros_profit, marker_color=COLORS['rosenheim']))
+                            fig.add_trace(go.Bar(name='Freiburg/Karlsruhe', x=all_cats, y=fk_profit, marker_color=COLORS['freiburg']))
+                            fig.update_layout(barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                              font_color='white', xaxis_title='Kategorie', yaxis_title='Bruttogewinn (EUR)')
+                            st.plotly_chart(fig, use_container_width=True)
+
+                        # === ZEITLICHER TREND ===
+                        if month_col_agg and selected_month == 'all':
+                            st.markdown("---")
+                            st.markdown("### 📅 Umsatz-Trend über Zeit")
+
+                            # Kategorie-Auswahl
+                            selected_cat = st.selectbox("Kategorie auswählen:", all_cats)
+
+                            df_ros_trend = df_sales_agg[(df_sales_agg[store_col] == ros_store) & (df_sales_agg[cat_col] == selected_cat)] if ros_store else pd.DataFrame()
+                            df_fk_trend = df_sales_agg[(df_sales_agg[store_col].isin(fk_stores)) & (df_sales_agg[cat_col] == selected_cat)] if fk_stores else pd.DataFrame()
+
+                            # Aggregiere FK nach Monat
+                            if len(df_fk_trend) > 0:
+                                df_fk_trend = df_fk_trend.groupby(month_col_agg)[revenue_col].sum().reset_index()
+
+                            fig = go.Figure()
+                            if len(df_ros_trend) > 0:
+                                fig.add_trace(go.Scatter(x=df_ros_trend[month_col_agg], y=df_ros_trend[revenue_col],
+                                                         name='Rosenheim', line=dict(color=COLORS['rosenheim']),
+                                                         fill='tozeroy', fillcolor=COLORS['rosenheim_bg']))
+                            if len(df_fk_trend) > 0:
+                                fig.add_trace(go.Scatter(x=df_fk_trend[month_col_agg], y=df_fk_trend[revenue_col],
+                                                         name='Freiburg/Karlsruhe', line=dict(color=COLORS['freiburg']),
+                                                         fill='tozeroy', fillcolor=COLORS['freiburg_bg']))
+
+                            fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                              font_color='white', xaxis_title='Monat', yaxis_title='Umsatz (EUR)',
+                                              title=f'Umsatzentwicklung: {selected_cat}')
+                            st.plotly_chart(fig, use_container_width=True)
+
+                        # === ROHDATEN ===
+                        st.markdown("---")
+                        st.markdown("### 📋 Detaildaten")
                         st.dataframe(df_cat, use_container_width=True, hide_index=True)
                     else:
                         st.warning("Kategorien-Spalten nicht gefunden")
