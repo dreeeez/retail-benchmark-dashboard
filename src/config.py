@@ -1,28 +1,35 @@
 """
 Benchmark Dashboard - Gruppe 18
 Konfiguration und Konstanten
+
+WICHTIG: Store- und Kategorie-Konfiguration ist jetzt in stores_config.py
 """
 
-# Farben wie im HTML-Dashboard
+from src.stores_config import STORES, PRODUCT_CATEGORIES, get_store_color, get_category_color
+
+# =============================================================================
+# ALLGEMEINE FARBEN
+# =============================================================================
 COLORS = {
-    'rosenheim': '#00d4ff',
-    'rosenheim_bg': 'rgba(0, 212, 255, 0.2)',
-    'freiburg': '#7b2cbf',
-    'freiburg_bg': 'rgba(123, 44, 191, 0.2)',
     'positive': '#00ff88',
-    'negative': '#ff4757'
+    'negative': '#ff4757',
+    'neutral': '#ffd93d',
+    'background': 'rgba(255, 255, 255, 0.1)',
 }
 
-# Kategorien-Farben
-CAT_COLORS = {
-    'E-Bike': '#00d4ff',
-    'MTB': '#7b2cbf',
-    'City/Trekking': '#00ff88',
-    'Kinder': '#ff6b6b',
-    'Sonstige': '#ffd93d'
-}
+# Legacy Support - dynamisch aus STORES generieren
+for store in STORES:
+    COLORS[store['name'].lower()] = store['color']
+    COLORS[f"{store['name'].lower()}_bg"] = store['color_bg']
 
-# Monatsnamen
+# =============================================================================
+# KATEGORIEN-FARBEN (aus stores_config.py)
+# =============================================================================
+CAT_COLORS = {cat['name']: cat['color'] for cat in PRODUCT_CATEGORIES}
+
+# =============================================================================
+# MONATSNAMEN
+# =============================================================================
 MONTH_NAMES = {
     'all': 'Gesamtjahr 2024',
     '2024-01': 'Januar 2024', '2024-02': 'Februar 2024', '2024-03': 'März 2024',

@@ -172,5 +172,74 @@ DASHBOARD_CSS = """
     div[data-testid="stSubheader"] {
         animation: chartSlideUp 0.3s ease-out forwards;
     }
+
+    /* Chart Info Tooltip */
+    .chart-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .chart-title {
+        font-size: 1.1em;
+        font-weight: 600;
+        color: white;
+        margin: 0;
+    }
+    .info-tooltip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 50%;
+        cursor: help;
+        font-size: 11px;
+        color: #aaa;
+        transition: all 0.2s ease;
+    }
+    .info-tooltip:hover {
+        background: rgba(0, 212, 255, 0.3);
+        color: #00d4ff;
+    }
+    .info-tooltip .tooltip-text {
+        visibility: hidden;
+        opacity: 0;
+        position: absolute;
+        bottom: 130%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(30, 30, 50, 0.98);
+        color: #ddd;
+        padding: 12px 14px;
+        border-radius: 8px;
+        font-size: 12px;
+        line-height: 1.5;
+        width: 280px;
+        text-align: left;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 1000;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    .info-tooltip .tooltip-text::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: rgba(30, 30, 50, 0.98) transparent transparent transparent;
+    }
+    .info-tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    .tooltip-text strong {
+        color: #00d4ff;
+    }
 </style>
 """
