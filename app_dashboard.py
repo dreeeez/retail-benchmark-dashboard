@@ -250,38 +250,38 @@ if df is not None and len(df) > 0:
                 winner_name = max(store_profits, key=store_profits.get)
                 winner_store = next(s for s in active_stores if s['name'] == winner_name)
 
-                # Alle anderen Stores sortiert nach Performance
+                # Alle Stores sortiert nach Performance
                 sorted_stores = sorted(store_profits.items(), key=lambda x: x[1], reverse=True)
+                gewinn_vorteil = sorted_stores[0][1] - sorted_stores[1][1] if len(sorted_stores) > 1 else 0
 
-                # Winner Box
-                col_winner, col_others = st.columns([1, len(active_stores)-1])
+                # Alle Stores in einer Reihe mit gleicher Breite
+                summary_cols = st.columns(len(active_stores))
 
-                with col_winner:
-                    gewinn_vorteil = sorted_stores[0][1] - sorted_stores[1][1] if len(sorted_stores) > 1 else 0
-                    st.markdown(f"""
-                    <div class="hover-card" style="background: linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,255,136,0.05));
-                                border: 2px solid #00ff88; border-radius: 15px; padding: 25px; text-align: center;">
-                        <div style="font-size: 3em;">🏆</div>
-                        <div style="font-size: 1.5em; font-weight: bold; color: #00ff88; margin: 10px 0;">GEWINNER</div>
-                        <div style="font-size: 2em; font-weight: bold; color: {winner_store['color']};">{winner_name}</div>
-                        <div style="color: #aaa; margin-top: 10px;">+{format_currency(gewinn_vorteil)} Vorsprung</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                # Andere Stores
-                other_cols = st.columns(len(active_stores) - 1) if len(active_stores) > 1 else []
-                for idx, (store_name, profit) in enumerate(sorted_stores[1:]):
+                for idx, (store_name, profit) in enumerate(sorted_stores):
                     store = next(s for s in active_stores if s['name'] == store_name)
-                    with other_cols[idx]:
-                        rank = idx + 2
-                        st.markdown(f"""
-                        <div class="hover-card" style="background: rgba(255,255,255,0.05);
-                                    border: 1px solid {store['color']}; border-radius: 15px; padding: 25px; text-align: center;">
-                            <div style="font-size: 2em;">#{rank}</div>
-                            <div style="font-size: 1.2em; font-weight: bold; color: {store['color']}; margin: 10px 0;">{store_name}</div>
-                            <div style="color: #aaa;">{format_currency(profit)} Nettogewinn</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    with summary_cols[idx]:
+                        if idx == 0:
+                            # Gewinner
+                            st.markdown(f"""
+                            <div class="hover-card" style="background: linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,255,136,0.05));
+                                        border: 2px solid #00ff88; border-radius: 15px; padding: 25px; text-align: center; height: 180px; display: flex; flex-direction: column; justify-content: center;">
+                                <div style="font-size: 2.5em;">🏆</div>
+                                <div style="font-size: 1.2em; font-weight: bold; color: #00ff88; margin: 5px 0;">GEWINNER</div>
+                                <div style="font-size: 1.5em; font-weight: bold; color: {store['color']};">{store_name}</div>
+                                <div style="color: #aaa; font-size: 0.9em; margin-top: 5px;">+{format_currency(gewinn_vorteil)} Vorsprung</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            # Andere Plätze
+                            rank = idx + 1
+                            st.markdown(f"""
+                            <div class="hover-card" style="background: rgba(255,255,255,0.05);
+                                        border: 1px solid {store['color']}; border-radius: 15px; padding: 25px; text-align: center; height: 180px; display: flex; flex-direction: column; justify-content: center;">
+                                <div style="font-size: 2.5em;">#{rank}</div>
+                                <div style="font-size: 1.5em; font-weight: bold; color: {store['color']}; margin: 5px 0;">{store_name}</div>
+                                <div style="color: #aaa; font-size: 0.9em;">{format_currency(profit)} Nettogewinn</div>
+                            </div>
+                            """, unsafe_allow_html=True)
 
                 st.markdown("---")
 
@@ -318,25 +318,116 @@ if df is not None and len(df) > 0:
 
                 st.markdown("---")
 
-                # Scorecard für alle Stores
-                st.markdown("### 📊 Performance Scorecard")
+                # Flächendaten laden für faire Vergleiche
+                df_location = load_location_data()
+                store_sizes = {}
+                if df_location is not None and len(df_location) > 0:
+                    for _, row in df_location.iterrows():
+                        store_name_loc = row['StoreName']
+                        # Store-Namen matchen
+                        for store in active_stores:
+                            if store['name'].lower() in store_name_loc.lower():
+                                store_sizes[store['name']] = row['LOC_SIZE_M2']
+
+                # Performance Scorecard mit 3 Metriken
+                st.markdown(chart_header(
+                    "📊 Performance Scorecard (Flächenbereinigt)",
+                    "<strong>3 Kennzahlen für fairen Vergleich:</strong><br>"
+                    "• <strong>Gewinn/m²:</strong> Nettogewinn ÷ Fläche - zeigt Flächeneffizienz<br>"
+                    "• <strong>Umsatz/m²:</strong> Umsatz ÷ Fläche - zeigt Verkaufsleistung pro m²<br>"
+                    "• <strong>Nettomarge:</strong> Nettogewinn ÷ Umsatz × 100 - zeigt Profitabilität unabhängig von Größe"
+                ), unsafe_allow_html=True)
+
+                # Berechne Metriken für alle Stores
+                store_metrics = {}
+                for store in active_stores:
+                    kpis = stores_kpis[store['name']]
+                    size = store_sizes.get(store['name'], 1)  # Fallback auf 1 wenn keine Fläche
+
+                    gewinn_pro_m2 = kpis['nettogewinn'] / size if size > 0 else 0
+                    umsatz_pro_m2 = kpis['umsatz'] / size if size > 0 else 0
+                    marge = kpis['marge']
+
+                    store_metrics[store['name']] = {
+                        'gewinn_m2': gewinn_pro_m2,
+                        'umsatz_m2': umsatz_pro_m2,
+                        'marge': marge,
+                        'size': size
+                    }
+
+                # Durchschnitte berechnen für relative Scores
+                avg_gewinn_m2 = sum(m['gewinn_m2'] for m in store_metrics.values()) / len(store_metrics)
+                avg_umsatz_m2 = sum(m['umsatz_m2'] for m in store_metrics.values()) / len(store_metrics)
+                avg_marge = sum(m['marge'] for m in store_metrics.values()) / len(store_metrics)
+
+                # Farbe basierend auf Score
+                def get_score_color(score):
+                    if score >= 110:
+                        return "#00ff88"  # Grün - überdurchschnittlich
+                    elif score >= 90:
+                        return "#ffd93d"  # Gelb - durchschnittlich
+                    else:
+                        return "#ff4757"  # Rot - unterdurchschnittlich
 
                 score_cols = st.columns(len(active_stores))
-                total_profit = sum(store_profits.values())
 
                 for idx, store in enumerate(active_stores):
-                    score = (stores_kpis[store['name']]['nettogewinn'] / total_profit * 100) if total_profit > 0 else 0
-                    score = min(100, max(0, score * len(active_stores)))  # Normalisieren
+                    metrics = store_metrics[store['name']]
+
+                    # Relative Scores (100 = Durchschnitt)
+                    score_gewinn = (metrics['gewinn_m2'] / avg_gewinn_m2 * 100) if avg_gewinn_m2 > 0 else 0
+                    score_umsatz = (metrics['umsatz_m2'] / avg_umsatz_m2 * 100) if avg_umsatz_m2 > 0 else 0
+                    score_marge = (metrics['marge'] / avg_marge * 100) if avg_marge > 0 else 0
+
+                    # Farben vorab berechnen
+                    color_gewinn = get_score_color(score_gewinn)
+                    color_umsatz = get_score_color(score_umsatz)
+                    color_marge = get_score_color(score_marge)
 
                     with score_cols[idx]:
                         st.markdown(f"""
                         <div class="hover-card" style="background: {store['color_bg']}; border: 1px solid {store['color']};
-                                    border-radius: 15px; padding: 20px; text-align: center;">
-                            <div style="font-size: 0.9em; color: #aaa;">{store['name'].upper()} SCORE</div>
-                            <div style="font-size: 3em; font-weight: bold; color: {store['color']};">{score:.0f}</div>
-                            <div style="font-size: 0.8em; color: #aaa;">von 100 Punkten</div>
+                                    border-radius: 15px; padding: 20px;">
+                            <div style="font-size: 1.1em; font-weight: bold; color: {store['color']}; text-align: center; margin-bottom: 15px;">
+                                {store['name']}
+                            </div>
+                            <div style="font-size: 0.75em; color: #aaa; text-align: center; margin-bottom: 10px;">
+                                Fläche: {metrics['size']:,.0f} m²
+                            </div>
+                            <div style="display: grid; gap: 12px;">
+                                <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="color: #aaa; font-size: 0.8em;">Gewinn/m²</span>
+                                        <span style="color: {color_gewinn}; font-weight: bold;">{score_gewinn:.0f}</span>
+                                    </div>
+                                    <div style="color: white; font-size: 1.1em; font-weight: bold;">{metrics['gewinn_m2']:,.2f} €</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="color: #aaa; font-size: 0.8em;">Umsatz/m²</span>
+                                        <span style="color: {color_umsatz}; font-weight: bold;">{score_umsatz:.0f}</span>
+                                    </div>
+                                    <div style="color: white; font-size: 1.1em; font-weight: bold;">{metrics['umsatz_m2']:,.2f} €</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="color: #aaa; font-size: 0.8em;">Nettomarge</span>
+                                        <span style="color: {color_marge}; font-weight: bold;">{score_marge:.0f}</span>
+                                    </div>
+                                    <div style="color: white; font-size: 1.1em; font-weight: bold;">{metrics['marge']:.1f}%</div>
+                                </div>
+                            </div>
                         </div>
                         """, unsafe_allow_html=True)
+
+                # Legende
+                st.markdown("""
+                <div style="display: flex; justify-content: center; gap: 30px; margin-top: 15px; font-size: 0.8em;">
+                    <span><span style="color: #00ff88;">●</span> Score ≥110 = Überdurchschnittlich</span>
+                    <span><span style="color: #ffd93d;">●</span> Score 90-110 = Durchschnittlich</span>
+                    <span><span style="color: #ff4757;">●</span> Score &lt;90 = Unterdurchschnittlich</span>
+                </div>
+                """, unsafe_allow_html=True)
 
             # =============================================================
             # TAB 1: DASHBOARD
@@ -397,7 +488,7 @@ if df is not None and len(df) > 0:
                         # Umsatz
                         with kpi_cols[col_idx]:
                             st.markdown(render_kpi_card(
-                                f"UMSATZ {store['short']}",
+                                f"UMSATZ {store['name']}",
                                 format_currency(kpis['umsatz']),
                                 store['color']
                             ), unsafe_allow_html=True)
@@ -406,7 +497,7 @@ if df is not None and len(df) > 0:
                         # Gewinn
                         with kpi_cols[col_idx]:
                             st.markdown(render_kpi_card(
-                                f"GEWINN {store['short']}",
+                                f"GEWINN {store['name']}",
                                 format_currency(kpis['nettogewinn']),
                                 store['color']
                             ), unsafe_allow_html=True)
