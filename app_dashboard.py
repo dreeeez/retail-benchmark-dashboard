@@ -566,7 +566,7 @@ if df is not None and len(df) > 0:
                 # Gesamtkosten-KPIs für alle Filialen
                 st.markdown(chart_header(
                     "💰 Gesamtkosten je Filiale",
-                    "<strong>Gesamtkosten = Wareneinsatz + Betriebskosten + Personalkosten + Beschaffungskosten</strong><br>Wareneinsatz = Umsatz - Bruttogewinn. Personalkosten = Gehalt + Sozialkosten + Provision. Betriebskosten = Miete + Marketing."
+                    "<strong>Gesamtkosten = Wareneinsatz + OPEX</strong><br>Wareneinsatz = TransferPrice. OPEX = Personal + Miete + Logistik + Marketing."
                 ), unsafe_allow_html=True)
 
                 cost_cols = st.columns(len(active_stores))
@@ -585,75 +585,47 @@ if df is not None and len(df) > 0:
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # Kostenstruktur-Vergleich (100% Stacked Bar)
+                # Kostenstruktur (in % vom Umsatz) - Farbige HTML-Tabelle
                 st.markdown(chart_header(
-                    "📊 Kostenstruktur im Vergleich",
-                    "<strong>Prozentuale Aufschlüsselung der Gesamtkosten</strong><br>Zeigt den Anteil jeder Kostenkategorie an den Gesamtkosten. Ideal für Effizienzvergleiche zwischen Filialen."
+                    "📊 Kostenstruktur (in % vom Umsatz)",
+                    "<strong>Jede Kostenstelle als Anteil vom Umsatz</strong><br>Zeigt wie viel Prozent vom Umsatz für jede Kostenkategorie aufgewendet wird. Niedrigere Werte = effizienter."
                 ), unsafe_allow_html=True)
 
-                fig = go.Figure()
+                # Farbige HTML-Tabelle erstellen
+                table_html = '<table style="width: 100%; border-collapse: collapse; font-size: 1.1em;">'
+                table_html += '<thead><tr style="background: rgba(255,255,255,0.1); color: #aaa;">'
+                table_html += '<th style="padding: 12px; text-align: left;">Filiale</th>'
+                table_html += '<th style="padding: 12px; text-align: center;">Wareneinsatz</th>'
+                table_html += '<th style="padding: 12px; text-align: center;">Personal</th>'
+                table_html += '<th style="padding: 12px; text-align: center;">Miete</th>'
+                table_html += '<th style="padding: 12px; text-align: center;">Logistik</th>'
+                table_html += '<th style="padding: 12px; text-align: center;">Marketing</th>'
+                table_html += '<th style="padding: 12px; text-align: center; font-weight: bold;">Gesamt</th>'
+                table_html += '</tr></thead><tbody>'
 
-                # Store-Namen und Kosten für alle Stores sammeln
-                store_names = [store['name'] for store in active_stores]
-                wareneinsatz_values = [stores_kpis[store['name']]['wareneinsatz'] for store in active_stores]
-                personal_values = [stores_kpis[store['name']]['personalkosten'] for store in active_stores]
-                betrieb_values = [stores_kpis[store['name']]['betriebskosten'] for store in active_stores]
-                beschaffung_values = [stores_kpis[store['name']]['beschaffungskosten'] for store in active_stores]
+                for store in active_stores:
+                    kpis = stores_kpis[store['name']]
+                    umsatz = kpis['umsatz']
 
-                # Gesamtkosten für Prozentberechnung
-                total_values = [stores_kpis[store['name']]['kosten'] for store in active_stores]
+                    wareneinsatz_pct = (kpis['wareneinsatz'] / umsatz * 100) if umsatz > 0 else 0
+                    personal_pct = (kpis['personalkosten'] / umsatz * 100) if umsatz > 0 else 0
+                    miete_pct = (kpis['betriebskosten'] / umsatz * 100) if umsatz > 0 else 0
+                    logistik_pct = (kpis['beschaffungskosten'] / umsatz * 100) if umsatz > 0 else 0
+                    marketing_pct = (kpis['marketingkosten'] / umsatz * 100) if umsatz > 0 else 0
+                    gesamt_pct = (kpis['kosten'] / umsatz * 100) if umsatz > 0 else 0
 
-                # Prozentuale Anteile berechnen
-                wareneinsatz_pct = [(w / t * 100) if t > 0 else 0 for w, t in zip(wareneinsatz_values, total_values)]
-                personal_pct = [(p / t * 100) if t > 0 else 0 for p, t in zip(personal_values, total_values)]
-                betrieb_pct = [(b / t * 100) if t > 0 else 0 for b, t in zip(betrieb_values, total_values)]
-                beschaffung_pct = [(b / t * 100) if t > 0 else 0 for b, t in zip(beschaffung_values, total_values)]
+                    table_html += f'<tr style="background: {store["color_bg"]}; border-left: 4px solid {store["color"]};">'
+                    table_html += f'<td style="padding: 15px; font-weight: bold; color: {store["color"]};">{store["name"]}</td>'
+                    table_html += f'<td style="padding: 15px; text-align: center; color: white;">{wareneinsatz_pct:.1f}%</td>'
+                    table_html += f'<td style="padding: 15px; text-align: center; color: white;">{personal_pct:.1f}%</td>'
+                    table_html += f'<td style="padding: 15px; text-align: center; color: white;">{miete_pct:.1f}%</td>'
+                    table_html += f'<td style="padding: 15px; text-align: center; color: white;">{logistik_pct:.1f}%</td>'
+                    table_html += f'<td style="padding: 15px; text-align: center; color: white;">{marketing_pct:.1f}%</td>'
+                    table_html += f'<td style="padding: 15px; text-align: center; color: {store["color"]}; font-weight: bold; font-size: 1.1em;">{gesamt_pct:.1f}%</td>'
+                    table_html += '</tr>'
 
-                # Ein Trace pro Kostenkategorie mit Prozentwerten
-                fig.add_trace(go.Bar(
-                    name='Beschaffung',
-                    x=store_names,
-                    y=beschaffung_pct,
-                    marker_color='#a55eea',
-                    text=[f"{v:.1f}%" for v in beschaffung_pct],
-                    textposition='inside'
-                ))
-                fig.add_trace(go.Bar(
-                    name='Betriebskosten',
-                    x=store_names,
-                    y=betrieb_pct,
-                    marker_color='#ffd93d',
-                    text=[f"{v:.1f}%" for v in betrieb_pct],
-                    textposition='inside'
-                ))
-                fig.add_trace(go.Bar(
-                    name='Personalkosten',
-                    x=store_names,
-                    y=personal_pct,
-                    marker_color='#ff6b6b',
-                    text=[f"{v:.1f}%" for v in personal_pct],
-                    textposition='inside'
-                ))
-                fig.add_trace(go.Bar(
-                    name='Wareneinsatz',
-                    x=store_names,
-                    y=wareneinsatz_pct,
-                    marker_color='#74b9ff',
-                    text=[f"{v:.1f}%" for v in wareneinsatz_pct],
-                    textposition='inside'
-                ))
-
-                fig.update_layout(
-                    barmode='stack',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font_color='white',
-                    yaxis_title="Anteil (%)",
-                    yaxis=dict(range=[0, 100]),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                    transition={'duration': 500}
-                )
-                st.plotly_chart(fig, use_container_width=True)
+                table_html += '</tbody></table>'
+                st.markdown(table_html, unsafe_allow_html=True)
 
             # =============================================================
             # TAB 3: PRODUKTKATEGORIEN
