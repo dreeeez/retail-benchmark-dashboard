@@ -135,8 +135,7 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_COSTS_AGG (
     HumanResourcesEur,
     FacilityManagementEur,
     LogisticsEur,
-    MarketingEur,
-    SalesEur
+    MarketingEur
 )
 AS
 SELECT
@@ -173,14 +172,7 @@ SELECT
         WHEN c.Kostenkategorie = 'Marketing Campaign'
         THEN c.WertEUR
         ELSE 0
-    END) AS MarketingEur,
-
-    -- Sales (Commission - alle Kommissionen inkl. "Commission for ...")
-    SUM(CASE
-        WHEN c.Kostenkategorie LIKE 'Commission%'
-        THEN c.WertEUR
-        ELSE 0
-    END) AS SalesEur
+    END) AS MarketingEur
 
 FROM dbo.V_LIST_MONTHLY_COSTS c
 WHERE c.ID_STORE IN (3, 5, 14)  -- Benchmark-Filialen
@@ -205,7 +197,6 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_KPI (
     FacilityManagementEur,
     LogisticsEur,
     MarketingEur,
-    SalesEur,
     NetProfitEur,
     GrossProfitMarginPct,
     NetProfitMarginPct
@@ -224,7 +215,6 @@ SELECT
     c.FacilityManagementEur,
     c.LogisticsEur,
     c.MarketingEur,
-    c.SalesEur,
 
     -- Nettogewinn = Bruttogewinn - Gesamtkosten
     SUM(s.TotalGrossProfitEur) - c.TotalCostsEur AS NetProfitEur,
@@ -249,7 +239,7 @@ INNER JOIN list_views.V_LIST_G18_BENCHMARK_COSTS_AGG c
     AND s.IdStore = c.IdStore
 GROUP BY s.IdCalmonthStd, s.IdStore, s.StoreName,
          c.TotalCostsEur, c.HumanResourcesEur, c.FacilityManagementEur,
-         c.LogisticsEur, c.MarketingEur, c.SalesEur;
+         c.LogisticsEur, c.MarketingEur;
 GO
 
 
@@ -271,7 +261,7 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_EXPORT_MONTHLY (
     FacilityManagementEur,
     LogisticsEur,
     MarketingEur,
-    SalesEur,
+    EbitEur,
     NettogewinnEur,
     BruttogewinnMargeProzent,
     NettogewinnMargeProzent
@@ -285,14 +275,15 @@ SELECT
     ROUND(k.TotalGrossProfitEur, 2) AS BruttogewinnEur,
     -- Wareneinsatz = Umsatz - Bruttogewinn
     ROUND(k.TotalRevenueEur - k.TotalGrossProfitEur, 2) AS WareneinsatzEur,
-    -- Gesamtkosten aus COSTS_AGG (ohne Wareneinsatz)
+    -- Gesamtkosten aus COSTS_AGG (ohne Wareneinsatz) = OPEX
     ROUND(k.TotalCostsEur, 2) AS GesamtkostenEur,
-    -- Business-Kategorien
+    -- Business-Kategorien (OPEX)
     ROUND(k.HumanResourcesEur, 2) AS HumanResourcesEur,
     ROUND(k.FacilityManagementEur, 2) AS FacilityManagementEur,
     ROUND(k.LogisticsEur, 2) AS LogisticsEur,
     ROUND(k.MarketingEur, 2) AS MarketingEur,
-    ROUND(k.SalesEur, 2) AS SalesEur,
+    -- EBIT = Revenue - TransferPrice - OPEX = Bruttogewinn - OPEX
+    ROUND(k.TotalGrossProfitEur - k.TotalCostsEur, 2) AS EbitEur,
     ROUND(k.NetProfitEur, 2) AS NettogewinnEur,
     ROUND(k.GrossProfitMarginPct, 2) AS BruttogewinnMargeProzent,
     ROUND(k.NetProfitMarginPct, 2) AS NettogewinnMargeProzent
@@ -339,7 +330,6 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_WATERFALL (
     FacilityManagementEur,
     LogisticsEur,
     MarketingEur,
-    SalesEur,
     TotalCostsEur,
     NettogewinnEur
 )
@@ -357,7 +347,6 @@ SELECT
     k.FacilityManagementEur,
     k.LogisticsEur,
     k.MarketingEur,
-    k.SalesEur,
     k.TotalCostsEur,
     k.NetProfitEur AS NettogewinnEur
 FROM list_views.V_LIST_G18_BENCHMARK_KPI k;
