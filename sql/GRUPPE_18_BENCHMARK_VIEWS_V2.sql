@@ -126,16 +126,17 @@ GO
 
 
 -- View 3: list_views.V_LIST_G18_BENCHMARK_COSTS_AGG
--- Zweck: Aggregation der Kosten je Monat und Filiale
--- Beschaffungskosten werden nur in den Monaten angezeigt, in denen sie tatsächlich anfallen
+-- Zweck: Aggregation der Kosten je Monat und Filiale nach Business-Kategorien
 CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_COSTS_AGG (
     IdCalmonthStd,
     IdStore,
     StoreName,
     TotalCostsEur,
-    PersonnelCostsEur,
-    OperatingCostsEur,
-    AdditionalProcurementCostsEur
+    HumanResourcesEur,
+    FacilityManagementEur,
+    LogisticsEur,
+    MarketingEur,
+    SalesEur
 )
 AS
 SELECT
@@ -143,29 +144,43 @@ SELECT
     c.ID_STORE AS IdStore,
     c.StoreName AS StoreName,
 
-    -- Gesamtkosten
+    -- Gesamtkosten (Summe aller Kategorien)
     SUM(c.WertEUR) AS TotalCostsEur,
 
-    -- Personalkosten (Gehalt + Sozialkosten + Kommission/Provision)
+    -- HumanResources (Monthly Salary + Monthly Social Costs)
     SUM(CASE
-        WHEN c.Kostenkategorie IN ('Monthly Salary', 'Monthly Social Costs', 'Commission')
+        WHEN c.Kostenkategorie IN ('Monthly Salary', 'Monthly Social Costs')
         THEN c.WertEUR
         ELSE 0
-    END) AS PersonnelCostsEur,
+    END) AS HumanResourcesEur,
 
-    -- Betriebskosten (Miete + Marketing)
+    -- Facility Management (Monthly Rent)
     SUM(CASE
-        WHEN c.Kostenkategorie IN ('Monthly Rent', 'Marketing Campaign')
+        WHEN c.Kostenkategorie = 'Monthly Rent'
         THEN c.WertEUR
         ELSE 0
-    END) AS OperatingCostsEur,
+    END) AS FacilityManagementEur,
 
-    -- Zusätzliche Beschaffungskosten (alle "Additional Procurement Costs for ...")
+    -- Logistics (Additional Procurement Costs)
     SUM(CASE
         WHEN c.Kostenkategorie LIKE 'Additional Procurement Costs%'
         THEN c.WertEUR
         ELSE 0
-    END) AS AdditionalProcurementCostsEur
+    END) AS LogisticsEur,
+
+    -- Marketing (Marketing Campaign)
+    SUM(CASE
+        WHEN c.Kostenkategorie = 'Marketing Campaign'
+        THEN c.WertEUR
+        ELSE 0
+    END) AS MarketingEur,
+
+    -- Sales (Commission - alle Kommissionen inkl. "Commission for ...")
+    SUM(CASE
+        WHEN c.Kostenkategorie LIKE 'Commission%'
+        THEN c.WertEUR
+        ELSE 0
+    END) AS SalesEur
 
 FROM dbo.V_LIST_MONTHLY_COSTS c
 WHERE c.ID_STORE IN (3, 5, 14)  -- Benchmark-Filialen
@@ -178,7 +193,7 @@ GO
 -- =============================================
 
 -- View 4: list_views.V_LIST_G18_BENCHMARK_KPI
--- Zweck: Zentrale KPI-View für Filialkennzahlen
+-- Zweck: Zentrale KPI-View für Filialkennzahlen mit Business-Kategorien
 CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_KPI (
     IdCalmonthStd,
     IdStore,
@@ -186,12 +201,13 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_KPI (
     TotalRevenueEur,
     TotalGrossProfitEur,
     TotalCostsEur,
-    PersonnelCostsEur,
-    OperatingCostsEur,
+    HumanResourcesEur,
+    FacilityManagementEur,
+    LogisticsEur,
+    MarketingEur,
+    SalesEur,
     NetProfitEur,
     GrossProfitMarginPct,
-    OperatingCostRatioPct,
-    PersonnelCostRatioPct,
     NetProfitMarginPct
 )
 AS
@@ -204,8 +220,11 @@ SELECT
     SUM(s.TotalRevenueEur) AS TotalRevenueEur,
     SUM(s.TotalGrossProfitEur) AS TotalGrossProfitEur,
     c.TotalCostsEur,
-    c.PersonnelCostsEur,
-    c.OperatingCostsEur,
+    c.HumanResourcesEur,
+    c.FacilityManagementEur,
+    c.LogisticsEur,
+    c.MarketingEur,
+    c.SalesEur,
 
     -- Nettogewinn = Bruttogewinn - Gesamtkosten
     SUM(s.TotalGrossProfitEur) - c.TotalCostsEur AS NetProfitEur,
@@ -216,20 +235,6 @@ SELECT
         THEN (SUM(s.TotalGrossProfitEur) / SUM(s.TotalRevenueEur)) * 100
         ELSE NULL
     END AS GrossProfitMarginPct,
-
-    -- KPI 2: Betriebskosten-Quote (%) = Betriebskosten / Umsatz * 100
-    CASE
-        WHEN SUM(s.TotalRevenueEur) > 0
-        THEN (c.OperatingCostsEur / SUM(s.TotalRevenueEur)) * 100
-        ELSE NULL
-    END AS OperatingCostRatioPct,
-
-    -- KPI 3: Personalkosten-Anteil (%) = Personalkosten / Gesamtkosten * 100
-    CASE
-        WHEN c.TotalCostsEur > 0
-        THEN (c.PersonnelCostsEur / c.TotalCostsEur) * 100
-        ELSE NULL
-    END AS PersonnelCostRatioPct,
 
     -- Nettogewinn-Marge (%) = Nettogewinn / Umsatz * 100
     CASE
@@ -243,7 +248,8 @@ INNER JOIN list_views.V_LIST_G18_BENCHMARK_COSTS_AGG c
     ON s.IdCalmonthStd = c.IdCalmonthStd
     AND s.IdStore = c.IdStore
 GROUP BY s.IdCalmonthStd, s.IdStore, s.StoreName,
-         c.TotalCostsEur, c.PersonnelCostsEur, c.OperatingCostsEur;
+         c.TotalCostsEur, c.HumanResourcesEur, c.FacilityManagementEur,
+         c.LogisticsEur, c.MarketingEur, c.SalesEur;
 GO
 
 
@@ -252,9 +258,7 @@ GO
 -- =============================================
 
 -- View 5: list_views.V_LIST_G18_BENCHMARK_EXPORT_MONTHLY
--- ÄNDERUNG: Jetzt mit einzelnen Stores statt kombiniert
--- Das erlaubt modularen Vergleich beliebiger Stores
--- NEU: Gesamtkosten = Wareneinsatz + Betriebskosten + Personalkosten + Beschaffungskosten
+-- Zweck: Export-View mit Business-Kategorien für Dashboard
 CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_EXPORT_MONTHLY (
     Monat,
     Filialgruppe,
@@ -263,13 +267,13 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_EXPORT_MONTHLY (
     BruttogewinnEur,
     WareneinsatzEur,
     GesamtkostenEur,
-    PersonalkostenEur,
-    BetriebskostenEur,
-    BeschaffungskostenEur,
+    HumanResourcesEur,
+    FacilityManagementEur,
+    LogisticsEur,
+    MarketingEur,
+    SalesEur,
     NettogewinnEur,
     BruttogewinnMargeProzent,
-    BetriebskostenQuoteProzent,
-    PersonalkostenAnteilProzent,
     NettogewinnMargeProzent
 )
 AS
@@ -281,24 +285,18 @@ SELECT
     ROUND(k.TotalGrossProfitEur, 2) AS BruttogewinnEur,
     -- Wareneinsatz = Umsatz - Bruttogewinn
     ROUND(k.TotalRevenueEur - k.TotalGrossProfitEur, 2) AS WareneinsatzEur,
-    -- NEUE FORMEL: Gesamtkosten = Wareneinsatz + Betriebskosten + Personalkosten + Beschaffungskosten
-    ROUND(
-        (k.TotalRevenueEur - k.TotalGrossProfitEur)  -- Wareneinsatz
-        + k.OperatingCostsEur                         -- Betriebskosten (Miete, Marketing, Kommission)
-        + k.PersonnelCostsEur                         -- Personalkosten
-        + c.AdditionalProcurementCostsEur             -- zusätzliche Beschaffungskosten
-    , 2) AS GesamtkostenEur,
-    ROUND(k.PersonnelCostsEur, 2) AS PersonalkostenEur,
-    ROUND(k.OperatingCostsEur, 2) AS BetriebskostenEur,
-    ROUND(c.AdditionalProcurementCostsEur, 2) AS BeschaffungskostenEur,
+    -- Gesamtkosten aus COSTS_AGG (ohne Wareneinsatz)
+    ROUND(k.TotalCostsEur, 2) AS GesamtkostenEur,
+    -- Business-Kategorien
+    ROUND(k.HumanResourcesEur, 2) AS HumanResourcesEur,
+    ROUND(k.FacilityManagementEur, 2) AS FacilityManagementEur,
+    ROUND(k.LogisticsEur, 2) AS LogisticsEur,
+    ROUND(k.MarketingEur, 2) AS MarketingEur,
+    ROUND(k.SalesEur, 2) AS SalesEur,
     ROUND(k.NetProfitEur, 2) AS NettogewinnEur,
     ROUND(k.GrossProfitMarginPct, 2) AS BruttogewinnMargeProzent,
-    ROUND(k.OperatingCostRatioPct, 2) AS BetriebskostenQuoteProzent,
-    ROUND(k.PersonnelCostRatioPct, 2) AS PersonalkostenAnteilProzent,
     ROUND(k.NetProfitMarginPct, 2) AS NettogewinnMargeProzent
-FROM list_views.V_LIST_G18_BENCHMARK_KPI k
-INNER JOIN list_views.V_LIST_G18_BENCHMARK_COSTS_AGG c
-    ON k.IdCalmonthStd = c.IdCalmonthStd AND k.IdStore = c.IdStore;
+FROM list_views.V_LIST_G18_BENCHMARK_KPI k;
 GO
 
 
@@ -329,7 +327,7 @@ GO
 
 
 -- View 7: list_views.V_LIST_G18_BENCHMARK_WATERFALL
--- Zweck: Daten für Waterfall-Chart (Umsatz -> Kosten -> Gewinn)
+-- Zweck: Daten für Waterfall-Chart mit Business-Kategorien
 CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_WATERFALL (
     IdCalmonthStd,
     IdStore,
@@ -337,11 +335,12 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_WATERFALL (
     UmsatzEur,
     WareneinsatzEur,
     BruttogewinnEur,
-    PersonalkostenEur,
-    MieteEur,
+    HumanResourcesEur,
+    FacilityManagementEur,
+    LogisticsEur,
     MarketingEur,
-    KommissionEur,
-    BeschaffungskostenEur,
+    SalesEur,
+    TotalCostsEur,
     NettogewinnEur
 )
 AS
@@ -353,29 +352,15 @@ SELECT
     -- Wareneinsatz = Umsatz - Bruttogewinn
     (k.TotalRevenueEur - k.TotalGrossProfitEur) AS WareneinsatzEur,
     k.TotalGrossProfitEur AS BruttogewinnEur,
-    -- Einzelne Kostenpositionen aus COSTS_AGG
-    c.PersonnelCostsEur AS PersonalkostenEur,
-    -- Miete separat (aus Detail-Aggregation)
-    ISNULL((SELECT SUM(WertEUR) FROM dbo.V_LIST_MONTHLY_COSTS
-            WHERE ID_STORE = k.IdStore
-            AND FORMAT(ID_CALMONTH, 'yyyy-MM') = k.IdCalmonthStd
-            AND Kostenkategorie = 'Monthly Rent'), 0) AS MieteEur,
-    -- Marketing
-    ISNULL((SELECT SUM(WertEUR) FROM dbo.V_LIST_MONTHLY_COSTS
-            WHERE ID_STORE = k.IdStore
-            AND FORMAT(ID_CALMONTH, 'yyyy-MM') = k.IdCalmonthStd
-            AND Kostenkategorie = 'Marketing Campaign'), 0) AS MarketingEur,
-    -- Kommission
-    ISNULL((SELECT SUM(WertEUR) FROM dbo.V_LIST_MONTHLY_COSTS
-            WHERE ID_STORE = k.IdStore
-            AND FORMAT(ID_CALMONTH, 'yyyy-MM') = k.IdCalmonthStd
-            AND Kostenkategorie = 'Commission'), 0) AS KommissionEur,
-    -- Beschaffungskosten
-    c.AdditionalProcurementCostsEur AS BeschaffungskostenEur,
+    -- Business-Kategorien
+    k.HumanResourcesEur,
+    k.FacilityManagementEur,
+    k.LogisticsEur,
+    k.MarketingEur,
+    k.SalesEur,
+    k.TotalCostsEur,
     k.NetProfitEur AS NettogewinnEur
-FROM list_views.V_LIST_G18_BENCHMARK_KPI k
-INNER JOIN list_views.V_LIST_G18_BENCHMARK_COSTS_AGG c
-    ON k.IdCalmonthStd = c.IdCalmonthStd AND k.IdStore = c.IdStore;
+FROM list_views.V_LIST_G18_BENCHMARK_KPI k;
 GO
 
 
