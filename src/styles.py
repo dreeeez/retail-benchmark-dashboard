@@ -241,5 +241,21 @@ DASHBOARD_CSS = """
     .tooltip-text strong {
         color: #00d4ff;
     }
+
+    /* Make main block full width */
+    .main .block-container {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+
+    /* Tabs content full width */
+    [data-testid="stTabs"] {
+        width: 100% !important;
+    }
+
+    [data-testid="stTabContent"] {
+        width: 100% !important;
+    }
 </style>
 """

@@ -100,6 +100,104 @@ def load_marketing_costs():
         return None
 
 @st.cache_data(ttl=300)
+def load_marketing_monthly():
+    """Lädt monatliche Marketing-Kosten für Trend-Analyse"""
+    try:
+        conn = get_connection()
+        df = pd.read_sql("""
+            SELECT
+                c.ID_STORE,
+                c.StoreName,
+                FORMAT(c.ID_CALMONTH, 'yyyy-MM') AS Monat,
+                SUM(c.WertEUR) AS MarketingEur
+            FROM dbo.V_LIST_MONTHLY_COSTS c
+            WHERE c.Kostenkategorie LIKE 'Marketing Campaign%'
+            AND c.ID_STORE IN (3, 5, 14)
+            GROUP BY c.ID_STORE, c.StoreName, FORMAT(c.ID_CALMONTH, 'yyyy-MM')
+            ORDER BY c.ID_STORE, FORMAT(c.ID_CALMONTH, 'yyyy-MM')
+        """, conn)
+        conn.close()
+        return df
+    except Exception as e:
+        return None
+
+@st.cache_data(ttl=300)
+def load_marketing_roas_data():
+    """Lädt Daten für korrekte ROAS-Berechnung:
+    - Umsatz MIT Marketing (ID_CAMPAIGN != 0)
+    - Umsatz OHNE Marketing (ID_CAMPAIGN = 0)
+    - Marketing-Kosten
+    - Stückzahlen für CPA
+    """
+    try:
+        conn = get_connection()
+        # Umsatz mit und ohne Marketing aus Sales + Stückzahlen
+        umsatz_df = pd.read_sql("""
+            SELECT
+                StoreName,
+                ID_STORE,
+                SUM(CASE WHEN ID_CAMPAIGN != 0 THEN RevenueEUR ELSE 0 END) as UmsatzMitMarketing,
+                SUM(CASE WHEN ID_CAMPAIGN = 0 THEN RevenueEUR ELSE 0 END) as UmsatzOhneMarketing,
+                SUM(RevenueEUR) as UmsatzGesamt,
+                SUM(CASE WHEN ID_CAMPAIGN != 0 THEN SalesAmount ELSE 0 END) as StueckMitMarketing,
+                SUM(SalesAmount) as StueckGesamt
+            FROM dbo.V_LIST_MONTHLY_SALES
+            WHERE ID_STORE IN (3, 5, 14)
+            GROUP BY StoreName, ID_STORE
+        """, conn)
+
+        # Marketing-Kosten
+        marketing_df = pd.read_sql("""
+            SELECT
+                StoreName,
+                SUM(WertEUR) as MarketingKosten
+            FROM dbo.V_LIST_MONTHLY_COSTS
+            WHERE Kostenkategorie LIKE 'Marketing Campaign%'
+            AND ID_STORE IN (3, 5, 14)
+            GROUP BY StoreName
+        """, conn)
+
+        conn.close()
+
+        # Merge
+        merged = umsatz_df.merge(marketing_df, on='StoreName')
+        # ROAS berechnen: Umsatz MIT Marketing / Marketing-Kosten
+        merged['ROAS'] = merged['UmsatzMitMarketing'] / merged['MarketingKosten']
+        # CPA berechnen: Marketing-Kosten / Stück mit Marketing
+        merged['CPA'] = merged['MarketingKosten'] / merged['StueckMitMarketing']
+        return merged
+    except Exception as e:
+        return None
+
+@st.cache_data(ttl=300)
+def load_marketing_mix_data():
+    """Lädt Marketing-Mix Daten: Umsatz pro Kampagne
+
+    Verwendet V_LIST_MONTHLY_SALES für Umsatz pro Kampagne (ID_CAMPAIGN)
+    """
+    try:
+        conn = get_connection()
+        df = pd.read_sql("""
+            SELECT
+                s.ID_STORE,
+                so.STORE_LOCATION AS StoreName,
+                CASE
+                    WHEN s.ID_CAMPAIGN = 0 THEN 'Organisch'
+                    ELSE c.CAMP_TYPE + ' / ' + c.CAMP_NAME
+                END AS Kanal,
+                SUM(s.RevenueEUR) AS Umsatz
+            FROM dbo.V_LIST_MONTHLY_SALES s
+            LEFT JOIN dbo.T_CAMPAIGN c ON s.ID_CAMPAIGN = c.ID_CAMPAIGN
+            INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
+            WHERE s.ID_STORE IN (3, 5, 14)
+            GROUP BY s.ID_STORE, so.STORE_LOCATION, s.ID_CAMPAIGN, c.CAMP_TYPE, c.CAMP_NAME
+        """, conn)
+        conn.close()
+        return df
+    except Exception as e:
+        return None
+
+@st.cache_data(ttl=300)
 def load_location_data():
     """Lädt Filialdaten aus T_LOCATION für Mietberechnung"""
     try:
@@ -209,7 +307,7 @@ if df is not None and len(df) > 0:
 
     if monat_col and filiale_col:
         # Alle verfügbaren Sections definieren
-        dashboard_all_sections = ['KPI-Karten', 'Margen-Vergleich', 'Kostenstruktur']
+        dashboard_all_sections = ['KPI-Karten', 'Margen-Vergleich', 'Kostenstruktur', 'Marketing-Analyse']
         cat_all_sections = ['Top/Flop Kategorien', 'Umsatzverteilung (Donut)', 'Umsatz-Vergleich',
                             'Stückzahlen', 'Bruttogewinn', 'Umsatz-Trend', 'Detaildaten']
 
@@ -339,6 +437,7 @@ if df is not None and len(df) > 0:
                 # KPI Cards - Übersichtlich nach Filiale gruppiert
                 if 'KPI-Karten' in selected_dashboard_sections:
                     st.subheader("📈 Vergleich Umsatz & Operativer Gewinn")
+                    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
                     kpi_cols = st.columns(len(active_stores))
 
@@ -558,6 +657,252 @@ if df is not None and len(df) > 0:
                                 transition={'duration': 500}
                             )
                             st.plotly_chart(fig, use_container_width=True)
+
+                # =========================================================
+                # MARKETING-ANALYSE
+                # =========================================================
+                if 'Marketing-Analyse' in selected_dashboard_sections:
+                    st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+                    st.subheader("📢 Marketing-Effizienz Analyse")
+                    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
+                    # ROAS-Daten laden (korrekte Berechnung mit Campaign ID)
+                    roas_data = load_marketing_roas_data()
+                    marketing_monthly = load_marketing_monthly()
+
+                    if roas_data is not None and not roas_data.empty:
+                        # Marketing-KPIs aus den korrekten ROAS-Daten
+                        marketing_kpis = {}
+                        for store in active_stores:
+                            # Daten für diesen Store finden
+                            store_row = roas_data[roas_data['StoreName'].str.contains(store['name'], case=False, na=False)]
+                            if not store_row.empty:
+                                row = store_row.iloc[0]
+                                umsatz_mit_marketing = row['UmsatzMitMarketing']
+                                umsatz_ohne_marketing = row['UmsatzOhneMarketing']
+                                umsatz_gesamt = row['UmsatzGesamt']
+                                marketing = row['MarketingKosten']
+                                roas = row['ROAS']
+                                cpa = row['CPA']
+                                stueck_mit_marketing = row['StueckMitMarketing']
+                                stueck_gesamt = row['StueckGesamt']
+                                marketing_quote = (marketing / umsatz_gesamt * 100) if umsatz_gesamt > 0 else 0
+                            else:
+                                umsatz_mit_marketing = 0
+                                umsatz_ohne_marketing = 0
+                                umsatz_gesamt = 0
+                                marketing = 0
+                                roas = 0
+                                cpa = 0
+                                stueck_mit_marketing = 0
+                                stueck_gesamt = 0
+                                marketing_quote = 0
+
+                            marketing_kpis[store['name']] = {
+                                'umsatz_mit_marketing': umsatz_mit_marketing,
+                                'umsatz_ohne_marketing': umsatz_ohne_marketing,
+                                'umsatz_gesamt': umsatz_gesamt,
+                                'marketing': marketing,
+                                'roas': roas,
+                                'cpa': cpa,
+                                'stueck_mit_marketing': stueck_mit_marketing,
+                                'stueck_gesamt': stueck_gesamt,
+                                'marketing_quote': marketing_quote
+                            }
+
+                        # Marketing-KPI Cards
+                        mkt_cols = st.columns(len(active_stores))
+
+                        for idx, store in enumerate(active_stores):
+                            mkpi = marketing_kpis[store['name']]
+                            with mkt_cols[idx]:
+                                st.markdown(f"""
+                                <div class="hover-card" style="background: {store['color_bg']}; border: 1px solid {store['color']};
+                                            border-radius: 15px; padding: 20px;">
+                                    <div style="font-size: 1.1em; font-weight: bold; color: {store['color']}; text-align: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                                        {store['name']}
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                        <div style="text-align: center;">
+                                            <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Umsatz mit Marketing</div>
+                                            <div style="color: #00ff88; font-size: 1em; font-weight: bold;">{format_currency(mkpi['umsatz_mit_marketing'])}</div>
+                                        </div>
+                                        <div style="text-align: center;">
+                                            <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Umsatz ohne Marketing</div>
+                                            <div style="color: #ff9f43; font-size: 1em; font-weight: bold;">{format_currency(mkpi['umsatz_ohne_marketing'])}</div>
+                                        </div>
+                                        <div style="text-align: center;">
+                                            <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Marketing-Kosten</div>
+                                            <div style="color: white; font-size: 1em; font-weight: bold;">{format_currency(mkpi['marketing'])}</div>
+                                        </div>
+                                        <div style="text-align: center;">
+                                            <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">ROAS</div>
+                                            <div style="color: #00ff88; font-size: 1.2em; font-weight: bold;">{mkpi['roas']:.1f}x</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+
+                        st.markdown("<br>", unsafe_allow_html=True)
+
+                        # Marketing-Trend und Marketing-Quote nebeneinander (wie EBIT-Margen)
+                        if selected_month == 'all':
+                            col_trend, col_quote = st.columns(2)
+
+                            with col_trend:
+                                st.markdown(chart_header(
+                                    "📈 Marketing-Ausgaben im Zeitverlauf",
+                                    "<strong>Monatliche Marketing-Investitionen</strong><br>Zeigt wie sich die Marketing-Ausgaben über die Monate entwickelt haben."
+                                ), unsafe_allow_html=True)
+
+                                fig_trend = go.Figure()
+
+                                for store in active_stores:
+                                    store_mkt = marketing_monthly[marketing_monthly['StoreName'].str.contains(store['name'], case=False, na=False)]
+                                    if not store_mkt.empty:
+                                        fig_trend.add_trace(go.Scatter(
+                                            x=store_mkt['Monat'],
+                                            y=store_mkt['MarketingEur'],
+                                            name=store['name'],
+                                            line=dict(color=store['color'], width=3),
+                                            mode='lines+markers'
+                                        ))
+
+                                fig_trend.update_layout(
+                                    paper_bgcolor='rgba(0,0,0,0)',
+                                    plot_bgcolor='rgba(0,0,0,0)',
+                                    font_color='white',
+                                    yaxis_title="Marketing (€)",
+                                    showlegend=True,
+                                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                                    transition={'duration': 500},
+                                    height=400
+                                )
+                                st.plotly_chart(fig_trend, use_container_width=True)
+
+                            with col_quote:
+                                st.markdown(chart_header(
+                                    "📊 Marketing-Quote",
+                                    "<strong>Marketing-Kosten / Gesamtumsatz × 100</strong><br>Zeigt wie viel Prozent vom Umsatz für Marketing ausgegeben wird. Niedrig = organisches Wachstum."
+                                ), unsafe_allow_html=True)
+
+                                # Marketing-Quote berechnen und als Bar Chart anzeigen
+                                quote_data = []
+                                for store in active_stores:
+                                    mkpi = marketing_kpis[store['name']]
+                                    quote = (mkpi['marketing'] / mkpi['umsatz_gesamt'] * 100) if mkpi['umsatz_gesamt'] > 0 else 0
+                                    quote_data.append({
+                                        'name': store['name'],
+                                        'quote': quote,
+                                        'color': store['color']
+                                    })
+
+                                fig_quote = go.Figure()
+                                fig_quote.add_trace(go.Bar(
+                                    x=[d['name'] for d in quote_data],
+                                    y=[d['quote'] for d in quote_data],
+                                    marker_color=[d['color'] for d in quote_data],
+                                    text=[f"{d['quote']:.2f}%" for d in quote_data],
+                                    textposition='outside'
+                                ))
+
+                                fig_quote.update_layout(
+                                    paper_bgcolor='rgba(0,0,0,0)',
+                                    plot_bgcolor='rgba(0,0,0,0)',
+                                    font_color='white',
+                                    yaxis_title="Marketing-Quote (%)",
+                                    showlegend=False,
+                                    transition={'duration': 500},
+                                    height=400,
+                                    yaxis=dict(range=[0, max([d['quote'] for d in quote_data]) * 1.3])
+                                )
+                                st.plotly_chart(fig_quote, use_container_width=True)
+
+                            # CPA als KPI-Karten (einfach und übersichtlich)
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            st.markdown(chart_header(
+                                "💰 CPA - Cost per Acquisition",
+                                "<strong>Marketing-Kosten / Verkaufte Stück</strong><br>Was kostet ein verkaufter Artikel an Werbung?"
+                            ), unsafe_allow_html=True)
+                            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+
+                            cpa_cols = st.columns(len(active_stores))
+                            for idx, store in enumerate(active_stores):
+                                mkpi = marketing_kpis[store['name']]
+                                with cpa_cols[idx]:
+                                    st.markdown(f"""
+                                    <div class="hover-card" style="background: {store['color_bg']}; border: 1px solid {store['color']};
+                                                border-radius: 12px; padding: 20px; text-align: center;">
+                                        <div style="color: {store['color']}; font-weight: bold; margin-bottom: 10px;">{store['name']}</div>
+                                        <div style="font-size: 2em; font-weight: bold; color: white;">{mkpi['cpa']:.2f} €</div>
+                                        <div style="color: #aaa; font-size: 0.8em;">pro Stück</div>
+                                        <div style="color: #aaa; font-size: 0.75em; margin-top: 8px;">{int(mkpi['stueck_mit_marketing']):,} Stück verkauft</div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                            # Marketing-Mix (Kanal-Vergleich)
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            st.markdown(chart_header(
+                                "📊 Marketing-Mix (Kanal-Vergleich)",
+                                "<strong>Umsatz-Anteil pro Kanal</strong><br>"
+                                "Zeigt den Anteil jedes Marketing-Kanals am Gesamt-Werbeumsatz."
+                            ), unsafe_allow_html=True)
+                            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+
+                            marketing_mix = load_marketing_mix_data()
+
+                            if marketing_mix is not None and not marketing_mix.empty:
+                                # Chart pro Store nebeneinander
+                                mix_cols = st.columns(len(active_stores))
+
+                                for idx, store in enumerate(active_stores):
+                                    with mix_cols[idx]:
+                                        # Daten für diesen Store
+                                        store_mix = marketing_mix[
+                                            marketing_mix['StoreName'].str.contains(store['name'], case=False, na=False)
+                                        ].copy()
+
+                                        if not store_mix.empty:
+                                            # Berechne Umsatz-Anteil (%)
+                                            total_umsatz = store_mix['Umsatz'].sum()
+                                            store_mix['UmsatzAnteil'] = (store_mix['Umsatz'] / total_umsatz * 100) if total_umsatz > 0 else 0
+
+                                            # Top 5 Kanäle nach Umsatz-Anteil
+                                            store_mix = store_mix.nlargest(5, 'UmsatzAnteil')
+
+                                            fig_mix = go.Figure()
+
+                                            # Balken: Umsatz-Anteil (Farbe des Stores)
+                                            fig_mix.add_trace(go.Bar(
+                                                name='Umsatz-Anteil',
+                                                x=store_mix['Kanal'],
+                                                y=store_mix['UmsatzAnteil'],
+                                                marker_color=store['color'],
+                                                text=[f"{a:.1f}%" for a in store_mix['UmsatzAnteil']],
+                                                textposition='outside',
+                                                textfont=dict(size=10)
+                                            ))
+
+                                            max_val = store_mix['UmsatzAnteil'].max()
+
+                                            fig_mix.update_layout(
+                                                title=dict(text=store['name'], font=dict(color=store['color'], size=14)),
+                                                paper_bgcolor='rgba(0,0,0,0)',
+                                                plot_bgcolor='rgba(0,0,0,0)',
+                                                font_color='white',
+                                                showlegend=False,
+                                                height=400,
+                                                margin=dict(t=60, b=100),
+                                                xaxis=dict(tickangle=-45, tickfont=dict(size=8)),
+                                                yaxis=dict(title="Anteil (%)", range=[0, max_val * 1.3] if max_val > 0 else [0, 100])
+                                            )
+                                            st.plotly_chart(fig_mix, use_container_width=True)
+                                        else:
+                                            st.info(f"Keine Marketing-Kanal-Daten für {store['name']}")
+                            else:
+                                st.info("Keine Marketing-Mix Daten verfügbar.")
+                    else:
+                        st.info("Keine Marketing-Daten verfügbar.")
 
             # =============================================================
             # TAB 2: KOSTENANALYSE (NEU - SUCCESS-konform)
