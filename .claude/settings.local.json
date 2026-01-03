@@ -5,7 +5,8 @@
       "Bash(open:*)",
       "Bash(pip install:*)",
       "Bash(python -m streamlit:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

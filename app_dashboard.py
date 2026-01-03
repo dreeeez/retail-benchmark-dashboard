@@ -169,11 +169,12 @@ def load_marketing_roas_data():
     except Exception as e:
         return None
 
-@st.cache_data(ttl=300)
-def load_marketing_mix_data():
-    """Lädt Marketing-Mix Daten: Umsatz pro Kampagne
+@st.cache_data(ttl=60)
+def load_revenue_with_without_campaign_monthly():
+    """Lädt monatlichen Umsatz MIT vs OHNE Kampagne für Jahresverlauf-Graph
 
-    Verwendet V_LIST_MONTHLY_SALES für Umsatz pro Kampagne (ID_CAMPAIGN)
+    Kampagne = NULL bedeutet OHNE Werbung
+    Kampagne != NULL bedeutet MIT Werbung
     """
     try:
         conn = get_connection()
@@ -181,20 +182,114 @@ def load_marketing_mix_data():
             SELECT
                 s.ID_STORE,
                 so.STORE_LOCATION AS StoreName,
-                CASE
-                    WHEN s.ID_CAMPAIGN = 0 THEN 'Organisch'
-                    ELSE c.CAMP_TYPE + ' / ' + c.CAMP_NAME
-                END AS Kanal,
-                SUM(s.RevenueEUR) AS Umsatz
+                FORMAT(s.ID_CALMONTH, 'yyyy-MM') AS Monat,
+                SUM(CASE WHEN s.ID_CAMPAIGN IS NULL OR s.ID_CAMPAIGN = 0 THEN s.RevenueEUR ELSE 0 END) AS UmsatzOhneKampagne,
+                SUM(CASE WHEN s.ID_CAMPAIGN IS NOT NULL AND s.ID_CAMPAIGN != 0 THEN s.RevenueEUR ELSE 0 END) AS UmsatzMitKampagne
             FROM dbo.V_LIST_MONTHLY_SALES s
-            LEFT JOIN dbo.T_CAMPAIGN c ON s.ID_CAMPAIGN = c.ID_CAMPAIGN
             INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
             WHERE s.ID_STORE IN (3, 5, 14)
-            GROUP BY s.ID_STORE, so.STORE_LOCATION, s.ID_CAMPAIGN, c.CAMP_TYPE, c.CAMP_NAME
+            GROUP BY s.ID_STORE, so.STORE_LOCATION, FORMAT(s.ID_CALMONTH, 'yyyy-MM')
+            ORDER BY s.ID_STORE, FORMAT(s.ID_CALMONTH, 'yyyy-MM')
         """, conn)
         conn.close()
         return df
     except Exception as e:
+        st.session_state['debug_revenue_error'] = str(e)
+        return None
+
+@st.cache_data(ttl=60)
+def load_campaign_revenue_data():
+    """Lädt Umsatz pro Marketing-Kampagne pro Filiale mit Kosten und ROAS
+
+    Einfacher Ansatz:
+    1. Umsatz pro Kampagne aus V_LIST_MONTHLY_SALES (ID_CAMPAIGN != 0)
+    2. Kosten pro Kampagne aus V_LIST_MONTHLY_COSTS (Kostenkategorie enthält Campaign ID)
+    3. ROAS = Umsatz / Kosten
+    """
+    import re
+    try:
+        conn = get_connection()
+
+        # Umsatz pro Kampagne pro Store
+        umsatz_df = pd.read_sql("""
+            SELECT
+                s.ID_STORE,
+                so.STORE_LOCATION AS StoreName,
+                s.ID_CAMPAIGN,
+                c.CAMP_TYPE + ': ' + c.CAMP_NAME AS Kampagne,
+                SUM(s.RevenueEUR) AS Umsatz
+            FROM dbo.V_LIST_MONTHLY_SALES s
+            INNER JOIN dbo.T_CAMPAIGN c ON s.ID_CAMPAIGN = c.ID_CAMPAIGN
+            INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
+            WHERE s.ID_STORE IN (3, 5, 14)
+            AND s.ID_CAMPAIGN != 0
+            GROUP BY s.ID_STORE, so.STORE_LOCATION, s.ID_CAMPAIGN, c.CAMP_TYPE, c.CAMP_NAME
+        """, conn)
+
+        # Lade alle Marketing-Kosten - Campaign-ID ist in BESCHREIBUNG!
+        # Format Beschreibung: "Marketing Campaign [22]: Google Ads" -> ID = 22
+        all_marketing_costs = pd.read_sql("""
+            SELECT ID_STORE, Beschreibung, SUM(WertEUR) as Kosten
+            FROM dbo.V_LIST_MONTHLY_COSTS
+            WHERE Kostenkategorie = 'Marketing Campaign'
+            AND ID_STORE IN (3, 5, 14)
+            GROUP BY ID_STORE, Beschreibung
+        """, conn)
+
+        # Debug: Speichere alle Marketing-Kategorien
+        st.session_state['debug_kategorien'] = all_marketing_costs.copy()
+
+        conn.close()
+
+        # Extrahiere Campaign-ID aus Beschreibung mit Python Regex
+        def extract_campaign_id(beschreibung):
+            match = re.search(r'\[(\d+)\]', str(beschreibung))
+            if match:
+                return int(match.group(1))
+            return None
+
+        if not all_marketing_costs.empty:
+            all_marketing_costs['ID_CAMPAIGN'] = all_marketing_costs['Beschreibung'].apply(extract_campaign_id)
+            # Filtere nur Zeilen mit gültiger Campaign-ID
+            kosten_df = all_marketing_costs[all_marketing_costs['ID_CAMPAIGN'].notna()].copy()
+            kosten_df = kosten_df.groupby(['ID_STORE', 'ID_CAMPAIGN'])['Kosten'].sum().reset_index()
+            kosten_df['ID_CAMPAIGN'] = kosten_df['ID_CAMPAIGN'].astype(int)
+        else:
+            kosten_df = pd.DataFrame(columns=['ID_STORE', 'ID_CAMPAIGN', 'Kosten'])
+
+        # Debug: Speichere Kosten-Info
+        st.session_state['debug_kosten_df'] = kosten_df if not kosten_df.empty else pd.DataFrame()
+
+        if umsatz_df.empty:
+            return None
+
+        # Merge Umsatz mit Kosten
+        merged = umsatz_df.merge(
+            kosten_df,
+            on=['ID_STORE', 'ID_CAMPAIGN'],
+            how='left'
+        )
+        merged['Kosten'] = merged['Kosten'].fillna(0)
+
+        # Gesamtumsatz pro Store für Anteil-Berechnung
+        store_totals = merged.groupby('ID_STORE')['Umsatz'].sum().reset_index()
+        store_totals.columns = ['ID_STORE', 'GesamtUmsatz']
+        merged = merged.merge(store_totals, on='ID_STORE')
+
+        # Anteil und ROAS berechnen
+        merged['AnteilProzent'] = (merged['Umsatz'] / merged['GesamtUmsatz'] * 100).round(2)
+        merged['ROAS'] = merged.apply(
+            lambda row: round(row['Umsatz'] / row['Kosten'], 2) if row['Kosten'] > 0 else None,
+            axis=1
+        )
+
+        # Sortieren nach Store und Umsatz
+        merged = merged.sort_values(['ID_STORE', 'Umsatz'], ascending=[True, False])
+
+        return merged
+
+    except Exception as e:
+        st.session_state['debug_error'] = str(e)
         return None
 
 @st.cache_data(ttl=300)
@@ -840,67 +935,177 @@ if df is not None and len(df) > 0:
                                     </div>
                                     """, unsafe_allow_html=True)
 
-                            # Marketing-Mix (Kanal-Vergleich)
+                            # =========================================================
+                            # NEU: Umsatz MIT vs OHNE Kampagne im Jahresverlauf
+                            # =========================================================
                             st.markdown("<br>", unsafe_allow_html=True)
                             st.markdown(chart_header(
-                                "📊 Marketing-Mix (Kanal-Vergleich)",
-                                "<strong>Umsatz-Anteil pro Kanal</strong><br>"
-                                "Zeigt den Anteil jedes Marketing-Kanals am Gesamt-Werbeumsatz."
+                                "📈 Umsatz mit vs. ohne Werbung im Jahresverlauf",
+                                "<strong>Vergleich Umsatz MIT Kampagne vs. OHNE Kampagne</strong><br>"
+                                "Grün = Umsatz durch Werbekampagnen generiert<br>"
+                                "Orange = Organischer Umsatz ohne Werbung"
                             ), unsafe_allow_html=True)
-                            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
 
-                            marketing_mix = load_marketing_mix_data()
+                            revenue_campaign_monthly = load_revenue_with_without_campaign_monthly()
 
-                            if marketing_mix is not None and not marketing_mix.empty:
-                                # Chart pro Store nebeneinander
-                                mix_cols = st.columns(len(active_stores))
+                            if revenue_campaign_monthly is not None and not revenue_campaign_monthly.empty:
+                                # Ein Graph pro Filiale nebeneinander
+                                rev_cols = st.columns(len(active_stores))
 
                                 for idx, store in enumerate(active_stores):
-                                    with mix_cols[idx]:
-                                        # Daten für diesen Store
-                                        store_mix = marketing_mix[
-                                            marketing_mix['StoreName'].str.contains(store['name'], case=False, na=False)
-                                        ].copy()
+                                    with rev_cols[idx]:
+                                        store_rev = revenue_campaign_monthly[
+                                            revenue_campaign_monthly['StoreName'].str.contains(store['name'], case=False, na=False)
+                                        ]
 
-                                        if not store_mix.empty:
-                                            # Berechne Umsatz-Anteil (%)
-                                            total_umsatz = store_mix['Umsatz'].sum()
-                                            store_mix['UmsatzAnteil'] = (store_mix['Umsatz'] / total_umsatz * 100) if total_umsatz > 0 else 0
+                                        if not store_rev.empty:
+                                            fig_rev = go.Figure()
 
-                                            # Top 5 Kanäle nach Umsatz-Anteil
-                                            store_mix = store_mix.nlargest(5, 'UmsatzAnteil')
-
-                                            fig_mix = go.Figure()
-
-                                            # Balken: Umsatz-Anteil (Farbe des Stores)
-                                            fig_mix.add_trace(go.Bar(
-                                                name='Umsatz-Anteil',
-                                                x=store_mix['Kanal'],
-                                                y=store_mix['UmsatzAnteil'],
-                                                marker_color=store['color'],
-                                                text=[f"{a:.1f}%" for a in store_mix['UmsatzAnteil']],
-                                                textposition='outside',
-                                                textfont=dict(size=10)
+                                            # Umsatz MIT Kampagne (grün)
+                                            fig_rev.add_trace(go.Scatter(
+                                                x=store_rev['Monat'],
+                                                y=store_rev['UmsatzMitKampagne'],
+                                                name='Mit Werbung',
+                                                line=dict(color='#00ff88', width=3),
+                                                mode='lines+markers',
+                                                fill='tozeroy',
+                                                fillcolor='rgba(0, 255, 136, 0.1)'
                                             ))
 
-                                            max_val = store_mix['UmsatzAnteil'].max()
+                                            # Umsatz OHNE Kampagne (orange)
+                                            fig_rev.add_trace(go.Scatter(
+                                                x=store_rev['Monat'],
+                                                y=store_rev['UmsatzOhneKampagne'],
+                                                name='Ohne Werbung',
+                                                line=dict(color='#ff9f43', width=3),
+                                                mode='lines+markers',
+                                                fill='tozeroy',
+                                                fillcolor='rgba(255, 159, 67, 0.1)'
+                                            ))
 
-                                            fig_mix.update_layout(
+                                            fig_rev.update_layout(
                                                 title=dict(text=store['name'], font=dict(color=store['color'], size=14)),
                                                 paper_bgcolor='rgba(0,0,0,0)',
                                                 plot_bgcolor='rgba(0,0,0,0)',
                                                 font_color='white',
-                                                showlegend=False,
-                                                height=400,
-                                                margin=dict(t=60, b=100),
-                                                xaxis=dict(tickangle=-45, tickfont=dict(size=8)),
-                                                yaxis=dict(title="Anteil (%)", range=[0, max_val * 1.3] if max_val > 0 else [0, 100])
+                                                yaxis_title="Umsatz (€)",
+                                                showlegend=True,
+                                                legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=10)),
+                                                transition={'duration': 500},
+                                                height=350,
+                                                margin=dict(t=60, b=40)
                                             )
-                                            st.plotly_chart(fig_mix, use_container_width=True)
+                                            st.plotly_chart(fig_rev, use_container_width=True)
                                         else:
-                                            st.info(f"Keine Marketing-Kanal-Daten für {store['name']}")
+                                            st.info(f"Keine Daten für {store['name']}")
                             else:
-                                st.info("Keine Marketing-Mix Daten verfügbar.")
+                                st.warning("Keine Umsatzdaten mit/ohne Kampagne verfügbar.")
+
+                            # Marketing-Kampagnen Umsatz-Anteil mit ROAS
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            st.markdown(chart_header(
+                                "📊 Top 5 Kampagnen pro Filiale (Umsatz & ROAS)",
+                                "<strong>Übersicht der Marketing-Kampagnen</strong><br>"
+                                "Anteil = Prozent vom kampagnenbezogenen Gesamtumsatz<br>"
+                                "Umsatz = durch Kampagne generierter Umsatz<br>"
+                                "ROAS = Return on Ad Spend (Umsatz/Kosten). ROAS > 1 = profitabel."
+                            ), unsafe_allow_html=True)
+                            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+
+                            campaign_data = load_campaign_revenue_data()
+
+                            # Debug: Zeige Kosten-Daten
+                            with st.expander("🔍 Debug: Kampagnen-Daten"):
+                                if 'debug_kategorien' in st.session_state and not st.session_state['debug_kategorien'].empty:
+                                    st.write("Alle Marketing-Kostenkategorien aus DB:")
+                                    st.dataframe(st.session_state['debug_kategorien'])
+                                else:
+                                    st.warning("Keine Marketing-Kategorien gefunden!")
+                                if 'debug_kosten_df' in st.session_state and not st.session_state['debug_kosten_df'].empty:
+                                    st.write("Extrahierte Kosten pro Campaign-ID:")
+                                    st.dataframe(st.session_state['debug_kosten_df'])
+                                else:
+                                    st.warning("Keine Kosten mit ID_CAMPAIGN extrahiert!")
+                                if 'debug_error' in st.session_state:
+                                    st.error(f"Fehler: {st.session_state['debug_error']}")
+                                if campaign_data is not None:
+                                    st.write("Alle Kampagnen-Daten:")
+                                    st.dataframe(campaign_data[['ID_STORE', 'ID_CAMPAIGN', 'Kampagne', 'Umsatz', 'Kosten', 'ROAS']].head(20))
+
+                            if campaign_data is not None and not campaign_data.empty:
+                                # Erstelle Spalten für die aktiven Filialen
+                                camp_cols = st.columns(len(active_stores))
+
+                                for idx, store in enumerate(active_stores):
+                                    with camp_cols[idx]:
+                                        # Filtere Daten für diese Filiale (nach Store ID)
+                                        store_data = campaign_data[campaign_data['ID_STORE'] == store['id']].copy()
+
+                                        if not store_data.empty:
+                                            # Top 5 Kampagnen für diese Filiale
+                                            top5 = store_data.head(5)
+
+                                            st.markdown(f"<div style='text-align: center; font-weight: bold; color: {store['color']}; margin-bottom: 15px; font-size: 1.1em;'>{store['name']}</div>", unsafe_allow_html=True)
+
+                                            # Tabelle als HTML für bessere Übersicht
+                                            table_html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">'
+                                            table_html += '<thead><tr style="background: rgba(255,255,255,0.1); color: #aaa;">'
+                                            table_html += '<th style="padding: 8px; text-align: left;">Kampagne</th>'
+                                            table_html += '<th style="padding: 8px; text-align: right;">Anteil</th>'
+                                            table_html += '<th style="padding: 8px; text-align: right;">Umsatz</th>'
+                                            table_html += '<th style="padding: 8px; text-align: right;">ROAS</th>'
+                                            table_html += '</tr></thead><tbody>'
+
+                                            for _, row in top5.iterrows():
+                                                kampagne = row['Kampagne']
+                                                # Kürze Kampagnennamen für bessere Darstellung
+                                                if len(kampagne) > 28:
+                                                    kampagne_short = kampagne[:25] + "..."
+                                                else:
+                                                    kampagne_short = kampagne
+
+                                                anteil = row['AnteilProzent']
+                                                umsatz = row['Umsatz']
+                                                kosten = row['Kosten']
+                                                roas = row['ROAS']
+
+                                                # ROAS-Farbe bestimmen
+                                                if pd.notna(roas) and kosten > 0:
+                                                    if roas >= 10:
+                                                        roas_color = '#00ff88'  # Grün
+                                                    elif roas >= 5:
+                                                        roas_color = '#ffd93d'  # Gelb
+                                                    else:
+                                                        roas_color = '#ff6b6b'  # Rot
+                                                    roas_text = f"{roas:.1f}x"
+                                                else:
+                                                    roas_color = '#666'
+                                                    roas_text = "-"
+
+                                                table_html += f'<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">'
+                                                table_html += f'<td style="padding: 8px; color: white;" title="{kampagne}">{kampagne_short}</td>'
+                                                table_html += f'<td style="padding: 8px; text-align: right; color: {store["color"]}; font-weight: bold;">{anteil:.1f}%</td>'
+                                                table_html += f'<td style="padding: 8px; text-align: right; color: #aaa;">{umsatz:,.0f}€</td>'.replace(",", ".")
+                                                table_html += f'<td style="padding: 8px; text-align: right; color: {roas_color}; font-weight: bold;">{roas_text}</td>'
+                                                table_html += '</tr>'
+
+                                            table_html += '</tbody></table>'
+                                            st.markdown(table_html, unsafe_allow_html=True)
+                                        else:
+                                            st.info(f"Keine Daten für {store['name']}")
+
+                                # Legende für ROAS-Farben
+                                st.markdown("""
+                                <div style='font-size: 0.75em; color: #aaa; text-align: center; margin-top: 15px;'>
+                                    <strong>ROAS:</strong>
+                                    <span style='color: #00ff88; margin-left: 8px;'>●</span> ≥10x (sehr gut) |
+                                    <span style='color: #ffd93d;'>●</span> 5-10x (gut) |
+                                    <span style='color: #ff6b6b;'>●</span> &lt;5x (verbesserungswürdig)
+                                </div>
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.info("Keine Kampagnen-Daten verfügbar.")
+
                     else:
                         st.info("Keine Marketing-Daten verfügbar.")
 
