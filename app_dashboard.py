@@ -403,8 +403,8 @@ if df is not None and len(df) > 0:
     if monat_col and filiale_col:
         # Alle verfügbaren Sections definieren
         dashboard_all_sections = ['KPI-Karten', 'Margen-Vergleich', 'Kostenstruktur', 'Marketing-Analyse']
-        cat_all_sections = ['Top/Flop Kategorien', 'Umsatzverteilung (Donut)', 'Umsatz-Vergleich',
-                            'Stückzahlen', 'Bruttogewinn', 'Umsatz-Trend', 'Detaildaten']
+        cat_all_sections = ['Umsatzverteilung (Donut)', 'Stückzahl-Anteil (%)', 'Bruttomarge (%)',
+                            'Bruttogewinn-Anteil (%)', 'Umsatz-Trend', 'Detaildaten']
 
         # Filter Section
         col_filter, col_indicator = st.columns([1, 3])
@@ -1198,8 +1198,6 @@ if df is not None and len(df) > 0:
 
                 selected_cat_sections = st.session_state.get('cat_multiselect', cat_all_sections)
 
-                st.subheader("🚲 Produktkategorien-Analyse")
-
                 # Kategorien-Daten laden
                 df_sales_agg = load_sales_agg_data()
 
@@ -1242,41 +1240,6 @@ if df is not None and len(df) > 0:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # Top/Flop Kategorien
-                        if 'Top/Flop Kategorien' in selected_cat_sections:
-                            st.markdown(chart_header(
-                                "🏆 Top & Flop Kategorien",
-                                "<strong>Ranking nach Gesamtumsatz</strong><br>Zeigt die umsatzstärksten (Top 3) und umsatzschwächsten (Bottom 3) Produktkategorien über alle Filialen."
-                            ), unsafe_allow_html=True)
-
-                            cat_revenue = df_filtered_cat.groupby(cat_col)[revenue_col].sum().sort_values(ascending=False)
-
-                            col_top, col_flop = st.columns(2)
-
-                            with col_top:
-                                st.markdown("**🔝 Top 3 Kategorien**")
-                                for i, (cat, rev) in enumerate(cat_revenue.head(3).items()):
-                                    color = get_category_color(cat)
-                                    st.markdown(f"""
-                                    <div style="background: rgba(0,255,136,0.1); border-left: 4px solid {color};
-                                                padding: 10px; margin: 5px 0; border-radius: 0 8px 8px 0;">
-                                        <strong>{i+1}. {cat}</strong><br>
-                                        <span style="color: #00ff88;">{format_currency(rev)}</span>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-
-                            with col_flop:
-                                st.markdown("**📉 Bottom 3 Kategorien**")
-                                for i, (cat, rev) in enumerate(cat_revenue.tail(3).items()):
-                                    color = get_category_color(cat)
-                                    st.markdown(f"""
-                                    <div style="background: rgba(255,71,87,0.1); border-left: 4px solid {color};
-                                                padding: 10px; margin: 5px 0; border-radius: 0 8px 8px 0;">
-                                        <strong>{6-i}. {cat}</strong><br>
-                                        <span style="color: #ff4757;">{format_currency(rev)}</span>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-
                         # Umsatzverteilung Donut
                         if 'Umsatzverteilung (Donut)' in selected_cat_sections:
                             st.markdown(chart_header(
@@ -1308,43 +1271,11 @@ if df is not None and len(df) > 0:
                                         )
                                         st.plotly_chart(fig, use_container_width=True)
 
-                        # Umsatz-Vergleich nach Kategorie
-                        if 'Umsatz-Vergleich' in selected_cat_sections:
+                        # Stückzahl-Anteil (%)
+                        if 'Stückzahl-Anteil (%)' in selected_cat_sections and quantity_col:
                             st.markdown(chart_header(
-                                "📊 Umsatz-Vergleich nach Kategorie",
-                                "<strong>Direkter Filialvergleich pro Kategorie</strong><br>Balkendiagramm zeigt Umsatz (EUR) jeder Filiale nebeneinander. Ideal für Performance-Vergleiche."
-                            ), unsafe_allow_html=True)
-
-                            fig = go.Figure()
-
-                            for store in active_stores:
-                                store_cat_data = filter_by_store(df_filtered_cat, store)
-                                cat_sums = store_cat_data.groupby(cat_col)[revenue_col].sum()
-
-                                fig.add_trace(go.Bar(
-                                    name=store['name'],
-                                    x=cat_sums.index,
-                                    y=cat_sums.values,
-                                    marker_color=store['color']
-                                ))
-
-                            fig.update_layout(
-                                barmode='group',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                font_color='white',
-                                xaxis_title="Kategorie",
-                                yaxis_title="Umsatz (€)",
-                                legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                                transition={'duration': 500}
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-
-                        # Stückzahlen
-                        if 'Stückzahlen' in selected_cat_sections and quantity_col:
-                            st.markdown(chart_header(
-                                "📦 Stückzahlen nach Kategorie",
-                                "<strong>Verkaufte Einheiten pro Kategorie</strong><br>Anzahl verkaufter Fahrräder je Kategorie und Filiale. Hohe Stückzahlen bei niedrigem Umsatz = günstige Produkte."
+                                "📦 Anteil an Gesamtstückzahl je Kategorie (%)",
+                                "<strong>Prozentuale Verteilung der verkauften Einheiten</strong><br>Zeigt welchen Anteil jede Kategorie an der Gesamtstückzahl pro Filiale hat."
                             ), unsafe_allow_html=True)
 
                             fig = go.Figure()
@@ -1352,12 +1283,16 @@ if df is not None and len(df) > 0:
                             for store in active_stores:
                                 store_cat_data = filter_by_store(df_filtered_cat, store)
                                 cat_sums = store_cat_data.groupby(cat_col)[quantity_col].sum()
+                                total_qty = cat_sums.sum()
+                                cat_pct = (cat_sums / total_qty * 100) if total_qty > 0 else cat_sums * 0
 
                                 fig.add_trace(go.Bar(
                                     name=store['name'],
-                                    x=cat_sums.index,
-                                    y=cat_sums.values,
-                                    marker_color=store['color']
+                                    x=cat_pct.index,
+                                    y=cat_pct.values,
+                                    marker_color=store['color'],
+                                    text=[f"{v:.1f}%" for v in cat_pct.values],
+                                    textposition='outside'
                                 ))
 
                             fig.update_layout(
@@ -1366,30 +1301,34 @@ if df is not None and len(df) > 0:
                                 plot_bgcolor='rgba(0,0,0,0)',
                                 font_color='white',
                                 xaxis_title="Kategorie",
-                                yaxis_title="Stückzahl",
+                                yaxis_title="Anteil (%)",
                                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                                 transition={'duration': 500}
                             )
                             st.plotly_chart(fig, use_container_width=True)
 
-                        # Bruttogewinn
-                        if 'Bruttogewinn' in selected_cat_sections and profit_col:
+                        # Bruttomarge (%)
+                        if 'Bruttomarge (%)' in selected_cat_sections and profit_col and revenue_col:
                             st.markdown(chart_header(
-                                "💰 Bruttogewinn nach Kategorie",
-                                "<strong>Bruttogewinn = Umsatz - Einkaufskosten</strong><br>Gewinn vor Abzug von Betriebskosten. Hoher Bruttogewinn = gute Marge auf die Produkte."
+                                "📈 Bruttomarge nach Kategorie (%)",
+                                "<strong>Bruttomarge = Bruttogewinn / Umsatz * 100</strong><br>Zeigt die prozentuale Gewinnspanne pro Kategorie. Höhere Werte = profitablere Produkte."
                             ), unsafe_allow_html=True)
 
                             fig = go.Figure()
 
                             for store in active_stores:
                                 store_cat_data = filter_by_store(df_filtered_cat, store)
-                                cat_sums = store_cat_data.groupby(cat_col)[profit_col].sum()
+                                cat_profit = store_cat_data.groupby(cat_col)[profit_col].sum()
+                                cat_revenue = store_cat_data.groupby(cat_col)[revenue_col].sum()
+                                cat_margin = (cat_profit / cat_revenue * 100).fillna(0)
 
                                 fig.add_trace(go.Bar(
                                     name=store['name'],
-                                    x=cat_sums.index,
-                                    y=cat_sums.values,
-                                    marker_color=store['color']
+                                    x=cat_margin.index,
+                                    y=cat_margin.values,
+                                    marker_color=store['color'],
+                                    text=[f"{v:.1f}%" for v in cat_margin.values],
+                                    textposition='outside'
                                 ))
 
                             fig.update_layout(
@@ -1398,7 +1337,43 @@ if df is not None and len(df) > 0:
                                 plot_bgcolor='rgba(0,0,0,0)',
                                 font_color='white',
                                 xaxis_title="Kategorie",
-                                yaxis_title="Bruttogewinn (€)",
+                                yaxis_title="Bruttomarge (%)",
+                                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                                transition={'duration': 500}
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+
+                        # Bruttogewinn-Anteil (%)
+                        if 'Bruttogewinn-Anteil (%)' in selected_cat_sections and profit_col:
+                            st.markdown(chart_header(
+                                "💰 Bruttogewinn-Anteil je Kategorie (%)",
+                                "<strong>Anteil am Gesamtbruttogewinn</strong><br>Zeigt welchen Anteil jede Kategorie am gesamten Bruttogewinn der Filiale hat."
+                            ), unsafe_allow_html=True)
+
+                            fig = go.Figure()
+
+                            for store in active_stores:
+                                store_cat_data = filter_by_store(df_filtered_cat, store)
+                                cat_profit = store_cat_data.groupby(cat_col)[profit_col].sum()
+                                total_profit = cat_profit.sum()
+                                cat_pct = (cat_profit / total_profit * 100) if total_profit > 0 else cat_profit * 0
+
+                                fig.add_trace(go.Bar(
+                                    name=store['name'],
+                                    x=cat_pct.index,
+                                    y=cat_pct.values,
+                                    marker_color=store['color'],
+                                    text=[f"{v:.1f}%" for v in cat_pct.values],
+                                    textposition='outside'
+                                ))
+
+                            fig.update_layout(
+                                barmode='group',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                font_color='white',
+                                xaxis_title="Kategorie",
+                                yaxis_title="Anteil am Bruttogewinn (%)",
                                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
                                 transition={'duration': 500}
                             )
