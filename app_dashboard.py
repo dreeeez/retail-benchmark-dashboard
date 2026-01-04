@@ -445,7 +445,7 @@ if df is not None and len(df) > 0:
         # Alle verfügbaren Sections definieren
         dashboard_all_sections = ['KPI-Karten', 'Margen-Vergleich', 'Kostenstruktur']
         cat_all_sections = ['Umsatzverteilung (Donut)', 'Stückzahl-Anteil (%)', 'Bruttomarge (%)',
-                            'Bruttogewinn-Anteil (%)', 'Umsatz-Trend', 'Detaildaten']
+                            'Bruttogewinn-Anteil (%)', 'Umsatz-Trend']
 
         # Filter Section
         col_filter, col_indicator = st.columns([1, 3])
@@ -812,7 +812,7 @@ if df is not None and len(df) > 0:
                                 </div>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                     <div style="text-align: center;">
-                                        <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Umsatz mit Marketing</div>
+                                        <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Umsatz direkt zurechenbar zu Marketing</div>
                                         <div style="color: #00ff88; font-size: 1em; font-weight: bold;">{format_currency(mkpi['umsatz_mit_marketing'])}</div>
                                     </div>
                                     <div style="text-align: center;">
@@ -927,177 +927,6 @@ if df is not None and len(df) > 0:
                             </div>
                             """, unsafe_allow_html=True)
 
-                    # =========================================================
-                    # Umsatz MIT vs OHNE Kampagne im Jahresverlauf
-                    # =========================================================
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown(chart_header(
-                        "📈 Umsatz mit vs. ohne Werbung im Jahresverlauf",
-                        "<strong>Vergleich Umsatz MIT Kampagne vs. OHNE Kampagne</strong><br>"
-                        "Grün = Umsatz durch Werbekampagnen generiert<br>"
-                        "Orange = Organischer Umsatz ohne Werbung"
-                    ), unsafe_allow_html=True)
-
-                    revenue_campaign_monthly = load_revenue_with_without_campaign_monthly()
-
-                    if revenue_campaign_monthly is not None and not revenue_campaign_monthly.empty:
-                        # Ein Graph pro Filiale nebeneinander
-                        rev_cols = st.columns(len(active_stores))
-
-                        for idx, store in enumerate(active_stores):
-                            with rev_cols[idx]:
-                                store_rev = revenue_campaign_monthly[
-                                    revenue_campaign_monthly['StoreName'].str.contains(store['name'], case=False, na=False)
-                                ]
-
-                                if not store_rev.empty:
-                                    fig_rev = go.Figure()
-
-                                    # Umsatz MIT Kampagne (grün)
-                                    fig_rev.add_trace(go.Scatter(
-                                        x=store_rev['Monat'],
-                                        y=store_rev['UmsatzMitKampagne'],
-                                        name='Mit Werbung',
-                                        line=dict(color='#00ff88', width=3),
-                                        mode='lines+markers',
-                                        fill='tozeroy',
-                                        fillcolor='rgba(0, 255, 136, 0.1)'
-                                    ))
-
-                                    # Umsatz OHNE Kampagne (orange)
-                                    fig_rev.add_trace(go.Scatter(
-                                        x=store_rev['Monat'],
-                                        y=store_rev['UmsatzOhneKampagne'],
-                                        name='Ohne Werbung',
-                                        line=dict(color='#ff9f43', width=3),
-                                        mode='lines+markers',
-                                        fill='tozeroy',
-                                        fillcolor='rgba(255, 159, 67, 0.1)'
-                                    ))
-
-                                    fig_rev.update_layout(
-                                        title=dict(text=store['name'], font=dict(color=store['color'], size=14)),
-                                        paper_bgcolor='rgba(0,0,0,0)',
-                                        plot_bgcolor='rgba(0,0,0,0)',
-                                        font_color='white',
-                                        yaxis_title="Umsatz (€)",
-                                        showlegend=True,
-                                        legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(size=10)),
-                                        transition={'duration': 500},
-                                        height=350,
-                                        margin=dict(t=60, b=40)
-                                    )
-                                    st.plotly_chart(fig_rev, use_container_width=True)
-                                else:
-                                    st.info(f"Keine Daten für {store['name']}")
-                    else:
-                        st.warning("Keine Umsatzdaten mit/ohne Kampagne verfügbar.")
-
-                    # Marketing-Kampagnen Umsatz-Anteil mit ROAS
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown(chart_header(
-                        "📊 Top 5 Kampagnen pro Filiale (Umsatz & ROAS)",
-                        "<strong>Übersicht der Marketing-Kampagnen</strong><br>"
-                        "Anteil = Prozent vom kampagnenbezogenen Gesamtumsatz<br>"
-                        "Umsatz = durch Kampagne generierter Umsatz<br>"
-                        "ROAS = Return on Ad Spend (Umsatz/Kosten). ROAS > 1 = profitabel."
-                    ), unsafe_allow_html=True)
-                    st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
-
-                    campaign_data = load_campaign_revenue_data()
-
-                    # Debug: Zeige Kosten-Daten
-                    with st.expander("🔍 Debug: Kampagnen-Daten"):
-                        if 'debug_kategorien' in st.session_state and not st.session_state['debug_kategorien'].empty:
-                            st.write("Alle Marketing-Kostenkategorien aus DB:")
-                            st.dataframe(st.session_state['debug_kategorien'])
-                        else:
-                            st.warning("Keine Marketing-Kategorien gefunden!")
-                        if 'debug_kosten_df' in st.session_state and not st.session_state['debug_kosten_df'].empty:
-                            st.write("Extrahierte Kosten pro Campaign-ID:")
-                            st.dataframe(st.session_state['debug_kosten_df'])
-                        else:
-                            st.warning("Keine Kosten mit ID_CAMPAIGN extrahiert!")
-                        if 'debug_error' in st.session_state:
-                            st.error(f"Fehler: {st.session_state['debug_error']}")
-                        if campaign_data is not None:
-                            st.write("Alle Kampagnen-Daten:")
-                            st.dataframe(campaign_data[['ID_STORE', 'ID_CAMPAIGN', 'Kampagne', 'Umsatz', 'Kosten', 'ROAS']].head(20))
-
-                    if campaign_data is not None and not campaign_data.empty:
-                        # Erstelle Spalten für die aktiven Filialen
-                        camp_cols = st.columns(len(active_stores))
-
-                        for idx, store in enumerate(active_stores):
-                            with camp_cols[idx]:
-                                # Filtere Daten für diese Filiale (nach Store ID)
-                                store_data = campaign_data[campaign_data['ID_STORE'] == store['id']].copy()
-
-                                if not store_data.empty:
-                                    # Top 5 Kampagnen für diese Filiale
-                                    top5 = store_data.head(5)
-
-                                    st.markdown(f"<div style='text-align: center; font-weight: bold; color: {store['color']}; margin-bottom: 15px; font-size: 1.1em;'>{store['name']}</div>", unsafe_allow_html=True)
-
-                                    # Tabelle als HTML für bessere Übersicht
-                                    table_html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">'
-                                    table_html += '<thead><tr style="background: rgba(255,255,255,0.1); color: #aaa;">'
-                                    table_html += '<th style="padding: 8px; text-align: left;">Kampagne</th>'
-                                    table_html += '<th style="padding: 8px; text-align: right;">Anteil</th>'
-                                    table_html += '<th style="padding: 8px; text-align: right;">Umsatz</th>'
-                                    table_html += '<th style="padding: 8px; text-align: right;">ROAS</th>'
-                                    table_html += '</tr></thead><tbody>'
-
-                                    for _, row in top5.iterrows():
-                                        kampagne = row['Kampagne']
-                                        # Kürze Kampagnennamen für bessere Darstellung
-                                        if len(kampagne) > 28:
-                                            kampagne_short = kampagne[:25] + "..."
-                                        else:
-                                            kampagne_short = kampagne
-
-                                        anteil = row['AnteilProzent']
-                                        umsatz = row['Umsatz']
-                                        kosten = row['Kosten']
-                                        roas = row['ROAS']
-
-                                        # ROAS-Farbe bestimmen
-                                        if pd.notna(roas) and kosten > 0:
-                                            if roas >= 10:
-                                                roas_color = '#00ff88'  # Grün
-                                            elif roas >= 5:
-                                                roas_color = '#ffd93d'  # Gelb
-                                            else:
-                                                roas_color = '#ff6b6b'  # Rot
-                                            roas_text = f"{roas:.1f}x"
-                                        else:
-                                            roas_color = '#666'
-                                            roas_text = "-"
-
-                                        table_html += f'<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">'
-                                        table_html += f'<td style="padding: 8px; color: white;" title="{kampagne}">{kampagne_short}</td>'
-                                        table_html += f'<td style="padding: 8px; text-align: right; color: {store["color"]}; font-weight: bold;">{anteil:.1f}%</td>'
-                                        table_html += f'<td style="padding: 8px; text-align: right; color: #aaa;">{umsatz:,.0f}€</td>'.replace(",", ".")
-                                        table_html += f'<td style="padding: 8px; text-align: right; color: {roas_color}; font-weight: bold;">{roas_text}</td>'
-                                        table_html += '</tr>'
-
-                                    table_html += '</tbody></table>'
-                                    st.markdown(table_html, unsafe_allow_html=True)
-                                else:
-                                    st.info(f"Keine Daten für {store['name']}")
-
-                        # Legende für ROAS-Farben
-                        st.markdown("""
-                        <div style='font-size: 0.75em; color: #aaa; text-align: center; margin-top: 15px;'>
-                            <strong>ROAS:</strong>
-                            <span style='color: #00ff88; margin-left: 8px;'>●</span> ≥10x (sehr gut) |
-                            <span style='color: #ffd93d;'>●</span> 5-10x (gut) |
-                            <span style='color: #ff6b6b;'>●</span> &lt;5x (verbesserungswürdig)
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.info("Keine Kampagnen-Daten verfügbar.")
-
                 else:
                     st.info("Keine Marketing-Daten verfügbar.")
 
@@ -1175,83 +1004,7 @@ if df is not None and len(df) > 0:
                 rent_m2_data = load_rent_and_revenue_per_m2()
 
                 if rent_m2_data is not None and not rent_m2_data.empty:
-                    # Mietkosten (absolut) und Umsatz pro m² nebeneinander
-                    col_miete, col_umsatz_m2 = st.columns(2)
-
-                    with col_miete:
-                        st.markdown(chart_header(
-                            "🏠 Mietkosten (absolut)",
-                            "<strong>Gesamte Mietkosten pro Filiale</strong><br>Summe aller monatlichen Mietkosten aus V_LIST_MONTHLY_COSTS."
-                        ), unsafe_allow_html=True)
-
-                        fig_miete = go.Figure()
-                        miete_values = []
-                        store_names_miete = []
-
-                        for store in active_stores:
-                            store_rent = rent_m2_data[rent_m2_data['ID_STORE'] == store['id']]
-                            if not store_rent.empty:
-                                miete = store_rent.iloc[0]['MietkostenGesamt']
-                                miete_values.append(miete)
-                                store_names_miete.append(store['name'])
-
-                        fig_miete.add_trace(go.Bar(
-                            x=store_names_miete,
-                            y=miete_values,
-                            marker_color=[s['color'] for s in active_stores],
-                            text=[format_currency(v) for v in miete_values],
-                            textposition='outside'
-                        ))
-
-                        fig_miete.update_layout(
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            font_color='white',
-                            yaxis_title="Mietkosten (€)",
-                            showlegend=False,
-                            transition={'duration': 500},
-                            height=400
-                        )
-                        st.plotly_chart(fig_miete, use_container_width=True)
-
-                    with col_umsatz_m2:
-                        st.markdown(chart_header(
-                            "📐 Umsatz pro m²",
-                            "<strong>Flächenproduktivität</strong><br>Gesamtumsatz geteilt durch Ladenfläche in m². Höher = effizientere Flächennutzung."
-                        ), unsafe_allow_html=True)
-
-                        fig_m2 = go.Figure()
-                        umsatz_m2_values = []
-                        store_names_m2 = []
-
-                        for store in active_stores:
-                            store_data = rent_m2_data[rent_m2_data['ID_STORE'] == store['id']]
-                            if not store_data.empty:
-                                umsatz_m2 = store_data.iloc[0]['UmsatzProM2']
-                                umsatz_m2_values.append(umsatz_m2)
-                                store_names_m2.append(store['name'])
-
-                        fig_m2.add_trace(go.Bar(
-                            x=store_names_m2,
-                            y=umsatz_m2_values,
-                            marker_color=[s['color'] for s in active_stores],
-                            text=[f"{v:,.0f} €/m²".replace(",", ".") for v in umsatz_m2_values],
-                            textposition='outside'
-                        ))
-
-                        fig_m2.update_layout(
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            font_color='white',
-                            yaxis_title="Umsatz pro m² (€)",
-                            showlegend=False,
-                            transition={'duration': 500},
-                            height=400
-                        )
-                        st.plotly_chart(fig_m2, use_container_width=True)
-
                     # Details-Tabelle mit allen Werten
-                    st.markdown("<br>", unsafe_allow_html=True)
                     st.markdown(chart_header(
                         "📋 Filialdetails (Fläche & Effizienz)",
                         "<strong>Übersicht Fläche, Miete und Umsatzeffizienz</strong><br>Alle Kennzahlen zur Flächennutzung im Überblick."
@@ -1390,116 +1143,117 @@ if df is not None and len(df) > 0:
                                 "<strong>Prozentuale Verteilung der verkauften Einheiten</strong><br>Zeigt welchen Anteil jede Kategorie an der Gesamtstückzahl pro Filiale hat."
                             ), unsafe_allow_html=True)
 
-                            fig = go.Figure()
+                            # Daten für Tabelle sammeln
+                            all_cats = df_filtered_cat[cat_col].unique()
+                            store_qty_pct = {}
 
                             for store in active_stores:
                                 store_cat_data = filter_by_store(df_filtered_cat, store)
                                 cat_sums = store_cat_data.groupby(cat_col)[quantity_col].sum()
                                 total_qty = cat_sums.sum()
                                 cat_pct = (cat_sums / total_qty * 100) if total_qty > 0 else cat_sums * 0
+                                store_qty_pct[store['name']] = cat_pct
 
-                                fig.add_trace(go.Bar(
-                                    name=store['name'],
-                                    y=cat_pct.index,
-                                    x=cat_pct.values,
-                                    orientation='h',
-                                    marker_color=store['color'],
-                                    text=[f"{v:.1f}%" for v in cat_pct.values],
-                                    textposition='outside'
-                                ))
-
-                            fig.update_layout(
-                                barmode='group',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                font_color='white',
-                                xaxis_title="Anteil (%)",
-                                yaxis_title="",
-                                legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                                transition={'duration': 500},
-                                height=450
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-
-                        # Bruttomarge (%)
-                        if 'Bruttomarge (%)' in selected_cat_sections and profit_col and revenue_col:
-                            st.markdown(chart_header(
-                                "📈 Bruttomarge nach Kategorie (%)",
-                                "<strong>Bruttomarge = Bruttogewinn / Umsatz * 100</strong><br>Zeigt die prozentuale Gewinnspanne pro Kategorie. Höhere Werte = profitablere Produkte."
-                            ), unsafe_allow_html=True)
-
-                            fig = go.Figure()
-
+                            # HTML-Tabelle erstellen
+                            qty_table = '<table style="width: 100%; border-collapse: collapse; font-size: 1.1em;">'
+                            qty_table += '<thead><tr style="background: rgba(255,255,255,0.1); color: #aaa;">'
+                            qty_table += '<th style="padding: 12px; text-align: left;">Kategorie</th>'
                             for store in active_stores:
-                                store_cat_data = filter_by_store(df_filtered_cat, store)
-                                cat_profit = store_cat_data.groupby(cat_col)[profit_col].sum()
-                                cat_revenue = store_cat_data.groupby(cat_col)[revenue_col].sum()
-                                cat_margin = (cat_profit / cat_revenue * 100).fillna(0)
+                                qty_table += f'<th style="padding: 12px; text-align: center; color: {store["color"]};">{store["name"]}</th>'
+                            qty_table += '</tr></thead><tbody>'
 
-                                fig.add_trace(go.Bar(
-                                    name=store['name'],
-                                    x=cat_margin.index,
-                                    y=cat_margin.values,
-                                    marker_color=store['color'],
-                                    text=[f"{v:.1f}%" for v in cat_margin.values],
-                                    textposition='outside'
-                                ))
+                            for cat in sorted(all_cats):
+                                qty_table += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">'
+                                qty_table += f'<td style="padding: 12px; color: white;">{cat}</td>'
+                                for store in active_stores:
+                                    pct = store_qty_pct[store['name']].get(cat, 0)
+                                    qty_table += f'<td style="padding: 12px; text-align: center; color: {store["color"]}; font-weight: bold;">{pct:.1f}%</td>'
+                                qty_table += '</tr>'
 
-                            fig.update_layout(
-                                barmode='group',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                font_color='white',
-                                xaxis_title="Kategorie",
-                                yaxis_title="Bruttomarge (%)",
-                                legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                                transition={'duration': 500}
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
+                            qty_table += '</tbody></table>'
+                            st.markdown(qty_table, unsafe_allow_html=True)
 
-                        # Bruttogewinn-Anteil (%)
-                        if 'Bruttogewinn-Anteil (%)' in selected_cat_sections and profit_col:
-                            st.markdown(chart_header(
-                                "💰 Bruttogewinn-Anteil je Kategorie (%)",
-                                "<strong>Anteil am Gesamtbruttogewinn</strong><br>Zeigt welchen Anteil jede Kategorie am gesamten Bruttogewinn der Filiale hat."
-                            ), unsafe_allow_html=True)
+                        # Bruttomarge und Bruttogewinn-Anteil nebeneinander
+                        show_bruttomarge = 'Bruttomarge (%)' in selected_cat_sections and profit_col and revenue_col
+                        show_bruttogewinn_anteil = 'Bruttogewinn-Anteil (%)' in selected_cat_sections and profit_col
 
-                            fig = go.Figure()
+                        if show_bruttomarge or show_bruttogewinn_anteil:
+                            col_margin, col_profit = st.columns(2)
 
-                            for store in active_stores:
-                                store_cat_data = filter_by_store(df_filtered_cat, store)
-                                cat_profit = store_cat_data.groupby(cat_col)[profit_col].sum()
-                                total_profit = cat_profit.sum()
-                                cat_pct = (cat_profit / total_profit * 100) if total_profit > 0 else cat_profit * 0
+                            # Bruttomarge (%)
+                            if show_bruttomarge:
+                                with col_margin:
+                                    st.markdown(chart_header(
+                                        "📈 Bruttomarge nach Kategorie (%)",
+                                        "<strong>Bruttomarge = Bruttogewinn / Umsatz * 100</strong><br>Zeigt die prozentuale Gewinnspanne pro Kategorie. Höhere Werte = profitablere Produkte."
+                                    ), unsafe_allow_html=True)
 
-                                fig.add_trace(go.Bar(
-                                    name=store['name'],
-                                    x=cat_pct.index,
-                                    y=cat_pct.values,
-                                    marker_color=store['color'],
-                                    text=[f"{v:.1f}%" for v in cat_pct.values],
-                                    textposition='outside'
-                                ))
+                                    fig = go.Figure()
 
-                            fig.update_layout(
-                                barmode='group',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                font_color='white',
-                                xaxis_title="Kategorie",
-                                yaxis_title="Anteil am Bruttogewinn (%)",
-                                legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                                transition={'duration': 500}
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
+                                    for store in active_stores:
+                                        store_cat_data = filter_by_store(df_filtered_cat, store)
+                                        cat_profit = store_cat_data.groupby(cat_col)[profit_col].sum()
+                                        cat_revenue = store_cat_data.groupby(cat_col)[revenue_col].sum()
+                                        cat_margin = (cat_profit / cat_revenue * 100).fillna(0)
 
-                        # Detaildaten
-                        if 'Detaildaten' in selected_cat_sections:
-                            st.markdown(chart_header(
-                                "📋 Detaildaten Kategorien",
-                                "<strong>Aggregierte Kategoriedaten</strong><br>Alle Kategoriedaten inkl. Umsatz, Stückzahlen, Preise und Gewinne pro Filiale und Monat."
-                            ), unsafe_allow_html=True)
-                            st.dataframe(df_filtered_cat, use_container_width=True)
+                                        fig.add_trace(go.Bar(
+                                            name=store['name'],
+                                            x=cat_margin.index,
+                                            y=cat_margin.values,
+                                            marker_color=store['color'],
+                                            text=[f"{v:.1f}%" for v in cat_margin.values],
+                                            textposition='outside'
+                                        ))
+
+                                    fig.update_layout(
+                                        barmode='group',
+                                        paper_bgcolor='rgba(0,0,0,0)',
+                                        plot_bgcolor='rgba(0,0,0,0)',
+                                        font_color='white',
+                                        xaxis_title="Kategorie",
+                                        yaxis_title="Bruttomarge (%)",
+                                        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                                        transition={'duration': 500}
+                                    )
+                                    st.plotly_chart(fig, use_container_width=True)
+
+                            # Bruttogewinn-Anteil (%)
+                            if show_bruttogewinn_anteil:
+                                with col_profit:
+                                    st.markdown(chart_header(
+                                        "💰 Bruttogewinn-Anteil je Kategorie (%)",
+                                        "<strong>Anteil am Gesamtbruttogewinn</strong><br>Zeigt welchen Anteil jede Kategorie am gesamten Bruttogewinn der Filiale hat."
+                                    ), unsafe_allow_html=True)
+
+                                    fig = go.Figure()
+
+                                    for store in active_stores:
+                                        store_cat_data = filter_by_store(df_filtered_cat, store)
+                                        cat_profit = store_cat_data.groupby(cat_col)[profit_col].sum()
+                                        total_profit = cat_profit.sum()
+                                        cat_pct = (cat_profit / total_profit * 100) if total_profit > 0 else cat_profit * 0
+
+                                        fig.add_trace(go.Bar(
+                                            name=store['name'],
+                                            x=cat_pct.index,
+                                            y=cat_pct.values,
+                                            marker_color=store['color'],
+                                            text=[f"{v:.1f}%" for v in cat_pct.values],
+                                            textposition='outside'
+                                        ))
+
+                                    fig.update_layout(
+                                        barmode='group',
+                                        paper_bgcolor='rgba(0,0,0,0)',
+                                        plot_bgcolor='rgba(0,0,0,0)',
+                                        font_color='white',
+                                        xaxis_title="Kategorie",
+                                        yaxis_title="Anteil am Bruttogewinn (%)",
+                                        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                                        transition={'duration': 500}
+                                    )
+                                    st.plotly_chart(fig, use_container_width=True)
+
                 else:
                     st.warning("Keine Kategoriedaten verfügbar.")
 
