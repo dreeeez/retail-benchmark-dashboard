@@ -134,27 +134,29 @@ def load_marketing_roas_data():
         # Umsatz mit und ohne Marketing aus Sales + Stückzahlen
         umsatz_df = pd.read_sql("""
             SELECT
-                StoreName,
-                ID_STORE,
-                SUM(CASE WHEN ID_CAMPAIGN != 0 THEN RevenueEUR ELSE 0 END) as UmsatzMitMarketing,
-                SUM(CASE WHEN ID_CAMPAIGN = 0 THEN RevenueEUR ELSE 0 END) as UmsatzOhneMarketing,
-                SUM(RevenueEUR) as UmsatzGesamt,
-                SUM(CASE WHEN ID_CAMPAIGN != 0 THEN SalesAmount ELSE 0 END) as StueckMitMarketing,
-                SUM(SalesAmount) as StueckGesamt
-            FROM dbo.V_LIST_MONTHLY_SALES
-            WHERE ID_STORE IN (3, 5, 14)
-            GROUP BY StoreName, ID_STORE
+                so.STORE_LOCATION AS StoreName,
+                s.ID_STORE,
+                SUM(CASE WHEN s.ID_CAMPAIGN != 0 THEN s.RevenueEUR ELSE 0 END) as UmsatzMitMarketing,
+                SUM(CASE WHEN s.ID_CAMPAIGN = 0 THEN s.RevenueEUR ELSE 0 END) as UmsatzOhneMarketing,
+                SUM(s.RevenueEUR) as UmsatzGesamt,
+                SUM(CASE WHEN s.ID_CAMPAIGN != 0 THEN s.SalesAmount ELSE 0 END) as StueckMitMarketing,
+                SUM(s.SalesAmount) as StueckGesamt
+            FROM dbo.V_LIST_MONTHLY_SALES s
+            INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
+            WHERE s.ID_STORE IN (3, 5, 14)
+            GROUP BY so.STORE_LOCATION, s.ID_STORE
         """, conn)
 
         # Marketing-Kosten
         marketing_df = pd.read_sql("""
             SELECT
-                StoreName,
-                SUM(WertEUR) as MarketingKosten
-            FROM dbo.V_LIST_MONTHLY_COSTS
-            WHERE Kostenkategorie LIKE 'Marketing Campaign%'
-            AND ID_STORE IN (3, 5, 14)
-            GROUP BY StoreName
+                so.STORE_LOCATION AS StoreName,
+                SUM(c.WertEUR) as MarketingKosten
+            FROM dbo.V_LIST_MONTHLY_COSTS c
+            INNER JOIN dbo.T_SALESORG so ON c.ID_STORE = so.SALESORG_ID
+            WHERE c.Kostenkategorie LIKE 'Marketing Campaign%'
+            AND c.ID_STORE IN (3, 5, 14)
+            GROUP BY so.STORE_LOCATION
         """, conn)
 
         conn.close()
@@ -290,6 +292,31 @@ def load_campaign_revenue_data():
 
     except Exception as e:
         st.session_state['debug_error'] = str(e)
+        return None
+
+@st.cache_data(ttl=300)
+def load_price_segment_data():
+    """Lädt Umsatzverteilung nach Preissegment (Premium, Standard, Budget) pro Filiale"""
+    try:
+        conn = get_connection()
+        df = pd.read_sql("""
+            SELECT
+                s.ID_STORE,
+                so.STORE_LOCATION AS StoreName,
+                ps.SEGMENT AS Preissegment,
+                SUM(s.RevenueEUR) AS Umsatz,
+                SUM(s.SalesAmount) AS Stueckzahl
+            FROM dbo.V_LIST_MONTHLY_SALES s
+            INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
+            INNER JOIN dbo.T_MATERIAL m ON s.ID_MATERIAL = m.ID_MAT
+            INNER JOIN dbo.T_PRICE_SEGMENT ps ON m.ID_SEGMENT = ps.ID_SEGMENT
+            WHERE s.ID_STORE IN (3, 5, 14)
+            GROUP BY s.ID_STORE, so.STORE_LOCATION, ps.SEGMENT
+            ORDER BY s.ID_STORE, SUM(s.RevenueEUR) DESC
+        """, conn)
+        conn.close()
+        return df
+    except Exception as e:
         return None
 
 @st.cache_data(ttl=300)
@@ -1253,6 +1280,49 @@ if df is not None and len(df) > 0:
                                         transition={'duration': 500}
                                     )
                                     st.plotly_chart(fig, use_container_width=True)
+
+                        # Preissegment-Vergleich
+                        st.markdown(chart_header(
+                            "💎 Umsatzverteilung nach Preissegment (%)",
+                            "<strong>Anteil der Preissegmente am Gesamtumsatz</strong><br>Zeigt wie sich der Umsatz auf Premium, Standard und Budget verteilt."
+                        ), unsafe_allow_html=True)
+
+                        price_segment_data = load_price_segment_data()
+
+                        if price_segment_data is not None and not price_segment_data.empty:
+                            # Prozentuale Verteilung pro Filiale berechnen
+                            all_segments = price_segment_data['Preissegment'].unique()
+                            store_segment_pct = {}
+
+                            for store in active_stores:
+                                store_data = price_segment_data[price_segment_data['ID_STORE'] == store['id']]
+                                total_umsatz = store_data['Umsatz'].sum()
+                                segment_pct = {}
+                                for _, row in store_data.iterrows():
+                                    pct = (row['Umsatz'] / total_umsatz * 100) if total_umsatz > 0 else 0
+                                    segment_pct[row['Preissegment']] = pct
+                                store_segment_pct[store['name']] = segment_pct
+
+                            # HTML-Tabelle erstellen
+                            segment_table = '<table style="width: 100%; border-collapse: collapse; font-size: 1.1em;">'
+                            segment_table += '<thead><tr style="background: rgba(255,255,255,0.1); color: #aaa;">'
+                            segment_table += '<th style="padding: 12px; text-align: left;">Preissegment</th>'
+                            for store in active_stores:
+                                segment_table += f'<th style="padding: 12px; text-align: center; color: {store["color"]};">{store["name"]}</th>'
+                            segment_table += '</tr></thead><tbody>'
+
+                            for segment in sorted(all_segments):
+                                segment_table += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">'
+                                segment_table += f'<td style="padding: 12px; color: white;">{segment}</td>'
+                                for store in active_stores:
+                                    pct = store_segment_pct[store['name']].get(segment, 0)
+                                    segment_table += f'<td style="padding: 12px; text-align: center; color: {store["color"]}; font-weight: bold;">{pct:.1f}%</td>'
+                                segment_table += '</tr>'
+
+                            segment_table += '</tbody></table>'
+                            st.markdown(segment_table, unsafe_allow_html=True)
+                        else:
+                            st.info("Keine Preissegment-Daten verfügbar.")
 
                 else:
                     st.warning("Keine Kategoriedaten verfügbar.")
