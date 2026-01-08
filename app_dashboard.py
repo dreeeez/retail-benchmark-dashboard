@@ -870,7 +870,7 @@ if df is not None and len(df) > 0:
                                         <div style="color: #00ff88; font-size: 1em; font-weight: bold;">{format_currency(mkpi['umsatz_mit_marketing'])}</div>
                                     </div>
                                     <div style="text-align: center;">
-                                        <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Umsatz ohne Marketing</div>
+                                        <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Umsatz nicht direkt dem Marketing zurechenbar</div>
                                         <div style="color: #ff9f43; font-size: 1em; font-weight: bold;">{format_currency(mkpi['umsatz_ohne_marketing'])}</div>
                                     </div>
                                     <div style="text-align: center;">
