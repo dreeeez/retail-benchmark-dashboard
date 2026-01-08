@@ -567,14 +567,18 @@ if df is not None and len(df) > 0:
                                 <div style="font-size: 1.2em; font-weight: bold; color: {store['color']}; text-align: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
                                     {store['name']}
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
                                     <div style="text-align: center;">
                                         <div style="color: #aaa; font-size: 0.75em; text-transform: uppercase;">Umsatz</div>
-                                        <div style="color: white; font-size: 1.3em; font-weight: bold;">{format_currency(kpis['umsatz'])}</div>
+                                        <div style="color: white; font-size: 1.2em; font-weight: bold;">{format_currency(kpis['umsatz'])}</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="color: #aaa; font-size: 0.75em; text-transform: uppercase;">Bruttogewinn</div>
+                                        <div style="color: #ffd93d; font-size: 1.2em; font-weight: bold;">{format_currency(kpis['bruttogewinn'])}</div>
                                     </div>
                                     <div style="text-align: center;">
                                         <div style="color: #aaa; font-size: 0.75em; text-transform: uppercase;">Operativer Gewinn</div>
-                                        <div style="color: #00ff88; font-size: 1.3em; font-weight: bold;">{format_currency(kpis['nettogewinn'])}</div>
+                                        <div style="color: #00ff88; font-size: 1.2em; font-weight: bold;">{format_currency(kpis['nettogewinn'])}</div>
                                     </div>
                                 </div>
                             </div>
@@ -704,28 +708,55 @@ if df is not None and len(df) > 0:
                         st.plotly_chart(fig, use_container_width=True)
 
                     # =========================================================
-                    # EBIT Margen-Vergleich und Kostenquote nebeneinander
+                    # Bruttomarge und EBIT-Marge nebeneinander
                     # =========================================================
                     if 'Margen-Vergleich' in selected_dashboard_sections:
-                        col_ebit, col_kosten = st.columns(2)
+                        col_brutto, col_ebit = st.columns(2)
+
+                        with col_brutto:
+                            # Bruttomarge-Vergleich
+                            st.markdown(chart_header(
+                                "📊 Bruttomarge im Vergleich",
+                                "<strong>Bruttomarge = Bruttogewinn / Umsatz × 100</strong><br>Zeigt wie viel Prozent vom Umsatz nach Abzug der Wareneinsatzkosten übrig bleibt."
+                            ), unsafe_allow_html=True)
+
+                            fig = go.Figure()
+                            store_names_bm = [s['name'] for s in active_stores]
+                            bruttomargen = [(stores_kpis[s['name']]['bruttogewinn'] / stores_kpis[s['name']]['umsatz'] * 100)
+                                          if stores_kpis[s['name']]['umsatz'] > 0 else 0 for s in active_stores]
+
+                            fig.add_trace(go.Bar(
+                                x=store_names_bm,
+                                y=bruttomargen,
+                                marker_color=[s['color'] for s in active_stores],
+                                text=[f"{m:.1f}%" for m in bruttomargen],
+                                textposition='outside'
+                            ))
+
+                            fig.update_layout(
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                font_color='white',
+                                yaxis_title="Bruttomarge (%)",
+                                transition={'duration': 500}
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
 
                         with col_ebit:
                             st.markdown(chart_header(
                                 "📈 EBIT Margen-Vergleich",
-                                "<strong>EBIT-Marge = EBIT / Umsatz × 100</strong><br>Zeigt wie viel Prozent vom Umsatz als operativer Gewinn übrig bleibt. Höhere Marge = bessere Profitabilität."
+                                "<strong>EBIT-Marge = EBIT / Umsatz × 100</strong><br>Zeigt wie viel Prozent vom Umsatz als operativer Gewinn übrig bleibt."
                             ), unsafe_allow_html=True)
 
                             fig = go.Figure()
                             store_names_list = [s['name'] for s in active_stores]
-                            # EBIT-Marge = EBIT / Umsatz × 100
                             margen = [(stores_kpis[s['name']]['nettogewinn'] / stores_kpis[s['name']]['umsatz'] * 100)
                                       if stores_kpis[s['name']]['umsatz'] > 0 else 0 for s in active_stores]
-                            colors = [s['color'] for s in active_stores]
 
                             fig.add_trace(go.Bar(
                                 x=store_names_list,
                                 y=margen,
-                                marker_color=colors,
+                                marker_color=[s['color'] for s in active_stores],
                                 text=[f"{m:.1f}%" for m in margen],
                                 textposition='outside'
                             ))
@@ -739,40 +770,36 @@ if df is not None and len(df) > 0:
                             )
                             st.plotly_chart(fig, use_container_width=True)
 
-                        with col_kosten:
-                            # Kostenquote (Balkendiagramm)
-                            st.markdown(chart_header(
-                                "📊 Kostenquote im Vergleich",
-                                "<strong>Kostenquote (%) = Gesamtkosten / Umsatz × 100</strong><br>"
-                                "<strong>Gesamtkosten = Wareneinsatz + Personal + Miete + Logistik + Marketing</strong><br>"
-                                "Niedrigere Werte = effizienter."
-                            ), unsafe_allow_html=True)
+                        # Kostenquote darunter
+                        st.markdown(chart_header(
+                            "📊 Kostenquote im Vergleich",
+                            "<strong>Kostenquote (%) = Gesamtkosten / Umsatz × 100</strong><br>"
+                            "<strong>Gesamtkosten = Wareneinsatz + Personal + Miete + Logistik + Marketing</strong><br>"
+                            "Niedrigere Werte = effizienter."
+                        ), unsafe_allow_html=True)
 
-                            fig = go.Figure()
-                            store_names_q = [s['name'] for s in active_stores]
+                        fig = go.Figure()
+                        store_names_q = [s['name'] for s in active_stores]
+                        kosten_quoten = [(stores_kpis[s['name']]['kosten'] / stores_kpis[s['name']]['umsatz'] * 100)
+                                         if stores_kpis[s['name']]['umsatz'] > 0 else 0 for s in active_stores]
 
-                            # Kostenquote = Gesamtkosten / Umsatz × 100
-                            # Gesamtkosten = Wareneinsatz + OPEX (Personal, Miete, Logistik, Marketing)
-                            kosten_quoten = [(stores_kpis[s['name']]['kosten'] / stores_kpis[s['name']]['umsatz'] * 100)
-                                             if stores_kpis[s['name']]['umsatz'] > 0 else 0 for s in active_stores]
+                        fig.add_trace(go.Bar(
+                            name='Kostenquote',
+                            x=store_names_q,
+                            y=kosten_quoten,
+                            marker_color=[s['color'] for s in active_stores],
+                            text=[f"{v:.1f}%" for v in kosten_quoten],
+                            textposition='outside'
+                        ))
 
-                            fig.add_trace(go.Bar(
-                                name='Kostenquote',
-                                x=store_names_q,
-                                y=kosten_quoten,
-                                marker_color=[s['color'] for s in active_stores],
-                                text=[f"{v:.1f}%" for v in kosten_quoten],
-                                textposition='outside'
-                            ))
-
-                            fig.update_layout(
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                font_color='white',
-                                yaxis_title="Kostenquote (%)",
-                                transition={'duration': 500}
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
+                        fig.update_layout(
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            font_color='white',
+                            yaxis_title="Kostenquote (%)",
+                            transition={'duration': 500}
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
 
             # =============================================================
             # TAB 2: MARKETING
