@@ -8,16 +8,17 @@
 -- LAYER 1: STANDARDISIERUNG (ALLE STORES)
 -- =============================================
 
--- View 1: list_views.V_LIST_G18_BENCHMARK_SALES_STD
+-- View 1: list_views.V_LIST_G18_BENCHMARK_SALES_DETAIL
 -- Zweck: Standardisierung der Verkaufsdaten für ALLE Stores
 -- KEIN Store-Filter mehr - App filtert dynamisch!
-CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_SALES_STD (
+CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_SALES_DETAIL (
     IdCalmonthStd,
     IdStore,
     StoreName,
     IdMaterial,
     MaterialDescription,
     BenchmarkCategory,
+    Preissegment,
     RevenueEur,
     GrossProfitEur,
     TransferCostEur,
@@ -78,6 +79,9 @@ SELECT
         ELSE 'City Bikes'  -- Fallback
     END AS BenchmarkCategory,
 
+    -- Preissegment direkt aus Basis-View
+    s.ProduktPreisSegment AS Preissegment,
+
     s.RevenueEUR AS RevenueEur,
     (s.RevenueEUR - s.TransferPriceEUR) AS GrossProfitEur,
     s.TransferPriceEUR AS TransferCostEur,
@@ -120,7 +124,7 @@ SELECT
     AVG(SalesPriceEur) AS AvgSalesPriceEur,
     SUM(Quantity) AS TotalQuantity
 
-FROM list_views.V_LIST_G18_BENCHMARK_SALES_STD
+FROM list_views.V_LIST_G18_BENCHMARK_SALES_DETAIL
 GROUP BY IdCalmonthStd, IdStore, StoreName, BenchmarkCategory;
 GO
 
@@ -316,42 +320,6 @@ GROUP BY FORMAT(c.ID_CALMONTH, 'yyyy-MM'), c.ID_STORE, c.StoreName, c.Kostenkate
 GO
 
 
--- View 7: list_views.V_LIST_G18_BENCHMARK_WATERFALL
--- Zweck: Daten für Waterfall-Chart mit Business-Kategorien
-CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_WATERFALL (
-    IdCalmonthStd,
-    IdStore,
-    StoreName,
-    UmsatzEur,
-    WareneinsatzEur,
-    BruttogewinnEur,
-    HumanResourcesEur,
-    FacilityManagementEur,
-    LogisticsEur,
-    MarketingEur,
-    TotalCostsEur,
-    NettogewinnEur
-)
-AS
-SELECT
-    k.IdCalmonthStd,
-    k.IdStore,
-    k.StoreName,
-    k.TotalRevenueEur AS UmsatzEur,
-    -- Wareneinsatz = Umsatz - Bruttogewinn
-    (k.TotalRevenueEur - k.TotalGrossProfitEur) AS WareneinsatzEur,
-    k.TotalGrossProfitEur AS BruttogewinnEur,
-    -- Business-Kategorien
-    k.HumanResourcesEur,
-    k.FacilityManagementEur,
-    k.LogisticsEur,
-    k.MarketingEur,
-    k.TotalCostsEur,
-    k.NetProfitEur AS NettogewinnEur
-FROM list_views.V_LIST_G18_BENCHMARK_KPI k;
-GO
-
-
 -- =============================================
 -- LAYER 6: MARKETING-KPIs (ALLE STORES)
 -- =============================================
@@ -488,11 +456,62 @@ GO
 
 
 -- =============================================
+-- LAYER 7: STORE DETAILS (ALLE STORES)
+-- =============================================
+
+-- View 10: list_views.V_LIST_G18_STORE_DETAILS
+-- Zweck: Store-Stammdaten mit Fläche, Mietkosten und Umsatz-Effizienz (pro Monat)
+CREATE OR ALTER VIEW list_views.V_LIST_G18_STORE_DETAILS (
+    IdCalmonthStd,
+    IdStore,
+    StoreName,
+    StoreM2,
+    Mietkosten,
+    Umsatz,
+    UmsatzProM2
+)
+AS
+WITH SalesAgg AS (
+    SELECT
+        FORMAT(ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
+        ID_STORE,
+        MAX(StoreM2) AS StoreM2,
+        SUM(RevenueEUR) AS Umsatz
+    FROM dbo.V_LIST_MONTHLY_SALES
+    GROUP BY FORMAT(ID_CALMONTH, 'yyyy-MM'), ID_STORE
+),
+CostsAgg AS (
+    SELECT
+        FORMAT(ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
+        ID_STORE,
+        SUM(WertEUR) AS Mietkosten
+    FROM dbo.V_LIST_MONTHLY_COSTS
+    WHERE Kostenkategorie = 'Monthly Rent'
+    GROUP BY FORMAT(ID_CALMONTH, 'yyyy-MM'), ID_STORE
+)
+SELECT
+    s.IdCalmonthStd,
+    s.ID_STORE AS IdStore,
+    so.STORE_LOCATION AS StoreName,
+    s.StoreM2,
+    ISNULL(c.Mietkosten, 0) AS Mietkosten,
+    s.Umsatz,
+    CASE
+        WHEN s.StoreM2 > 0 THEN s.Umsatz / s.StoreM2
+        ELSE 0
+    END AS UmsatzProM2
+FROM SalesAgg s
+INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
+LEFT JOIN CostsAgg c ON s.IdCalmonthStd = c.IdCalmonthStd AND s.ID_STORE = c.ID_STORE;
+GO
+
+
+-- =============================================
 -- DEPLOYMENT ABGESCHLOSSEN
 -- =============================================
 
 PRINT '============================================='
-PRINT 'Gruppe 18 - Benchmark Views V2.3 erstellt!'
+PRINT 'Gruppe 18 - Benchmark Views V2.4 erstellt!'
 PRINT '============================================='
 PRINT ''
 PRINT 'WICHTIG: Views enthalten KEINE Store-Filter mehr!'
@@ -505,15 +524,15 @@ PRINT '  - Flexibel: Stores in App hinzufügen/entfernen'
 PRINT '  - Konsistent: DB liefert Wahrheit, App filtert'
 PRINT ''
 PRINT 'Enthaltene Views:'
-PRINT '  1. V_LIST_G18_BENCHMARK_SALES_STD'
+PRINT '  1. V_LIST_G18_BENCHMARK_SALES_DETAIL'
 PRINT '  2. V_LIST_G18_BENCHMARK_SALES_AGG'
 PRINT '  3. V_LIST_G18_BENCHMARK_COSTS_AGG'
 PRINT '  4. V_LIST_G18_BENCHMARK_KPI'
 PRINT '  5. V_LIST_G18_BENCHMARK_EXPORT_MONTHLY'
 PRINT '  6. V_LIST_G18_BENCHMARK_COSTS_DETAIL'
-PRINT '  7. V_LIST_G18_BENCHMARK_WATERFALL'
-PRINT '  8. V_LIST_G18_MARKETING_KPI_MONTHLY'
-PRINT '  9. V_LIST_G18_MARKETING_BY_CAMPAIGN'
+PRINT '  7. V_LIST_G18_MARKETING_KPI_MONTHLY'
+PRINT '  8. V_LIST_G18_MARKETING_BY_CAMPAIGN'
+PRINT '  9. V_LIST_G18_STORE_DETAILS'
 PRINT ''
 PRINT '============================================='
 GO

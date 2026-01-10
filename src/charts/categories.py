@@ -292,7 +292,7 @@ def create_price_segment_chart(price_segment_data, active_stores: list) -> go.Fi
     store_segment_pct = {}
 
     for store in active_stores:
-        store_data = price_segment_data[price_segment_data['ID_STORE'] == store['id']]
+        store_data = price_segment_data[price_segment_data['IdStore'] == store['id']]
         total_umsatz = store_data['Umsatz'].sum()
         segment_pct = {}
         for _, row in store_data.iterrows():

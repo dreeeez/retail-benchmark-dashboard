@@ -23,7 +23,7 @@ from src.db.repository import (
     load_data,
     load_kpi,
     load_marketing_kpi,
-    load_sales_agg_data,
+    load_sales_agg,
     load_rent_and_revenue_per_m2,
     load_price_segment_data,
 )
@@ -46,6 +46,7 @@ from src.charts.finance import (
 )
 from src.charts.marketing import (
     create_marketing_trend_chart,
+    create_marketing_bar_chart,
     create_marketing_quote_chart,
 )
 from src.charts.categories import (
@@ -265,9 +266,15 @@ if df is not None and len(df) > 0:
                     col_trend, col_quote = st.columns(2)
 
                     with col_trend:
-                        st.markdown(chart_header("📈 Marketing-Ausgaben im Zeitverlauf",
-                            "<strong>Monatliche Marketing-Investitionen</strong><br>Zeigt wie sich die Marketing-Ausgaben über die Monate entwickelt haben."), unsafe_allow_html=True)
-                        fig = create_marketing_trend_chart(marketing_all_months, active_stores)
+                        if selected_month == 'all':
+                            st.markdown(chart_header("📈 Marketing-Ausgaben im Zeitverlauf",
+                                "<strong>Monatliche Marketing-Investitionen</strong><br>Zeigt wie sich die Marketing-Ausgaben über die Monate entwickelt haben."), unsafe_allow_html=True)
+                            fig = create_marketing_trend_chart(marketing_all_months, active_stores)
+                        else:
+                            month_name = MONTH_NAMES.get(selected_month, selected_month)
+                            st.markdown(chart_header(f"📊 Marketing-Kosten {month_name}",
+                                "<strong>Marketing-Ausgaben im ausgewählten Monat</strong>"), unsafe_allow_html=True)
+                            fig = create_marketing_bar_chart(active_stores, marketing_kpis)
                         st.plotly_chart(fig, use_container_width=True)
 
                     with col_quote:
@@ -340,9 +347,10 @@ if df is not None and len(df) > 0:
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                rent_m2_data = load_rent_and_revenue_per_m2()
+                rent_m2_data = load_rent_and_revenue_per_m2(selected_month)
                 if rent_m2_data is not None and not rent_m2_data.empty:
-                    st.markdown(chart_header("📋 Filialdetails (Fläche & Effizienz)",
+                    period_label = "Gesamt" if selected_month == 'all' else MONTH_NAMES.get(selected_month, selected_month)
+                    st.markdown(chart_header(f"📋 Filialdetails (Fläche & Effizienz) - {period_label}",
                         "<strong>Übersicht Fläche, Miete und Umsatzeffizienz</strong>"), unsafe_allow_html=True)
 
                     detail_html = '<table style="width: 100%; border-collapse: collapse; font-size: 1.1em;">'
@@ -352,14 +360,14 @@ if df is not None and len(df) > 0:
                     detail_html += '</tr></thead><tbody>'
 
                     for store in active_stores:
-                        store_data = rent_m2_data[rent_m2_data['ID_STORE'] == store['id']]
+                        store_data = rent_m2_data[rent_m2_data['IdStore'] == store['id']]
                         if not store_data.empty:
                             row = store_data.iloc[0]
                             detail_html += f'<tr style="background: {store["color_bg"]}; border-left: 4px solid {store["color"]};">'
                             detail_html += f'<td style="padding: 15px; font-weight: bold; color: {store["color"]};">{store["name"]}</td>'
                             detail_html += f'<td style="padding: 15px; text-align: center; color: white;">{int(row["StoreM2"]):,} m²</td>'.replace(",", ".")
-                            detail_html += f'<td style="padding: 15px; text-align: center; color: white;">{format_currency(row["MietkostenGesamt"])}</td>'
-                            detail_html += f'<td style="padding: 15px; text-align: center; color: white;">{format_currency(row["UmsatzGesamt"])}</td>'
+                            detail_html += f'<td style="padding: 15px; text-align: center; color: white;">{format_currency(row["Mietkosten"])}</td>'
+                            detail_html += f'<td style="padding: 15px; text-align: center; color: white;">{format_currency(row["Umsatz"])}</td>'
                             detail_html += f'<td style="padding: 15px; text-align: center; color: {store["color"]}; font-weight: bold;">{row["UmsatzProM2"]:,.0f} €/m²</td>'.replace(",", ".")
                             detail_html += '</tr>'
 
@@ -381,7 +389,7 @@ if df is not None and len(df) > 0:
                                        key="cat_multiselect", label_visibility="collapsed")
 
                 selected_cat_sections = st.session_state.get('cat_multiselect', cat_all_sections)
-                df_sales_agg = load_sales_agg_data()
+                df_sales_agg = load_sales_agg(selected_month)
 
                 if df_sales_agg is not None and len(df_sales_agg) > 0:
                     cat_col = next((c for c in df_sales_agg.columns if 'category' in c.lower() or 'kategorie' in c.lower()), None)
@@ -442,7 +450,7 @@ if df is not None and len(df) > 0:
 
                         st.markdown(chart_header("💎 Umsatzverteilung nach Preissegment (%)",
                             "<strong>Anteil der Preissegmente am Gesamtumsatz</strong>"), unsafe_allow_html=True)
-                        price_segment_data = load_price_segment_data()
+                        price_segment_data = load_price_segment_data(selected_month)
                         if price_segment_data is not None and not price_segment_data.empty:
                             fig = create_price_segment_chart(price_segment_data, active_stores)
                             st.plotly_chart(fig, use_container_width=True)

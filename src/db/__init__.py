@@ -12,7 +12,7 @@ from src.db.queries import (
     SQL_MARKETING_BY_CAMPAIGN,
     SQL_COSTS_AGG,
     SQL_COSTS_DETAIL,
-    SQL_RENT_REVENUE_M2,
+    SQL_STORE_DETAILS,
     SQL_SALES_AGG,
     SQL_PRICE_SEGMENT,
 )
@@ -23,7 +23,7 @@ from src.db.repository import (
     load_marketing_by_campaign,
     load_costs_agg,
     load_costs_detail,
-    load_rent_and_revenue_per_m2,
+    load_store_details,
     load_sales_agg,
     load_price_segment_data,
     # Legacy wrappers
@@ -31,6 +31,7 @@ from src.db.repository import (
     load_sales_agg_data,
     load_costs_detail_data,
     load_waterfall_data,
+    load_rent_and_revenue_per_m2,
 )
 
 __all__ = [
@@ -45,7 +46,7 @@ __all__ = [
     'SQL_MARKETING_BY_CAMPAIGN',
     'SQL_COSTS_AGG',
     'SQL_COSTS_DETAIL',
-    'SQL_RENT_REVENUE_M2',
+    'SQL_STORE_DETAILS',
     'SQL_SALES_AGG',
     'SQL_PRICE_SEGMENT',
     # Repository
@@ -55,6 +56,7 @@ __all__ = [
     'load_marketing_by_campaign',
     'load_costs_agg',
     'load_costs_detail',
+    'load_store_details',
     'load_rent_and_revenue_per_m2',
     'load_sales_agg',
     'load_price_segment_data',

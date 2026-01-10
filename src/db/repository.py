@@ -20,7 +20,7 @@ from src.db.queries import (
     SQL_MARKETING_BY_CAMPAIGN,
     SQL_COSTS_AGG,
     SQL_COSTS_DETAIL,
-    SQL_RENT_REVENUE_M2,
+    SQL_STORE_DETAILS,
     SQL_SALES_AGG,
     SQL_PRICE_SEGMENT,
 )
@@ -149,18 +149,41 @@ def load_costs_detail(month: str = 'all'):
 
 
 @st.cache_data(ttl=300)
-def load_rent_and_revenue_per_m2():
-    """Lädt Mietkosten und Umsatz pro m²"""
+def load_store_details(month: str = 'all'):
+    """Lädt Store-Details aus V_LIST_G18_STORE_DETAILS
+
+    Für: Tab Kostenanalyse (Filialdetails: Fläche, Miete, Umsatz/m²)
+    Bei month='all' werden die Werte über alle Monate aggregiert.
+    """
     store_ids = get_store_ids_sql()
+    month_filter = build_month_filter(month)
     try:
         with db_connection() as conn:
             df = pd.read_sql(
-                SQL_RENT_REVENUE_M2.format(store_ids=store_ids),
+                SQL_STORE_DETAILS.format(store_ids=store_ids, month_filter=month_filter),
                 conn
             )
+        # Bei 'all' müssen wir pro Store aggregieren
+        if month == 'all' and df is not None and not df.empty:
+            df = df.groupby(['IdStore', 'StoreName']).agg({
+                'StoreM2': 'max',
+                'Mietkosten': 'sum',
+                'Umsatz': 'sum'
+            }).reset_index()
+            df['UmsatzProM2'] = df.apply(
+                lambda row: row['Umsatz'] / row['StoreM2'] if row['StoreM2'] > 0 else 0,
+                axis=1
+            )
         return df
-    except Exception:
+    except Exception as e:
+        st.error(f"Fehler beim Laden der Store-Details: {e}")
         return None
+
+
+# Legacy-Wrapper für Abwärtskompatibilität
+def load_rent_and_revenue_per_m2(month: str = 'all'):
+    """LEGACY: Wrapper für load_store_details()"""
+    return load_store_details(month)
 
 
 # =============================================================================
@@ -187,7 +210,7 @@ def load_sales_agg(month: str = 'all'):
 def load_price_segment_data(month: str = 'all'):
     """Lädt Umsatzverteilung nach Preissegment"""
     store_ids = get_store_ids_sql()
-    month_filter = build_month_filter(month, "FORMAT(s.ID_CALMONTH, 'yyyy-MM')")
+    month_filter = build_month_filter(month)
     try:
         with db_connection() as conn:
             df = pd.read_sql(
