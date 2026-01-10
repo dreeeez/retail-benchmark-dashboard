@@ -89,15 +89,9 @@ if df is not None and len(df) > 0:
                            'Bruttogewinn-Anteil (%)', 'Umsatz-Trend']
 
         # Filter Section
-        col_filter, col_indicator = st.columns([1, 3])
+        col_stores, col_month, col_indicator = st.columns([1.5, 1, 1.5])
 
-        with col_filter:
-            available_months = ['all'] + sorted(df[monat_col].unique().tolist())
-            month_options = {m: MONTH_NAMES.get(m, m) for m in available_months}
-            selected_month = st.selectbox("Zeitraum:", options=list(month_options.keys()),
-                                          format_func=lambda x: month_options[x])
-
-            # Filial-Auswahl
+        with col_stores:
             selected_stores = st.multiselect(
                 "Filialen:",
                 options=[s['name'] for s in STORES],
@@ -105,9 +99,39 @@ if df is not None and len(df) > 0:
                 key="store_filter"
             )
 
+        with col_month:
+            available_months = ['all'] + sorted(df[monat_col].unique().tolist())
+            month_options = {m: MONTH_NAMES.get(m, m) for m in available_months}
+            selected_month = st.selectbox("Zeitraum:", options=list(month_options.keys()),
+                                          format_func=lambda x: month_options[x])
+
         with col_indicator:
             st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(f'<div class="month-indicator">{month_options[selected_month]}</div>', unsafe_allow_html=True)
+            # Fortschrittsbalken berechnen (all=100%, Jan=8.3%, Feb=16.6%, ... Dez=100%)
+            if selected_month == 'all':
+                progress_pct = 100
+            else:
+                try:
+                    month_num = int(selected_month.split('-')[1])
+                    progress_pct = (month_num / 12) * 100
+                except:
+                    progress_pct = 100
+
+            # Farbinterpolation: Cyan (#00d4ff) -> Lila (#7b2cbf) basierend auf Fortschritt
+            t = progress_pct / 100
+            r = int(0 + t * (123 - 0))
+            g = int(212 + t * (44 - 212))
+            b = int(255 + t * (191 - 255))
+            indicator_color = f'rgb({r}, {g}, {b})'
+
+            st.markdown(f'''
+                <div class="month-indicator" style="background: rgba({r}, {g}, {b}, 0.1); border: 2px solid {indicator_color}; box-shadow: 0 0 15px rgba({r}, {g}, {b}, 0.2);">
+                    <div class="month-text" style="color: {indicator_color};">{month_options[selected_month]}</div>
+                    <div class="month-progress-bar">
+                        <div class="month-progress-fill" style="width: {progress_pct}%; background: {indicator_color};"></div>
+                    </div>
+                </div>
+            ''', unsafe_allow_html=True)
 
         # Session State für Multiselects initialisieren
         if 'dashboard_multiselect' not in st.session_state:

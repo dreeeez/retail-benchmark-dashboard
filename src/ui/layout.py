@@ -24,11 +24,10 @@ def setup_page():
 
 def render_header():
     """Rendert den Dashboard-Header"""
-    store_names = " vs. ".join([s['name'] for s in STORES])
-    st.markdown(f"""
+    st.markdown("""
     <div class="main-header">
         <h1>Benchmark Dashboard</h1>
-        <p>Gruppe 18 | {store_names}</p>
+        <div class="header-subtitle">Gruppe 18</div>
     </div>
     """, unsafe_allow_html=True)
 

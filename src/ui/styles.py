@@ -10,20 +10,38 @@ DASHBOARD_CSS = """
     }
     .main-header {
         text-align: center;
-        padding: 20px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 15px;
-        margin-bottom: 20px;
+        padding: 25px 40px;
+        background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(123, 44, 191, 0.1) 100%);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        border-radius: 16px;
+        margin-bottom: 25px;
+        position: relative;
+        overflow: hidden;
+    }
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #00d4ff, #7b2cbf, #00d4ff);
     }
     .main-header h1 {
         background: linear-gradient(90deg, #00d4ff, #7b2cbf);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 2.5em;
-        margin-bottom: 5px;
+        font-size: 2.2em;
+        margin: 0;
+        font-weight: 700;
+        letter-spacing: 1px;
     }
-    .main-header p {
-        color: #aaa;
+    .header-subtitle {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.85em;
+        margin-top: 5px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
     }
     .kpi-card {
         background: rgba(255, 255, 255, 0.1);
@@ -84,12 +102,30 @@ DASHBOARD_CSS = """
         display: inline-block;
     }
     .month-indicator {
-        background: linear-gradient(90deg, #00d4ff, #7b2cbf);
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-weight: 600;
-        color: white;
-        display: inline-block;
+        padding: 12px 24px 10px 24px;
+        border-radius: 12px;
+        display: block;
+        width: 100%;
+        max-width: 300px;
+    }
+    .month-text {
+        font-weight: 700;
+        font-size: 1.1em;
+        letter-spacing: 0.5px;
+        text-align: center;
+        margin-bottom: 8px;
+    }
+    .month-progress-bar {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        height: 6px;
+        width: 100%;
+        overflow: hidden;
+    }
+    .month-progress-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease, background-color 0.3s ease;
     }
     .hover-card {
         transition: transform 0.2s ease, box-shadow 0.2s ease;
