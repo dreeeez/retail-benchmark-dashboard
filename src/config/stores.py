@@ -1,14 +1,16 @@
 """
 Benchmark Dashboard - Gruppe 18
-Store & Kategorien Konfiguration
+Store-Konfiguration
 
-Modulares System - neue Stores/Kategorien einfach hier hinzufügen
+Modulares System - neue Stores einfach hier hinzufügen
+WICHTIG: Store-IDs werden dynamisch in SQL-Queries eingefügt!
 """
 
 # =============================================================================
 # STORE KONFIGURATION
 # =============================================================================
 # Neue Stores einfach hier hinzufügen - Dashboard passt sich automatisch an
+# Die IDs werden dynamisch in alle SQL-Queries eingefügt (kein Hardcoding mehr!)
 
 STORES = [
     {
@@ -42,24 +44,26 @@ STORES = [
     # },
 ]
 
+
 # =============================================================================
-# PRODUKTKATEGORIEN KONFIGURATION
+# DYNAMISCHE STORE-ID GENERIERUNG
 # =============================================================================
 
-PRODUCT_CATEGORIES = [
-    {'name': 'City Bikes', 'short': 'CITY', 'color': '#00d4ff'},
-    {'name': 'E-Trekking', 'short': 'ETRK', 'color': '#7b2cbf'},
-    {'name': 'Kid Bikes', 'short': 'KIDS', 'color': '#ff6b6b'},
-    {'name': 'Mountain Bikes', 'short': 'MTB', 'color': '#00ff88'},
-    {'name': 'Race Bikes', 'short': 'RACE', 'color': '#ffd93d'},
-    {'name': 'Trekking Bikes', 'short': 'TREK', 'color': '#ff9f43'},
-]
+def get_store_ids() -> list:
+    """Gibt Liste aller Store-IDs zurück"""
+    return [store['id'] for store in STORES]
+
+
+def get_store_ids_sql() -> str:
+    """Gibt Store-IDs als SQL-kompatiblen String zurück: '3, 5, 14'"""
+    return ', '.join(str(s['id']) for s in STORES)
+
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
-def get_store_by_name(name):
+def get_store_by_name(name: str):
     """Findet Store-Config anhand des Namens (case-insensitive, partial match)"""
     name_lower = name.lower()
     for store in STORES:
@@ -67,53 +71,27 @@ def get_store_by_name(name):
             return store
     return None
 
-def get_store_by_id(store_id):
+
+def get_store_by_id(store_id: int):
     """Findet Store-Config anhand der ID"""
     for store in STORES:
         if store['id'] == store_id:
             return store
     return None
 
-def get_store_color(store_name):
+
+def get_store_color(store_name: str) -> str:
     """Gibt Farbe für Store zurück"""
     store = get_store_by_name(store_name)
     return store['color'] if store else '#ffffff'
 
-def get_store_color_bg(store_name):
+
+def get_store_color_bg(store_name: str) -> str:
     """Gibt Hintergrundfarbe für Store zurück"""
     store = get_store_by_name(store_name)
     return store['color_bg'] if store else 'rgba(255, 255, 255, 0.1)'
 
-def get_category_color(category_name):
-    """Gibt Farbe für Produktkategorie zurück"""
-    name_lower = category_name.lower()
-    for cat in PRODUCT_CATEGORIES:
-        if cat['name'].lower() in name_lower or name_lower in cat['name'].lower():
-            return cat['color']
-    return '#ffffff'
 
-def get_all_store_names():
+def get_all_store_names() -> list:
     """Gibt Liste aller Store-Namen zurück"""
     return [store['name'] for store in STORES]
-
-def get_all_category_names():
-    """Gibt Liste aller Kategorie-Namen zurück"""
-    return [cat['name'] for cat in PRODUCT_CATEGORIES]
-
-# Farb-Palette für dynamische Zuweisung (falls mehr Stores/Kategorien)
-COLOR_PALETTE = [
-    '#00d4ff',  # Cyan
-    '#7b2cbf',  # Lila
-    '#ff6b6b',  # Rot
-    '#00ff88',  # Grün
-    '#ffd93d',  # Gelb
-    '#ff9f43',  # Orange
-    '#a55eea',  # Violett
-    '#26de81',  # Mint
-    '#fd79a8',  # Pink
-    '#74b9ff',  # Hellblau
-]
-
-def get_color_for_index(index):
-    """Gibt Farbe aus Palette für Index zurück (zyklisch)"""
-    return COLOR_PALETTE[index % len(COLOR_PALETTE)]

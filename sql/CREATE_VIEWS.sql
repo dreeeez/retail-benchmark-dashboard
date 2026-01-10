@@ -1,16 +1,16 @@
 -- =============================================
 -- Benchmarking System - Gruppe 18
--- VERSION 2: Modulares Multi-Store System
--- Mit korrekten Produktkategorien
+-- VERSION 2.3: Views OHNE hardcodierte Store-IDs
+-- Filterung erfolgt dynamisch in der App via WHERE IdStore IN (...)
 -- =============================================
 
 -- =============================================
--- LAYER 1: STANDARDISIERUNG
+-- LAYER 1: STANDARDISIERUNG (ALLE STORES)
 -- =============================================
 
 -- View 1: list_views.V_LIST_G18_BENCHMARK_SALES_STD
--- Zweck: Standardisierung der Verkaufsdaten
--- ÄNDERUNG: Neue Produktkategorien
+-- Zweck: Standardisierung der Verkaufsdaten für ALLE Stores
+-- KEIN Store-Filter mehr - App filtert dynamisch!
 CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_SALES_STD (
     IdCalmonthStd,
     IdStore,
@@ -85,13 +85,13 @@ SELECT
     s.SalesAmount AS Quantity
 
 FROM dbo.V_LIST_MONTHLY_SALES s
-INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
-WHERE s.ID_STORE IN (3, 5, 14);  -- Benchmark-Filialen (konfigurierbar)
+INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID;
+-- KEIN WHERE-Filter! App filtert via: WHERE IdStore IN (3, 5, 14)
 GO
 
 
 -- =============================================
--- LAYER 2: AGGREGATION
+-- LAYER 2: AGGREGATION (ALLE STORES)
 -- =============================================
 
 -- View 2: list_views.V_LIST_G18_BENCHMARK_SALES_AGG
@@ -175,13 +175,13 @@ SELECT
     END) AS MarketingEur
 
 FROM dbo.V_LIST_MONTHLY_COSTS c
-WHERE c.ID_STORE IN (3, 5, 14)  -- Benchmark-Filialen
 GROUP BY FORMAT(c.ID_CALMONTH, 'yyyy-MM'), c.ID_STORE, c.StoreName;
+-- KEIN WHERE-Filter! App filtert via: WHERE IdStore IN (3, 5, 14)
 GO
 
 
 -- =============================================
--- LAYER 3: KPI-BERECHNUNG
+-- LAYER 3: KPI-BERECHNUNG (ALLE STORES)
 -- =============================================
 
 -- View 4: list_views.V_LIST_G18_BENCHMARK_KPI
@@ -244,7 +244,7 @@ GO
 
 
 -- =============================================
--- LAYER 4: EXPORT - EINZELNE STORES (NEU!)
+-- LAYER 4: EXPORT (ALLE STORES)
 -- =============================================
 
 -- View 5: list_views.V_LIST_G18_BENCHMARK_EXPORT_MONTHLY
@@ -292,7 +292,7 @@ GO
 
 
 -- =============================================
--- LAYER 5: DETAILLIERTE KOSTENANALYSE
+-- LAYER 5: DETAILLIERTE KOSTENANALYSE (ALLE STORES)
 -- =============================================
 
 -- View 6: list_views.V_LIST_G18_BENCHMARK_COSTS_DETAIL
@@ -312,7 +312,6 @@ SELECT
     c.Kostenkategorie,
     SUM(c.WertEUR) AS KostenEur
 FROM dbo.V_LIST_MONTHLY_COSTS c
-WHERE c.ID_STORE IN (3, 5, 14)  -- Benchmark-Filialen
 GROUP BY FORMAT(c.ID_CALMONTH, 'yyyy-MM'), c.ID_STORE, c.StoreName, c.Kostenkategorie;
 GO
 
@@ -354,18 +353,167 @@ GO
 
 
 -- =============================================
+-- LAYER 6: MARKETING-KPIs (ALLE STORES)
+-- =============================================
+
+-- View 8: list_views.V_LIST_G18_MARKETING_KPI_MONTHLY
+-- Zweck: Zentrale Marketing-View - ersetzt alle Inline-Queries und Regex-Logik
+-- Liefert: ROAS, CPA, Marketing-Quote pro Monat und Store
+CREATE OR ALTER VIEW list_views.V_LIST_G18_MARKETING_KPI_MONTHLY (
+    IdCalmonthStd,
+    IdStore,
+    StoreName,
+    MarketingCostEur,
+    RevenueWithCampaignEur,
+    RevenueWithoutCampaignEur,
+    TotalRevenueEur,
+    QuantityWithCampaign,
+    QuantityTotal,
+    ROAS,
+    CPA,
+    MarketingQuotePct
+)
+AS
+SELECT
+    sales.IdCalmonthStd,
+    sales.IdStore,
+    sales.StoreName,
+    ISNULL(costs.MarketingCostEur, 0) AS MarketingCostEur,
+    sales.RevenueWithCampaignEur,
+    sales.RevenueWithoutCampaignEur,
+    sales.TotalRevenueEur,
+    sales.QuantityWithCampaign,
+    sales.QuantityTotal,
+    -- ROAS = Umsatz MIT Kampagne / Marketing-Kosten
+    CASE
+        WHEN ISNULL(costs.MarketingCostEur, 0) > 0
+        THEN sales.RevenueWithCampaignEur / costs.MarketingCostEur
+        ELSE NULL
+    END AS ROAS,
+    -- CPA = Marketing-Kosten / Stück mit Kampagne
+    CASE
+        WHEN sales.QuantityWithCampaign > 0
+        THEN ISNULL(costs.MarketingCostEur, 0) / sales.QuantityWithCampaign
+        ELSE NULL
+    END AS CPA,
+    -- Marketing-Quote = Marketing-Kosten / Gesamtumsatz × 100
+    CASE
+        WHEN sales.TotalRevenueEur > 0
+        THEN (ISNULL(costs.MarketingCostEur, 0) / sales.TotalRevenueEur) * 100
+        ELSE NULL
+    END AS MarketingQuotePct
+FROM (
+    -- Subquery: Sales aggregiert nach Monat/Store mit Kampagnen-Split
+    SELECT
+        FORMAT(s.ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
+        s.ID_STORE AS IdStore,
+        so.STORE_LOCATION AS StoreName,
+        SUM(CASE WHEN s.ID_CAMPAIGN IS NOT NULL AND s.ID_CAMPAIGN != 0 THEN s.RevenueEUR ELSE 0 END) AS RevenueWithCampaignEur,
+        SUM(CASE WHEN s.ID_CAMPAIGN IS NULL OR s.ID_CAMPAIGN = 0 THEN s.RevenueEUR ELSE 0 END) AS RevenueWithoutCampaignEur,
+        SUM(s.RevenueEUR) AS TotalRevenueEur,
+        SUM(CASE WHEN s.ID_CAMPAIGN IS NOT NULL AND s.ID_CAMPAIGN != 0 THEN s.SalesAmount ELSE 0 END) AS QuantityWithCampaign,
+        SUM(s.SalesAmount) AS QuantityTotal
+    FROM dbo.V_LIST_MONTHLY_SALES s
+    INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
+    GROUP BY FORMAT(s.ID_CALMONTH, 'yyyy-MM'), s.ID_STORE, so.STORE_LOCATION
+) sales
+LEFT JOIN (
+    -- Subquery: Marketing-Kosten pro Monat/Store
+    SELECT
+        FORMAT(c.ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
+        c.ID_STORE AS IdStore,
+        SUM(c.WertEUR) AS MarketingCostEur
+    FROM dbo.V_LIST_MONTHLY_COSTS c
+    WHERE c.Kostenkategorie = 'Marketing Campaign'
+    GROUP BY FORMAT(c.ID_CALMONTH, 'yyyy-MM'), c.ID_STORE
+) costs ON sales.IdCalmonthStd = costs.IdCalmonthStd AND sales.IdStore = costs.IdStore;
+GO
+
+
+-- View 9: list_views.V_LIST_G18_MARKETING_BY_CAMPAIGN
+-- Zweck: ROAS pro einzelner Kampagne - ersetzt extract_campaign_id() Regex
+CREATE OR ALTER VIEW list_views.V_LIST_G18_MARKETING_BY_CAMPAIGN (
+    IdStore,
+    StoreName,
+    IdCampaign,
+    CampaignName,
+    CampaignType,
+    RevenueEur,
+    CostEur,
+    Quantity,
+    ROAS
+)
+AS
+SELECT
+    s.ID_STORE AS IdStore,
+    so.STORE_LOCATION AS StoreName,
+    s.ID_CAMPAIGN AS IdCampaign,
+    c.CAMP_NAME AS CampaignName,
+    c.CAMP_TYPE AS CampaignType,
+    SUM(s.RevenueEUR) AS RevenueEur,
+    ISNULL(costs.CostEur, 0) AS CostEur,
+    SUM(s.SalesAmount) AS Quantity,
+    -- ROAS = Umsatz / Kosten
+    CASE
+        WHEN ISNULL(costs.CostEur, 0) > 0
+        THEN SUM(s.RevenueEUR) / costs.CostEur
+        ELSE NULL
+    END AS ROAS
+FROM dbo.V_LIST_MONTHLY_SALES s
+INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
+INNER JOIN dbo.T_CAMPAIGN c ON s.ID_CAMPAIGN = c.ID_CAMPAIGN
+LEFT JOIN (
+    -- Kosten pro Kampagne extrahieren (aus Beschreibung mit ID)
+    SELECT
+        ID_STORE,
+        -- Extrahiere Campaign-ID aus "Marketing Campaign [XX]: Name"
+        CAST(SUBSTRING(
+            Beschreibung,
+            CHARINDEX('[', Beschreibung) + 1,
+            CHARINDEX(']', Beschreibung) - CHARINDEX('[', Beschreibung) - 1
+        ) AS INT) AS ID_CAMPAIGN,
+        SUM(WertEUR) AS CostEur
+    FROM dbo.V_LIST_MONTHLY_COSTS
+    WHERE Kostenkategorie = 'Marketing Campaign'
+    AND Beschreibung LIKE '%[%]%'  -- Nur Zeilen mit Campaign-ID
+    GROUP BY ID_STORE, SUBSTRING(
+        Beschreibung,
+        CHARINDEX('[', Beschreibung) + 1,
+        CHARINDEX(']', Beschreibung) - CHARINDEX('[', Beschreibung) - 1
+    )
+) costs ON s.ID_STORE = costs.ID_STORE AND s.ID_CAMPAIGN = costs.ID_CAMPAIGN
+WHERE s.ID_CAMPAIGN != 0
+GROUP BY s.ID_STORE, so.STORE_LOCATION, s.ID_CAMPAIGN, c.CAMP_NAME, c.CAMP_TYPE, costs.CostEur;
+GO
+
+
+-- =============================================
 -- DEPLOYMENT ABGESCHLOSSEN
 -- =============================================
 
 PRINT '============================================='
-PRINT 'Gruppe 18 - Benchmark Views V2.1 erstellt!'
+PRINT 'Gruppe 18 - Benchmark Views V2.3 erstellt!'
 PRINT '============================================='
 PRINT ''
-PRINT 'Änderungen in V2:'
-PRINT '  - 6 Produktkategorien: City Bikes, E-Trekking, Kid Bikes,'
-PRINT '    Mountain Bikes, Race Bikes, Trekking Bikes'
-PRINT '  - Einzelne Stores statt kombinierte Gruppen'
-PRINT '  - Modulares System für beliebige Store-Anzahl'
+PRINT 'WICHTIG: Views enthalten KEINE Store-Filter mehr!'
+PRINT 'Die App filtert dynamisch via:'
+PRINT '  WHERE IdStore IN (3, 5, 14)'
+PRINT ''
+PRINT 'Vorteile:'
+PRINT '  - Keine Logik-Duplikate in Views'
+PRINT '  - Flexibel: Stores in App hinzufügen/entfernen'
+PRINT '  - Konsistent: DB liefert Wahrheit, App filtert'
+PRINT ''
+PRINT 'Enthaltene Views:'
+PRINT '  1. V_LIST_G18_BENCHMARK_SALES_STD'
+PRINT '  2. V_LIST_G18_BENCHMARK_SALES_AGG'
+PRINT '  3. V_LIST_G18_BENCHMARK_COSTS_AGG'
+PRINT '  4. V_LIST_G18_BENCHMARK_KPI'
+PRINT '  5. V_LIST_G18_BENCHMARK_EXPORT_MONTHLY'
+PRINT '  6. V_LIST_G18_BENCHMARK_COSTS_DETAIL'
+PRINT '  7. V_LIST_G18_BENCHMARK_WATERFALL'
+PRINT '  8. V_LIST_G18_MARKETING_KPI_MONTHLY'
+PRINT '  9. V_LIST_G18_MARKETING_BY_CAMPAIGN'
 PRINT ''
 PRINT '============================================='
 GO
