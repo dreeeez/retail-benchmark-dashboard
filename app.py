@@ -97,6 +97,14 @@ if df is not None and len(df) > 0:
             selected_month = st.selectbox("Zeitraum:", options=list(month_options.keys()),
                                           format_func=lambda x: month_options[x])
 
+            # Filial-Auswahl
+            selected_stores = st.multiselect(
+                "Filialen:",
+                options=[s['name'] for s in STORES],
+                default=[s['name'] for s in STORES],
+                key="store_filter"
+            )
+
         with col_indicator:
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown(f'<div class="month-indicator">{month_options[selected_month]}</div>', unsafe_allow_html=True)
@@ -131,7 +139,7 @@ if df is not None and len(df) > 0:
                 else:
                     stores_kpis[store['name']] = calculate_kpis(stores_data[store['name']])
 
-        active_stores = [s for s in STORES if s['name'] in stores_data]
+        active_stores = [s for s in STORES if s['name'] in stores_data and s['name'] in selected_stores]
 
         # =================================================================
         # TABS
@@ -140,7 +148,7 @@ if df is not None and len(df) > 0:
             "📊 Finanzperformance", "📢 Marketing", "💸 Kostenanalyse", "🚲 Produktkategorien", "📋 Export"
         ])
 
-        if len(active_stores) >= 2:
+        if len(active_stores) >= 1:
             # =============================================================
             # TAB 1: FINANZPERFORMANCE
             # =============================================================
@@ -173,23 +181,27 @@ if df is not None and len(df) > 0:
                     with col_chart1:
                         if selected_month == 'all':
                             st.markdown(chart_header("💰 Umsatzentwicklung",
-                                "<strong>Umsatz pro Monat</strong><br>Zeigt den Gesamtumsatz jeder Filiale im Zeitverlauf."), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> Summe aller Verkaufserlöse pro Monat<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt Umsatztrends und Saisonalität. Ermöglicht Vergleich der Filialperformance und Erkennung von Wachstums- oder Rückgangsphasen."), unsafe_allow_html=True)
                             fig = create_revenue_trend_chart(stores_data, active_stores, monat_col)
                         else:
                             month_name = MONTH_NAMES.get(selected_month, selected_month)
                             st.markdown(chart_header(f"💰 Umsatzvergleich {month_name}",
-                                "<strong>Umsatz im ausgewählten Monat</strong>"), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> Summe aller Verkaufserlöse im Monat<br><br>"
+                                "<strong>Nutzen:</strong> Direkter Filialvergleich für den gewählten Zeitraum. Zeigt welche Filiale am umsatzstärksten ist."), unsafe_allow_html=True)
                             fig = create_revenue_bar_chart(active_stores, stores_kpis)
                         st.plotly_chart(fig, use_container_width=True)
 
                     with col_chart2:
                         if selected_month == 'all':
                             st.markdown(chart_header("📊 Operativer Gewinn (EBIT) - Entwicklung",
-                                "<strong>EBIT = Umsatz - Wareneinsatz - OPEX</strong>"), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> EBIT = Umsatz - Wareneinsatz - Betriebskosten (Personal, Miete, Logistik, Marketing)<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt die tatsächliche operative Profitabilität. Ein negativer EBIT bedeutet Verlust im Kerngeschäft - unabhängig von Finanzierung und Steuern."), unsafe_allow_html=True)
                         else:
                             month_name = MONTH_NAMES.get(selected_month, selected_month)
                             st.markdown(chart_header(f"📊 Operativer Gewinn (EBIT) - Vergleich {month_name}",
-                                "<strong>EBIT = Umsatz - Wareneinsatz - OPEX</strong>"), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> EBIT = Umsatz - Wareneinsatz - Betriebskosten (Personal, Miete, Logistik, Marketing)<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt die tatsächliche operative Profitabilität. Ein negativer EBIT bedeutet Verlust im Kerngeschäft - unabhängig von Finanzierung und Steuern."), unsafe_allow_html=True)
                         fig = create_ebit_chart(stores_data, active_stores, monat_col)
                         st.plotly_chart(fig, use_container_width=True)
 
@@ -198,18 +210,21 @@ if df is not None and len(df) > 0:
 
                         with col_brutto:
                             st.markdown(chart_header("📊 Bruttomarge im Vergleich",
-                                "<strong>Bruttomarge = Bruttogewinn / Umsatz × 100</strong>"), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> (Umsatz - Wareneinsatz) / Umsatz × 100<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt die Handelsspanne nach Abzug der Warenkosten. Höhere Bruttomarge = mehr Spielraum für Betriebskosten. Niedrige Werte deuten auf Preisdruck oder hohe Einkaufskosten hin."), unsafe_allow_html=True)
                             fig = create_margin_chart(active_stores, stores_kpis, 'brutto')
                             st.plotly_chart(fig, use_container_width=True)
 
                         with col_ebit:
-                            st.markdown(chart_header("📈 EBIT Margen-Vergleich",
-                                "<strong>EBIT-Marge = EBIT / Umsatz × 100</strong>"), unsafe_allow_html=True)
+                            st.markdown(chart_header("📈 EBIT-Marge im Vergleich",
+                                "<strong>Berechnung:</strong> EBIT / Umsatz × 100<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt wie viel vom Umsatz als operativer Gewinn übrig bleibt. Benchmark für operative Effizienz. Negative Werte = Filiale arbeitet nicht kostendeckend."), unsafe_allow_html=True)
                             fig = create_margin_chart(active_stores, stores_kpis, 'ebit')
                             st.plotly_chart(fig, use_container_width=True)
 
                         st.markdown(chart_header("📊 Kostenquote im Vergleich",
-                            "<strong>Kostenquote (%) = Gesamtkosten / Umsatz × 100</strong>"), unsafe_allow_html=True)
+                            "<strong>Berechnung:</strong> Gesamtkosten / Umsatz × 100<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt den Kostenanteil am Umsatz. Werte über 100% bedeuten Verlust. Ermöglicht Identifikation von Filialen mit Kostenoptimierungspotenzial."), unsafe_allow_html=True)
                         fig = create_cost_ratio_chart(active_stores, stores_kpis)
                         st.plotly_chart(fig, use_container_width=True)
 
@@ -268,25 +283,29 @@ if df is not None and len(df) > 0:
                     with col_trend:
                         if selected_month == 'all':
                             st.markdown(chart_header("📈 Marketing-Ausgaben im Zeitverlauf",
-                                "<strong>Monatliche Marketing-Investitionen</strong><br>Zeigt wie sich die Marketing-Ausgaben über die Monate entwickelt haben."), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> Summe aller Marketing-Kosten pro Monat<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt Investitionsmuster und Kampagnen-Intensität. Hilft bei Budget-Planung und Identifikation von Marketing-Hochphasen."), unsafe_allow_html=True)
                             fig = create_marketing_trend_chart(marketing_all_months, active_stores)
                         else:
                             month_name = MONTH_NAMES.get(selected_month, selected_month)
                             st.markdown(chart_header(f"📊 Marketing-Kosten {month_name}",
-                                "<strong>Marketing-Ausgaben im ausgewählten Monat</strong>"), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> Summe aller Marketing-Kosten im Monat<br><br>"
+                                "<strong>Nutzen:</strong> Direkter Vergleich der Marketing-Investitionen zwischen Filialen."), unsafe_allow_html=True)
                             fig = create_marketing_bar_chart(active_stores, marketing_kpis)
                         st.plotly_chart(fig, use_container_width=True)
 
                     with col_quote:
                         st.markdown(chart_header("📊 Marketing-Quote",
-                            "<strong>Marketing-Kosten / Gesamtumsatz × 100</strong><br>Zeigt wie viel Prozent vom Umsatz für Marketing ausgegeben wird."), unsafe_allow_html=True)
+                            "<strong>Berechnung:</strong> Marketing-Kosten / Gesamtumsatz × 100<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt den Anteil des Umsatzes, der in Marketing fließt. Hilft bei der Bewertung der Marketing-Intensität. Branchenüblich im Einzelhandel: 3-8%."), unsafe_allow_html=True)
                         fig = create_marketing_quote_chart(active_stores, marketing_kpis)
                         st.plotly_chart(fig, use_container_width=True)
 
                     # CPA - Cost per Acquisition (wie im alten Design)
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.markdown(chart_header("💰 CPA - Cost per Acquisition",
-                        "<strong>Marketing-Kosten / Verkaufte Stück</strong><br>Was kostet ein verkaufter Artikel an Werbung?"), unsafe_allow_html=True)
+                        "<strong>Berechnung:</strong> Marketing-Kosten / Verkaufte Stückzahl (bei Kampagnen)<br><br>"
+                        "<strong>Nutzen:</strong> Zeigt die Akquisekosten pro verkauftem Artikel. Niedriger CPA = effizienteres Marketing. Ermöglicht ROI-Bewertung einzelner Kampagnen."), unsafe_allow_html=True)
                     st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
 
                     cpa_cols = st.columns(len(active_stores))
@@ -311,7 +330,8 @@ if df is not None and len(df) > 0:
             # =============================================================
             with tab_costs:
                 st.markdown(chart_header("💰 Gesamtkosten je Filiale",
-                    "<strong>Gesamtkosten = Wareneinsatz + OPEX</strong>"), unsafe_allow_html=True)
+                    "<strong>Berechnung:</strong> Wareneinsatz + Personal + Miete + Logistik + Marketing<br><br>"
+                    "<strong>Nutzen:</strong> Zeigt die absolute Kostenbelastung jeder Filiale. Basis für Kostenoptimierung und Budgetplanung."), unsafe_allow_html=True)
 
                 cost_cols = st.columns(len(active_stores))
                 for idx, store in enumerate(active_stores):
@@ -321,7 +341,8 @@ if df is not None and len(df) > 0:
                 st.markdown("<br>", unsafe_allow_html=True)
 
                 st.markdown(chart_header("📊 Kostenstruktur (in % vom Umsatz)",
-                    "<strong>Jede Kostenstelle als Anteil vom Umsatz</strong>"), unsafe_allow_html=True)
+                    "<strong>Berechnung:</strong> Jeweilige Kostenart / Umsatz × 100<br><br>"
+                    "<strong>Nutzen:</strong> Zeigt wo das Geld hingeht. Ermöglicht Identifikation von Kostentreibern und Benchmarking zwischen Filialen. Hohe Werte in einzelnen Kategorien signalisieren Optimierungspotenzial."), unsafe_allow_html=True)
 
                 # Kostenstruktur-Tabelle
                 table_html = '<table style="width: 100%; border-collapse: collapse; font-size: 1.1em;">'
@@ -351,7 +372,8 @@ if df is not None and len(df) > 0:
                 if rent_m2_data is not None and not rent_m2_data.empty:
                     period_label = "Gesamt" if selected_month == 'all' else MONTH_NAMES.get(selected_month, selected_month)
                     st.markdown(chart_header(f"📋 Filialdetails (Fläche & Effizienz) - {period_label}",
-                        "<strong>Übersicht Fläche, Miete und Umsatzeffizienz</strong>"), unsafe_allow_html=True)
+                        "<strong>Berechnung:</strong> Umsatz/m² = Umsatz / Verkaufsfläche<br><br>"
+                        "<strong>Nutzen:</strong> Zeigt die Flächenproduktivität. Höherer Umsatz/m² = effizientere Flächennutzung. Ermöglicht Vergleich trotz unterschiedlicher Filialgrößen."), unsafe_allow_html=True)
 
                     detail_html = '<table style="width: 100%; border-collapse: collapse; font-size: 1.1em;">'
                     detail_html += '<thead><tr style="background: rgba(255,255,255,0.1); color: #aaa;">'
@@ -406,7 +428,8 @@ if df is not None and len(df) > 0:
 
                         if quantity_col:
                             st.markdown(chart_header("🛒 Gesamtverkäufe (Stückzahl)",
-                                "<strong>Absolute Anzahl verkaufter Einheiten</strong>"), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> Summe aller verkauften Artikel<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt das Absatzvolumen unabhängig vom Preis. Hohe Stückzahl bei niedrigem Umsatz deutet auf günstige Produkte hin. Wichtig für Lager- und Bestellplanung."), unsafe_allow_html=True)
 
                             sales_cols = st.columns(len(active_stores))
                             for idx, store in enumerate(active_stores):
@@ -426,30 +449,35 @@ if df is not None and len(df) > 0:
 
                         if 'Umsatzverteilung (Donut)' in selected_cat_sections:
                             st.markdown(chart_header("📊 Umsatzverteilung nach Kategorie",
-                                "<strong>Anteil jeder Kategorie am Gesamtumsatz</strong>"), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> Umsatz je Kategorie / Gesamtumsatz × 100<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt welche Produktkategorien den meisten Umsatz generieren. Hilft bei Sortimentsoptimierung und Identifikation von Umsatztreibern."), unsafe_allow_html=True)
                             fig = create_revenue_distribution_chart(df_filtered_cat, active_stores, cat_col, revenue_col, filter_by_store)
                             st.plotly_chart(fig, use_container_width=True)
 
                         if 'Stückzahl-Anteil (%)' in selected_cat_sections and quantity_col:
                             st.markdown(chart_header("📦 Anteil an Gesamtstückzahl je Kategorie (%)",
-                                "<strong>Prozentuale Verteilung der verkauften Einheiten</strong>"), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> Verkaufte Stück je Kategorie / Gesamtstückzahl × 100<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt welche Kategorien mengenmäßig dominant sind. Unterschiede zu Umsatzverteilung zeigen Preisunterschiede zwischen Kategorien."), unsafe_allow_html=True)
                             fig = create_quantity_heatmap(df_filtered_cat, active_stores, cat_col, quantity_col, filter_by_store)
                             st.plotly_chart(fig, use_container_width=True)
 
                         if 'Bruttomarge (%)' in selected_cat_sections and profit_col:
                             st.markdown(chart_header("📈 Bruttomarge nach Kategorie (%)",
-                                "<strong>Bruttomarge = Bruttogewinn / Umsatz × 100</strong>"), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> (Umsatz - Wareneinsatz) / Umsatz × 100 je Kategorie<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt welche Kategorien am profitabelsten sind. Hohe Marge = mehr Gewinn pro Euro Umsatz. Basis für Preisstrategien und Sortimentsentscheidungen."), unsafe_allow_html=True)
                             fig = create_margin_by_category_chart(df_filtered_cat, active_stores, cat_col, profit_col, revenue_col, filter_by_store)
                             st.plotly_chart(fig, use_container_width=True)
 
                         if 'Bruttogewinn-Anteil (%)' in selected_cat_sections and profit_col:
                             st.markdown(chart_header("💰 Bruttogewinn-Anteil je Kategorie (%)",
-                                "<strong>Anteil am Gesamtbruttogewinn</strong>"), unsafe_allow_html=True)
+                                "<strong>Berechnung:</strong> Bruttogewinn je Kategorie / Gesamtbruttogewinn × 100<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt welche Kategorien am meisten zum Gewinn beitragen. Kombiniert Umsatzvolumen und Marge zu einer Gesamtbewertung."), unsafe_allow_html=True)
                             fig = create_profit_distribution_chart(df_filtered_cat, active_stores, cat_col, profit_col, filter_by_store)
                             st.plotly_chart(fig, use_container_width=True)
 
                         st.markdown(chart_header("💎 Umsatzverteilung nach Preissegment (%)",
-                            "<strong>Anteil der Preissegmente am Gesamtumsatz</strong>"), unsafe_allow_html=True)
+                            "<strong>Berechnung:</strong> Umsatz je Preissegment / Gesamtumsatz × 100<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt die Positionierung im Markt. Hoher Premium-Anteil = hochwertige Kundschaft. Hilft bei Sortiments- und Preisstrategie."), unsafe_allow_html=True)
                         price_segment_data = load_price_segment_data(selected_month)
                         if price_segment_data is not None and not price_segment_data.empty:
                             fig = create_price_segment_chart(price_segment_data, active_stores)
@@ -472,7 +500,7 @@ if df is not None and len(df) > 0:
                                    f"benchmark_export_{selected_month}.csv", "text/csv")
 
         else:
-            st.warning(f"Nicht genügend Stores gefunden. Gefunden: {len(active_stores)}, Benötigt: mindestens 2")
+            st.warning("Bitte mindestens eine Filiale auswählen.")
 
     else:
         st.error("Spalten 'Monat' oder 'Filialgruppe' nicht gefunden.")
