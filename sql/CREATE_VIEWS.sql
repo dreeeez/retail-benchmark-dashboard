@@ -88,7 +88,7 @@ SELECT
     s.SalesPriceEUR AS SalesPriceEur,
     s.SalesAmount AS Quantity
 
-FROM dbo.V_LIST_MONTHLY_SALES s
+FROM dbo.V_LIST_MONTHLY_SALES_11012026 s
 INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID;
 -- KEIN WHERE-Filter! App filtert via: WHERE IdStore IN (3, 5, 14)
 GO
@@ -178,7 +178,7 @@ SELECT
         ELSE 0
     END) AS MarketingEur
 
-FROM dbo.V_LIST_MONTHLY_COSTS c
+FROM dbo.V_LIST_MONTHLY_COSTS_11012026 c
 GROUP BY FORMAT(c.ID_CALMONTH, 'yyyy-MM'), c.ID_STORE, c.StoreName;
 -- KEIN WHERE-Filter! App filtert via: WHERE IdStore IN (3, 5, 14)
 GO
@@ -315,7 +315,7 @@ SELECT
     c.StoreName AS StoreName,
     c.Kostenkategorie,
     SUM(c.WertEUR) AS KostenEur
-FROM dbo.V_LIST_MONTHLY_COSTS c
+FROM dbo.V_LIST_MONTHLY_COSTS_11012026 c
 GROUP BY FORMAT(c.ID_CALMONTH, 'yyyy-MM'), c.ID_STORE, c.StoreName, c.Kostenkategorie;
 GO
 
@@ -391,7 +391,7 @@ LEFT JOIN (
         FORMAT(c.ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
         c.ID_STORE AS IdStore,
         SUM(c.WertEUR) AS MarketingCostEur
-    FROM dbo.V_LIST_MONTHLY_COSTS c
+    FROM dbo.V_LIST_MONTHLY_COSTS_11012026 c
     WHERE c.Kostenkategorie = 'Marketing Campaign'
     GROUP BY FORMAT(c.ID_CALMONTH, 'yyyy-MM'), c.ID_STORE
 ) costs ON sales.IdCalmonthStd = costs.IdCalmonthStd AND sales.IdStore = costs.IdStore;
@@ -441,7 +441,7 @@ LEFT JOIN (
             CHARINDEX(']', Beschreibung) - CHARINDEX('[', Beschreibung) - 1
         ) AS INT) AS ID_CAMPAIGN,
         SUM(WertEUR) AS CostEur
-    FROM dbo.V_LIST_MONTHLY_COSTS
+    FROM dbo.V_LIST_MONTHLY_COSTS_11012026
     WHERE Kostenkategorie = 'Marketing Campaign'
     AND Beschreibung LIKE '%[%]%'  -- Nur Zeilen mit Campaign-ID
     GROUP BY ID_STORE, SUBSTRING(
@@ -485,7 +485,7 @@ CostsAgg AS (
         FORMAT(ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
         ID_STORE,
         SUM(WertEUR) AS Mietkosten
-    FROM dbo.V_LIST_MONTHLY_COSTS
+    FROM dbo.V_LIST_MONTHLY_COSTS_11012026
     WHERE Kostenkategorie = 'Monthly Rent'
     GROUP BY FORMAT(ID_CALMONTH, 'yyyy-MM'), ID_STORE
 )

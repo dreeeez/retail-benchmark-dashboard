@@ -48,6 +48,8 @@ def load_export_monthly(month: str = 'all'):
         return df
     except Exception as e:
         st.error(f"Datenbankverbindung fehlgeschlagen: {e}")
+        import traceback
+        st.error(f"Details:\n{traceback.format_exc()}")
         return None
 
 
@@ -177,6 +179,8 @@ def load_store_details(month: str = 'all'):
         return df
     except Exception as e:
         st.error(f"Fehler beim Laden der Store-Details: {e}")
+        import traceback
+        st.error(f"Details:\n{traceback.format_exc()}")
         return None
 
 
