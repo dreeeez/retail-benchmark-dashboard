@@ -332,10 +332,10 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_MARKETING_KPI_MONTHLY (
     IdStore,
     StoreName,
     MarketingCostEur,
-    RevenueWithCampaignEur,
-    RevenueWithoutCampaignEur,
+    MarketingAttributedRevenueEur,      -- "Marketing-attributierter Umsatz"
+    MarketingIndependentRevenueEur,     -- "Marketing-unabhängiger Umsatz"
     TotalRevenueEur,
-    QuantityWithCampaign,
+    MarketingAttributedQuantity,        -- Anzahl mit Marketing
     QuantityTotal,
     ROAS,
     CPA,
@@ -347,18 +347,18 @@ SELECT
     sales.IdStore,
     sales.StoreName,
     ISNULL(costs.MarketingCostEur, 0) AS MarketingCostEur,
-    sales.RevenueWithCampaignEur,
-    sales.RevenueWithoutCampaignEur,
+    sales.RevenueWithCampaignEur AS MarketingAttributedRevenueEur,
+    sales.RevenueWithoutCampaignEur AS MarketingIndependentRevenueEur,
     sales.TotalRevenueEur,
-    sales.QuantityWithCampaign,
+    sales.QuantityWithCampaign AS MarketingAttributedQuantity,
     sales.QuantityTotal,
-    -- ROAS = Umsatz MIT Kampagne / Marketing-Kosten
+    -- ROAS = Marketing-attributierter Umsatz / Marketing-Kosten
     CASE
         WHEN ISNULL(costs.MarketingCostEur, 0) > 0
         THEN sales.RevenueWithCampaignEur / costs.MarketingCostEur
         ELSE NULL
     END AS ROAS,
-    -- CPA = Marketing-Kosten / Stück mit Kampagne
+    -- CPA = Marketing-Kosten / Stück (marketing-attributiert)
     CASE
         WHEN sales.QuantityWithCampaign > 0
         THEN ISNULL(costs.MarketingCostEur, 0) / sales.QuantityWithCampaign

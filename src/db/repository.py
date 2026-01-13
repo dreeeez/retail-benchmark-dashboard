@@ -24,7 +24,7 @@ from src.db.queries import (
     SQL_SALES_AGG,
     SQL_PRICE_SEGMENT,
 )
-from src.config.stores import get_store_ids_sql
+# Import von get_store_ids_sql entfernt - wird in Funktionen importiert um zirkuläre Abhängigkeit zu vermeiden
 
 
 # =============================================================================
@@ -37,6 +37,7 @@ def load_export_monthly(month: str = 'all'):
 
     Für: Tab Finanzperformance (Trend-Charts) + Tab Export
     """
+    from src.config.stores import get_store_ids_sql
     store_ids = get_store_ids_sql()
     month_filter = build_month_filter(month, 'Monat')
     try:
@@ -60,6 +61,7 @@ def load_kpi(month: str = 'all'):
     Für: Tab Finanzperformance (KPI-Cards, Margen, Kostenquote)
     ERSETZT: calculate_kpis() - keine Python-Berechnung mehr nötig!
     """
+    from src.config.stores import get_store_ids_sql
     store_ids = get_store_ids_sql()
     month_filter = build_month_filter(month)
     try:
@@ -83,6 +85,7 @@ def load_marketing_kpi(month: str = 'all'):
 
     Für: Tab Marketing (ROAS, CPA, Marketing-Quote, Trend)
     """
+    from src.config.stores import get_store_ids_sql
     store_ids = get_store_ids_sql()
     month_filter = build_month_filter(month)
     try:
@@ -102,6 +105,7 @@ def load_marketing_by_campaign():
 
     Für: Tab Marketing (Kampagnen-Breakdown)
     """
+    from src.config.stores import get_store_ids_sql
     store_ids = get_store_ids_sql()
     try:
         with db_connection() as conn:
@@ -121,6 +125,7 @@ def load_marketing_by_campaign():
 @st.cache_data(ttl=300)
 def load_costs_agg(month: str = 'all'):
     """Lädt aggregierte Kosten aus V_LIST_G18_BENCHMARK_COSTS_AGG"""
+    from src.config.stores import get_store_ids_sql
     store_ids = get_store_ids_sql()
     month_filter = build_month_filter(month)
     try:
@@ -137,6 +142,7 @@ def load_costs_agg(month: str = 'all'):
 @st.cache_data(ttl=300)
 def load_costs_detail(month: str = 'all'):
     """Lädt detaillierte Kosten aus V_LIST_G18_BENCHMARK_COSTS_DETAIL"""
+    from src.config.stores import get_store_ids_sql
     store_ids = get_store_ids_sql()
     month_filter = build_month_filter(month)
     try:
@@ -157,6 +163,7 @@ def load_store_details(month: str = 'all'):
     Für: Tab Kostenanalyse (Filialdetails: Fläche, Miete, Umsatz/m²)
     Bei month='all' werden die Werte über alle Monate aggregiert.
     """
+    from src.config.stores import get_store_ids_sql
     store_ids = get_store_ids_sql()
     month_filter = build_month_filter(month)
     try:
@@ -197,6 +204,7 @@ def load_rent_and_revenue_per_m2(month: str = 'all'):
 @st.cache_data(ttl=300)
 def load_sales_agg(month: str = 'all'):
     """Lädt aggregierte Sales aus V_LIST_G18_BENCHMARK_SALES_AGG"""
+    from src.config.stores import get_store_ids_sql
     store_ids = get_store_ids_sql()
     month_filter = build_month_filter(month)
     try:
@@ -213,6 +221,7 @@ def load_sales_agg(month: str = 'all'):
 @st.cache_data(ttl=300)
 def load_price_segment_data(month: str = 'all'):
     """Lädt Umsatzverteilung nach Preissegment"""
+    from src.config.stores import get_store_ids_sql
     store_ids = get_store_ids_sql()
     month_filter = build_month_filter(month)
     try:

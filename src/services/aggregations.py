@@ -31,11 +31,11 @@ def aggregate_marketing_kpis(marketing_df, store_id: int) -> dict:
             'marketing_quote': 0
         }
 
-    umsatz_mit_marketing = store_data['RevenueWithCampaignEur'].sum()
-    umsatz_ohne_marketing = store_data['RevenueWithoutCampaignEur'].sum()
+    umsatz_mit_marketing = store_data['MarketingAttributedRevenueEur'].sum()
+    umsatz_ohne_marketing = store_data['MarketingIndependentRevenueEur'].sum()
     umsatz_gesamt = store_data['TotalRevenueEur'].sum()
     marketing = store_data['MarketingCostEur'].sum()
-    stueck_mit_marketing = store_data['QuantityWithCampaign'].sum()
+    stueck_mit_marketing = store_data['MarketingAttributedQuantity'].sum()
     stueck_gesamt = store_data['QuantityTotal'].sum()
 
     roas = umsatz_mit_marketing / marketing if marketing > 0 else 0
@@ -43,8 +43,8 @@ def aggregate_marketing_kpis(marketing_df, store_id: int) -> dict:
     marketing_quote = (marketing / umsatz_gesamt * 100) if umsatz_gesamt > 0 else 0
 
     return {
-        'umsatz_mit_marketing': umsatz_mit_marketing,
-        'umsatz_ohne_marketing': umsatz_ohne_marketing,
+        'umsatz_mit_marketing': umsatz_mit_marketing,  # Marketing-attributierter Umsatz
+        'umsatz_ohne_marketing': umsatz_ohne_marketing,  # Marketing-unabhängiger Umsatz
         'umsatz_gesamt': umsatz_gesamt,
         'marketing': marketing,
         'roas': roas,

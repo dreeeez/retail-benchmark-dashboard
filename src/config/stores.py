@@ -2,51 +2,108 @@
 Benchmark Dashboard - Gruppe 18
 Store-Konfiguration
 
-Modulares System - neue Stores einfach hier hinzufügen
-WICHTIG: Store-IDs werden dynamisch in SQL-Queries eingefügt!
+DYNAMISCHES SYSTEM - Stores werden automatisch aus der Datenbank geladen
+Nur Stores mit Sales-Daten werden berücksichtigt (keine reinen Kosten-Stores)
 """
 
-# =============================================================================
-# STORE KONFIGURATION
-# =============================================================================
-# Neue Stores einfach hier hinzufügen - Dashboard passt sich automatisch an
-# Die IDs werden dynamisch in alle SQL-Queries eingefügt (kein Hardcoding mehr!)
+import streamlit as st
+import pandas as pd
 
-STORES = [
-    {
-        'id': 51014014,  # Geändert von 14 auf 51014014 (LIVE-Daten)
-        'name': 'Rosenheim',
-        'short': 'ROS',
-        'color': '#00d4ff',
-        'color_bg': 'rgba(0, 212, 255, 0.2)',
-    },
-    {
-        'id': 51005005,  # Geändert von 5 auf 51005005 (LIVE-Daten)
-        'name': 'Freiburg im Breisgau',
-        'short': 'FRE',
-        'color': '#7b2cbf',
-        'color_bg': 'rgba(123, 44, 191, 0.2)',
-    },
-    {
-        'id': 51003003,  # Geändert von 3 auf 51003003 (LIVE-Daten)
-        'name': 'Karlsruhe',
-        'short': 'KAR',
-        'color': '#ff6b6b',
-        'color_bg': 'rgba(255, 107, 107, 0.2)',
-    },
-    # Neuen Store hinzufügen:
-    # {
-    #     'id': 7,
-    #     'name': 'München',
-    #     'short': 'MUC',
-    #     'color': '#00ff88',
-    #     'color_bg': 'rgba(0, 255, 136, 0.2)',
-    # },
+# =============================================================================
+# FARBPALETTE FÜR STORES
+# =============================================================================
+# Vordefinierte Farben für bis zu 10 Stores
+STORE_COLORS = [
+    {'color': '#00d4ff', 'color_bg': 'rgba(0, 212, 255, 0.2)'},     # Cyan
+    {'color': '#7b2cbf', 'color_bg': 'rgba(123, 44, 191, 0.2)'},    # Lila
+    {'color': '#ff6b6b', 'color_bg': 'rgba(255, 107, 107, 0.2)'},   # Rot
+    {'color': '#00ff88', 'color_bg': 'rgba(0, 255, 136, 0.2)'},     # Grün
+    {'color': '#ffba08', 'color_bg': 'rgba(255, 186, 8, 0.2)'},     # Gelb
+    {'color': '#ff006e', 'color_bg': 'rgba(255, 0, 110, 0.2)'},     # Pink
+    {'color': '#8338ec', 'color_bg': 'rgba(131, 56, 236, 0.2)'},    # Violett
+    {'color': '#06ffa5', 'color_bg': 'rgba(6, 255, 165, 0.2)'},     # Mint
+    {'color': '#fb5607', 'color_bg': 'rgba(251, 86, 7, 0.2)'},      # Orange
+    {'color': '#3a86ff', 'color_bg': 'rgba(58, 134, 255, 0.2)'},    # Blau
 ]
 
 
 # =============================================================================
-# DYNAMISCHE STORE-ID GENERIERUNG
+# DYNAMISCHE STORE-LADEN AUS DATENBANK
+# =============================================================================
+
+@st.cache_data(ttl=3600)  # Cache für 1 Stunde
+def load_stores_from_db() -> list:
+    """
+    Lädt alle Stores mit Sales-Daten aus der Datenbank.
+
+    Berücksichtigt nur Stores die:
+    - Sales-Umsatz haben (RevenueEUR > 0)
+    - In V_LIST_MONTHLY_SALES vorhanden sind
+
+    Returns:
+        Liste von Store-Dictionaries mit id, name, short, color, color_bg
+    """
+    # Import hier um zirkuläre Abhängigkeit zu vermeiden
+    from src.db.connection import get_connection
+
+    try:
+        conn = get_connection()
+
+        # Query: Alle Stores mit Sales-Daten
+        query = """
+        SELECT DISTINCT
+            s.ID_STORE AS id,
+            s.StoreName AS name
+        FROM dbo.V_LIST_MONTHLY_SALES s
+        WHERE s.RevenueEUR > 0  -- Nur Stores mit tatsächlichen Sales
+        ORDER BY s.StoreName
+        """
+
+        df = pd.read_sql(query, conn)
+        conn.close()
+
+        if df.empty:
+            return []
+
+        # Erstelle Store-Dictionaries mit Farben
+        stores = []
+        for idx, row in df.iterrows():
+            # Short-Name: Erste 3 Buchstaben des Store-Namens
+            short = ''.join([c for c in row['name'] if c.isalpha()])[:3].upper()
+
+            # Farbe aus Palette (zyklisch wenn mehr als 10 Stores)
+            color_idx = idx % len(STORE_COLORS)
+
+            stores.append({
+                'id': int(row['id']),
+                'name': row['name'],
+                'short': short,
+                'color': STORE_COLORS[color_idx]['color'],
+                'color_bg': STORE_COLORS[color_idx]['color_bg'],
+            })
+
+        return stores
+
+    except Exception as e:
+        st.error(f"Fehler beim Laden der Stores: {e}")
+        return []
+
+
+# =============================================================================
+# AKTIVE STORES (GLOBAL)
+# =============================================================================
+
+# Lade Stores beim Import des Moduls
+STORES = load_stores_from_db()
+
+# Fallback falls keine Stores geladen werden konnten
+if not STORES:
+    st.warning("⚠️ Keine Stores mit Sales-Daten gefunden. Bitte Datenbankverbindung prüfen.")
+    STORES = []
+
+
+# =============================================================================
+# STORE-ID GENERIERUNG
 # =============================================================================
 
 def get_store_ids() -> list:
@@ -55,7 +112,7 @@ def get_store_ids() -> list:
 
 
 def get_store_ids_sql() -> str:
-    """Gibt Store-IDs als SQL-kompatiblen String zurück: '3, 5, 14'"""
+    """Gibt Store-IDs als SQL-kompatiblen String zurück: '51003003, 51005005, 51014014'"""
     return ', '.join(str(s['id']) for s in STORES)
 
 
@@ -65,6 +122,8 @@ def get_store_ids_sql() -> str:
 
 def get_store_by_name(name: str):
     """Findet Store-Config anhand des Namens (case-insensitive, partial match)"""
+    if not name:
+        return None
     name_lower = name.lower()
     for store in STORES:
         if store['name'].lower() in name_lower or name_lower in store['name'].lower():
@@ -95,3 +154,15 @@ def get_store_color_bg(store_name: str) -> str:
 def get_all_store_names() -> list:
     """Gibt Liste aller Store-Namen zurück"""
     return [store['name'] for store in STORES]
+
+
+def reload_stores():
+    """
+    Lädt Stores neu aus der Datenbank.
+    Nützlich wenn neue Stores hinzugekommen sind.
+    """
+    global STORES
+    # Cache löschen und neu laden
+    load_stores_from_db.clear()
+    STORES = load_stores_from_db()
+    return STORES

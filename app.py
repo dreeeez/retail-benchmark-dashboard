@@ -193,10 +193,21 @@ if df is not None and len(df) > 0:
                     st.subheader("📈 Vergleich Umsatz & Operativer Gewinn")
                     st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
-                    kpi_cols = st.columns(len(active_stores))
-                    for idx, store in enumerate(active_stores):
-                        with kpi_cols[idx]:
-                            st.markdown(render_store_kpi_card(store, stores_kpis[store['name']]), unsafe_allow_html=True)
+                    # Responsive Grid: Max 3 Stores pro Zeile
+                    num_stores = len(active_stores)
+                    stores_per_row = min(3, num_stores)  # Max 3 pro Zeile
+
+                    # Zeilen berechnen
+                    for row_start in range(0, num_stores, stores_per_row):
+                        row_stores = active_stores[row_start:row_start + stores_per_row]
+                        kpi_cols = st.columns(len(row_stores))
+
+                        for idx, store in enumerate(row_stores):
+                            with kpi_cols[idx]:
+                                st.markdown(render_store_kpi_card(store, stores_kpis[store['name']]), unsafe_allow_html=True)
+
+                        if row_start + stores_per_row < num_stores:  # Abstand zwischen Zeilen
+                            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
 
                     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -280,11 +291,11 @@ if df is not None and len(df) > 0:
                                 </div>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                     <div style="text-align: center;">
-                                        <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Umsatz direkt zurechenbar zu Marketing</div>
+                                        <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Marketing-attributierter Umsatz</div>
                                         <div style="color: #00ff88; font-size: 1em; font-weight: bold;">{format_currency(mkpi['umsatz_mit_marketing'])}</div>
                                     </div>
                                     <div style="text-align: center;">
-                                        <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Umsatz nicht direkt dem Marketing zurechenbar</div>
+                                        <div style="color: #aaa; font-size: 0.65em; text-transform: uppercase;">Marketing-unabhängiger Umsatz</div>
                                         <div style="color: #ff9f43; font-size: 1em; font-weight: bold;">{format_currency(mkpi['umsatz_ohne_marketing'])}</div>
                                     </div>
                                     <div style="text-align: center;">
