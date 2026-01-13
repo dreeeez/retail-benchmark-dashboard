@@ -32,8 +32,8 @@ SELECT
 
     s.ID_STORE AS IdStore,
 
-    -- Filialname aus Stammdaten
-    so.STORE_LOCATION AS StoreName,
+    -- Filialname direkt aus V_LIST_MONTHLY_SALES (kein JOIN mehr nötig)
+    s.StoreName AS StoreName,
 
     s.ID_MATERIAL AS IdMaterial,
     s.ProduktBeschreibung AS MaterialDescription,
@@ -88,9 +88,9 @@ SELECT
     s.SalesPriceEUR AS SalesPriceEur,
     s.SalesAmount AS Quantity
 
-FROM dbo.V_LIST_MONTHLY_SALES_11012026 s
-INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID;
--- KEIN WHERE-Filter! App filtert via: WHERE IdStore IN (3, 5, 14)
+FROM dbo.V_LIST_MONTHLY_SALES s;
+-- JOIN mit T_SALESORG entfernt - StoreName ist bereits in V_LIST_MONTHLY_SALES vorhanden
+-- KEIN WHERE-Filter! App filtert via: WHERE IdStore IN (51003003, 51005005, 51014014)
 GO
 
 
@@ -178,9 +178,9 @@ SELECT
         ELSE 0
     END) AS MarketingEur
 
-FROM dbo.V_LIST_MONTHLY_COSTS_11012026 c
+FROM dbo.V_LIST_MONTHLY_COSTS c
 GROUP BY FORMAT(c.ID_CALMONTH, 'yyyy-MM'), c.ID_STORE, c.StoreName;
--- KEIN WHERE-Filter! App filtert via: WHERE IdStore IN (3, 5, 14)
+-- KEIN WHERE-Filter! App filtert via: WHERE IdStore IN (51003003, 51005005, 51014014)
 GO
 
 
@@ -315,7 +315,7 @@ SELECT
     c.StoreName AS StoreName,
     c.Kostenkategorie,
     SUM(c.WertEUR) AS KostenEur
-FROM dbo.V_LIST_MONTHLY_COSTS_11012026 c
+FROM dbo.V_LIST_MONTHLY_COSTS c
 GROUP BY FORMAT(c.ID_CALMONTH, 'yyyy-MM'), c.ID_STORE, c.StoreName, c.Kostenkategorie;
 GO
 
@@ -375,15 +375,14 @@ FROM (
     SELECT
         FORMAT(s.ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
         s.ID_STORE AS IdStore,
-        so.STORE_LOCATION AS StoreName,
+        s.StoreName AS StoreName,
         SUM(CASE WHEN s.ID_CAMPAIGN IS NOT NULL AND s.ID_CAMPAIGN != 0 THEN s.RevenueEUR ELSE 0 END) AS RevenueWithCampaignEur,
         SUM(CASE WHEN s.ID_CAMPAIGN IS NULL OR s.ID_CAMPAIGN = 0 THEN s.RevenueEUR ELSE 0 END) AS RevenueWithoutCampaignEur,
         SUM(s.RevenueEUR) AS TotalRevenueEur,
         SUM(CASE WHEN s.ID_CAMPAIGN IS NOT NULL AND s.ID_CAMPAIGN != 0 THEN s.SalesAmount ELSE 0 END) AS QuantityWithCampaign,
         SUM(s.SalesAmount) AS QuantityTotal
     FROM dbo.V_LIST_MONTHLY_SALES s
-    INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
-    GROUP BY FORMAT(s.ID_CALMONTH, 'yyyy-MM'), s.ID_STORE, so.STORE_LOCATION
+    GROUP BY FORMAT(s.ID_CALMONTH, 'yyyy-MM'), s.ID_STORE, s.StoreName
 ) sales
 LEFT JOIN (
     -- Subquery: Marketing-Kosten pro Monat/Store
@@ -391,7 +390,7 @@ LEFT JOIN (
         FORMAT(c.ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
         c.ID_STORE AS IdStore,
         SUM(c.WertEUR) AS MarketingCostEur
-    FROM dbo.V_LIST_MONTHLY_COSTS_11012026 c
+    FROM dbo.V_LIST_MONTHLY_COSTS c
     WHERE c.Kostenkategorie = 'Marketing Campaign'
     GROUP BY FORMAT(c.ID_CALMONTH, 'yyyy-MM'), c.ID_STORE
 ) costs ON sales.IdCalmonthStd = costs.IdCalmonthStd AND sales.IdStore = costs.IdStore;
@@ -414,10 +413,10 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_MARKETING_BY_CAMPAIGN (
 AS
 SELECT
     s.ID_STORE AS IdStore,
-    so.STORE_LOCATION AS StoreName,
+    s.StoreName AS StoreName,
     s.ID_CAMPAIGN AS IdCampaign,
-    c.CAMP_NAME AS CampaignName,
-    c.CAMP_TYPE AS CampaignType,
+    s.Kampagne AS CampaignName,
+    s.KampagneTyp AS CampaignType,
     SUM(s.RevenueEUR) AS RevenueEur,
     ISNULL(costs.CostEur, 0) AS CostEur,
     SUM(s.SalesAmount) AS Quantity,
@@ -428,8 +427,6 @@ SELECT
         ELSE NULL
     END AS ROAS
 FROM dbo.V_LIST_MONTHLY_SALES s
-INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
-INNER JOIN dbo.T_CAMPAIGN c ON s.ID_CAMPAIGN = c.ID_CAMPAIGN
 LEFT JOIN (
     -- Kosten pro Kampagne extrahieren (aus Beschreibung mit ID)
     SELECT
@@ -441,7 +438,7 @@ LEFT JOIN (
             CHARINDEX(']', Beschreibung) - CHARINDEX('[', Beschreibung) - 1
         ) AS INT) AS ID_CAMPAIGN,
         SUM(WertEUR) AS CostEur
-    FROM dbo.V_LIST_MONTHLY_COSTS_11012026
+    FROM dbo.V_LIST_MONTHLY_COSTS
     WHERE Kostenkategorie = 'Marketing Campaign'
     AND Beschreibung LIKE '%[%]%'  -- Nur Zeilen mit Campaign-ID
     GROUP BY ID_STORE, SUBSTRING(
@@ -451,7 +448,7 @@ LEFT JOIN (
     )
 ) costs ON s.ID_STORE = costs.ID_STORE AND s.ID_CAMPAIGN = costs.ID_CAMPAIGN
 WHERE s.ID_CAMPAIGN != 0
-GROUP BY s.ID_STORE, so.STORE_LOCATION, s.ID_CAMPAIGN, c.CAMP_NAME, c.CAMP_TYPE, costs.CostEur;
+GROUP BY s.ID_STORE, s.StoreName, s.ID_CAMPAIGN, s.Kampagne, s.KampagneTyp, costs.CostEur;
 GO
 
 
@@ -475,6 +472,7 @@ WITH SalesAgg AS (
     SELECT
         FORMAT(ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
         ID_STORE,
+        MAX(StoreName) AS StoreName,
         MAX(StoreM2) AS StoreM2,
         SUM(RevenueEUR) AS Umsatz
     FROM dbo.V_LIST_MONTHLY_SALES
@@ -485,14 +483,14 @@ CostsAgg AS (
         FORMAT(ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
         ID_STORE,
         SUM(WertEUR) AS Mietkosten
-    FROM dbo.V_LIST_MONTHLY_COSTS_11012026
+    FROM dbo.V_LIST_MONTHLY_COSTS
     WHERE Kostenkategorie = 'Monthly Rent'
     GROUP BY FORMAT(ID_CALMONTH, 'yyyy-MM'), ID_STORE
 )
 SELECT
     s.IdCalmonthStd,
     s.ID_STORE AS IdStore,
-    so.STORE_LOCATION AS StoreName,
+    s.StoreName AS StoreName,
     s.StoreM2,
     ISNULL(c.Mietkosten, 0) AS Mietkosten,
     s.Umsatz,
@@ -501,7 +499,6 @@ SELECT
         ELSE 0
     END AS UmsatzProM2
 FROM SalesAgg s
-INNER JOIN dbo.T_SALESORG so ON s.ID_STORE = so.SALESORG_ID
 LEFT JOIN CostsAgg c ON s.IdCalmonthStd = c.IdCalmonthStd AND s.ID_STORE = c.ID_STORE;
 GO
 
@@ -516,7 +513,7 @@ PRINT '============================================='
 PRINT ''
 PRINT 'WICHTIG: Views enthalten KEINE Store-Filter mehr!'
 PRINT 'Die App filtert dynamisch via:'
-PRINT '  WHERE IdStore IN (3, 5, 14)'
+PRINT '  WHERE IdStore IN (51003003, 51005005, 51014014)'
 PRINT ''
 PRINT 'Vorteile:'
 PRINT '  - Keine Logik-Duplikate in Views'

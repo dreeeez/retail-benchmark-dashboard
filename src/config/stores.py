@@ -14,21 +14,21 @@ WICHTIG: Store-IDs werden dynamisch in SQL-Queries eingefügt!
 
 STORES = [
     {
-        'id': 14,
+        'id': 51014014,  # Geändert von 14 auf 51014014 (LIVE-Daten)
         'name': 'Rosenheim',
         'short': 'ROS',
         'color': '#00d4ff',
         'color_bg': 'rgba(0, 212, 255, 0.2)',
     },
     {
-        'id': 5,
+        'id': 51005005,  # Geändert von 5 auf 51005005 (LIVE-Daten)
         'name': 'Freiburg im Breisgau',
         'short': 'FRE',
         'color': '#7b2cbf',
         'color_bg': 'rgba(123, 44, 191, 0.2)',
     },
     {
-        'id': 3,
+        'id': 51003003,  # Geändert von 3 auf 51003003 (LIVE-Daten)
         'name': 'Karlsruhe',
         'short': 'KAR',
         'color': '#ff6b6b',
