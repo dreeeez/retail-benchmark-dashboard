@@ -14,6 +14,9 @@ VERSION 3: Modulare Architektur
 
 import streamlit as st
 
+# Auth
+from src.auth.login_ui import render_login_screen
+
 # Config
 from src.config.stores import STORES
 from src.config.settings import MONTH_NAMES
@@ -72,6 +75,15 @@ from src.utils.formatting import format_currency
 # SEITEN-KONFIGURATION
 # =============================================================================
 setup_page()
+
+# =============================================================================
+# AUTHENTIFIZIERUNG
+# =============================================================================
+if not render_login_screen():
+    # User ist nicht eingeloggt - Login-Screen wird angezeigt
+    st.stop()
+
+# User ist eingeloggt - Dashboard anzeigen
 render_header()
 
 # =============================================================================
