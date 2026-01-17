@@ -293,5 +293,41 @@ DASHBOARD_CSS = """
     [data-testid="stTabContent"] {
         width: 100% !important;
     }
+
+    /* ===== SIDEBAR STYLING ===== */
+    /* Sidebar Background & Border */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0a0e27 0%, #1a1f3a 100%);
+        border-right: 1px solid rgba(0, 212, 255, 0.2);
+    }
+
+    /* Sidebar Text Color */
+    [data-testid="stSidebar"] .stMarkdown {
+        color: white;
+    }
+
+    /* Sidebar Divider */
+    [data-testid="stSidebar"] hr {
+        border-color: rgba(0, 212, 255, 0.2);
+        margin: 1rem 0;
+    }
+
+    /* Sidebar Logout Button */
+    [data-testid="stSidebar"] button[kind="secondary"] {
+        background: rgba(255, 68, 68, 0.2);
+        border: 1px solid rgba(255, 68, 68, 0.4);
+        color: white;
+    }
+
+    [data-testid="stSidebar"] button[kind="secondary"]:hover {
+        background: rgba(255, 68, 68, 0.3);
+        border-color: rgba(255, 68, 68, 0.6);
+    }
+
+    /* Sidebar Multiselect & Selectbox */
+    [data-testid="stSidebar"] .stMultiSelect,
+    [data-testid="stSidebar"] .stSelectbox {
+        color: white;
+    }
 </style>
 """

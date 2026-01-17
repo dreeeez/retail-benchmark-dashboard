@@ -39,6 +39,7 @@ from src.domain.metrics import get_kpis_from_view, calculate_kpis
 from src.ui.layout import setup_page, render_header
 from src.ui.styles import DASHBOARD_CSS
 from src.ui.components import chart_header, render_store_kpi_card, render_cost_card
+from src.ui.sidebar import render_sidebar
 
 # Charts
 from src.charts.finance import (
@@ -87,7 +88,7 @@ if not render_login_screen():
 render_header()
 
 # =============================================================================
-# HAUPTANWENDUNG
+# SIDEBAR - FILTER & USER INFO
 # =============================================================================
 df = load_data()
 
@@ -99,55 +100,13 @@ if df is not None and len(df) > 0:
     filiale_col = next((c for c in cols if 'filial' in c.lower() or 'store' in c.lower() or 'gruppe' in c.lower()), None)
 
     if monat_col and filiale_col:
+        # Sidebar mit Filtern rendern
+        selected_stores, selected_month = render_sidebar(df, monat_col)
+
         # Alle verfügbaren Sections definieren
         dashboard_all_sections = ['KPI-Karten', 'Margen-Vergleich', 'Kostenstruktur']
         cat_all_sections = ['Umsatzverteilung (Donut)', 'Stückzahl-Anteil (%)', 'Bruttomarge (%)',
                            'Bruttogewinn-Anteil (%)', 'Umsatz-Trend']
-
-        # Filter Section
-        col_stores, col_month, col_indicator = st.columns([1.5, 1, 1.5])
-
-        with col_stores:
-            selected_stores = st.multiselect(
-                "Filialen:",
-                options=[s['name'] for s in STORES],
-                default=[s['name'] for s in STORES],
-                key="store_filter"
-            )
-
-        with col_month:
-            available_months = ['all'] + sorted(df[monat_col].unique().tolist())
-            month_options = {m: MONTH_NAMES.get(m, m) for m in available_months}
-            selected_month = st.selectbox("Zeitraum:", options=list(month_options.keys()),
-                                          format_func=lambda x: month_options[x])
-
-        with col_indicator:
-            st.markdown("<br>", unsafe_allow_html=True)
-            # Fortschrittsbalken berechnen (all=100%, Jan=8.3%, Feb=16.6%, ... Dez=100%)
-            if selected_month == 'all':
-                progress_pct = 100
-            else:
-                try:
-                    month_num = int(selected_month.split('-')[1])
-                    progress_pct = (month_num / 12) * 100
-                except:
-                    progress_pct = 100
-
-            # Farbinterpolation: Cyan (#00d4ff) -> Lila (#7b2cbf) basierend auf Fortschritt
-            t = progress_pct / 100
-            r = int(0 + t * (123 - 0))
-            g = int(212 + t * (44 - 212))
-            b = int(255 + t * (191 - 255))
-            indicator_color = f'rgb({r}, {g}, {b})'
-
-            st.markdown(f'''
-                <div class="month-indicator" style="background: rgba({r}, {g}, {b}, 0.1); border: 2px solid {indicator_color}; box-shadow: 0 0 15px rgba({r}, {g}, {b}, 0.2);">
-                    <div class="month-text" style="color: {indicator_color};">{month_options[selected_month]}</div>
-                    <div class="month-progress-bar">
-                        <div class="month-progress-fill" style="width: {progress_pct}%; background: {indicator_color};"></div>
-                    </div>
-                </div>
-            ''', unsafe_allow_html=True)
 
         # Session State für Multiselects initialisieren
         if 'dashboard_multiselect' not in st.session_state:
