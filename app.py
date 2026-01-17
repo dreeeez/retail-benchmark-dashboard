@@ -59,7 +59,6 @@ from src.charts.marketing import (
 )
 from src.charts.categories import (
     create_revenue_distribution_chart,
-    create_quantity_heatmap,
     create_margin_by_category_chart,
     create_profit_distribution_chart,
     create_price_segment_chart,
@@ -105,7 +104,7 @@ if df is not None and len(df) > 0:
 
         # Alle verfügbaren Sections definieren
         dashboard_all_sections = ['KPI-Karten', 'Margen-Vergleich', 'Kostenstruktur']
-        cat_all_sections = ['Umsatzverteilung (Donut)', 'Stückzahl-Anteil (%)', 'Bruttomarge (%)',
+        cat_all_sections = ['Umsatzverteilung (Donut)', 'Bruttomarge (%)',
                            'Bruttogewinn-Anteil (%)', 'Umsatz-Trend']
 
         # Session State für Multiselects initialisieren
@@ -490,13 +489,6 @@ if df is not None and len(df) > 0:
                                 "<strong>Berechnung:</strong> Umsatz je Kategorie / Gesamtumsatz × 100<br><br>"
                                 "<strong>Nutzen:</strong> Zeigt welche Produktkategorien den meisten Umsatz generieren. Hilft bei Sortimentsoptimierung und Identifikation von Umsatztreibern."), unsafe_allow_html=True)
                             fig = create_revenue_distribution_chart(df_filtered_cat, active_stores, cat_col, revenue_col, filter_by_store)
-                            st.plotly_chart(fig, use_container_width=True)
-
-                        if 'Stückzahl-Anteil (%)' in selected_cat_sections and quantity_col:
-                            st.markdown(chart_header("📦 Anteil an Gesamtstückzahl je Kategorie (%)",
-                                "<strong>Berechnung:</strong> Verkaufte Stück je Kategorie / Gesamtstückzahl × 100<br><br>"
-                                "<strong>Nutzen:</strong> Zeigt welche Kategorien mengenmäßig dominant sind. Unterschiede zu Umsatzverteilung zeigen Preisunterschiede zwischen Kategorien."), unsafe_allow_html=True)
-                            fig = create_quantity_heatmap(df_filtered_cat, active_stores, cat_col, quantity_col, filter_by_store)
                             st.plotly_chart(fig, use_container_width=True)
 
                         if 'Bruttomarge (%)' in selected_cat_sections and profit_col:

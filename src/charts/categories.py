@@ -133,7 +133,12 @@ def create_quantity_heatmap(df_filtered, active_stores: list,
 def create_margin_by_category_chart(df_filtered, active_stores: list,
                                      cat_col: str, profit_col: str, revenue_col: str,
                                      filter_by_store) -> go.Figure:
-    """Erstellt Bruttomarge nach Kategorie Chart
+    """Erstellt Range-Bar Chart mit Dots für Bruttomarge nach Kategorie
+
+    Management-taugliches Chart:
+    - Range-Bar (Min-Max) pro Kategorie
+    - Dots für jeden Standort
+    - Sortiert nach Ø-Marge (absteigend)
 
     Args:
         df_filtered: Gefilterter DataFrame
@@ -146,7 +151,7 @@ def create_margin_by_category_chart(df_filtered, active_stores: list,
     Returns:
         Plotly Figure
     """
-    # Berechne durchschnittliche Marge pro Kategorie für Sortierung
+    # Berechne Margen pro Store und Kategorie
     all_margins = {}
     store_margins = {}
 
@@ -166,52 +171,88 @@ def create_margin_by_category_chart(df_filtered, active_stores: list,
     avg_margins = {cat: sum(vals) / len(vals) for cat, vals in all_margins.items()}
     sorted_categories = sorted(avg_margins.keys(), key=lambda x: avg_margins[x], reverse=True)
 
-    # Opazität pro Store
-    store_styles = {}
-    for i, store in enumerate(active_stores):
-        if i == 0:
-            store_styles[store['name']] = {'opacity': 1.0, 'line_width': 0}
-        elif i == 1:
-            store_styles[store['name']] = {'opacity': 0.55, 'line_width': 2}
-        else:
-            store_styles[store['name']] = {'opacity': 0.25, 'line_width': 3}
+    # Berechne Min, Max, Avg für jede Kategorie
+    category_stats = {}
+    for cat in sorted_categories:
+        margins = all_margins[cat]
+        category_stats[cat] = {
+            'min': min(margins),
+            'max': max(margins),
+            'avg': sum(margins) / len(margins)
+        }
 
     fig = go.Figure()
 
-    for store in active_stores:
-        cat_margin = store_margins[store['name']]
-        sorted_values = [cat_margin.get(cat, 0) for cat in sorted_categories]
+    # 1. Range-Bars (Min-Max)
+    for cat in sorted_categories:
+        stats = category_stats[cat]
+        range_width = stats['max'] - stats['min']
 
-        bar_colors = []
-        line_colors = []
-        style = store_styles.get(store['name'], {'opacity': 0.5, 'line_width': 1})
-
-        for cat in sorted_categories:
-            base_color = get_category_color(cat)
-            hex_color = base_color.lstrip('#')
-            r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
-            bar_colors.append(f'rgba({r},{g},{b},{style["opacity"]})')
-            line_colors.append(f'rgba({r},{g},{b},1)')
+        # Farbcodierung basierend auf Kategorie (gedämpft)
+        base_color = get_category_color(cat)
+        hex_color = base_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
 
         fig.add_trace(go.Bar(
-            name=store['name'],
-            y=sorted_categories,
-            x=sorted_values,
+            name=cat,
+            y=[cat],
+            x=[range_width],
+            base=stats['min'],
+            orientation='h',
             marker=dict(
-                color=bar_colors,
-                line=dict(color=line_colors, width=style['line_width'])
+                color=f'rgba({r},{g},{b},0.15)',
+                line=dict(color=f'rgba({r},{g},{b},0.4)', width=1)
             ),
-            text=[f"{v:.1f}%" for v in sorted_values],
-            textposition='outside',
-            orientation='h'
+            showlegend=False,
+            hovertemplate=f'<b>{cat}</b><br>Min: {stats["min"]:.1f}%<br>Max: {stats["max"]:.1f}%<br>Ø: {stats["avg"]:.1f}%<extra></extra>'
+        ))
+
+    # 2. Dots für jeden Standort
+    store_colors = {
+        'Heidelberg': '#00d4ff',
+        'Karlsruhe': '#7b2cbf',
+        'Rosenheim': '#00ff88',
+        'Freiburg': '#ff4757'
+    }
+
+    for store in active_stores:
+        cat_margin = store_margins[store['name']]
+
+        y_values = []
+        x_values = []
+        hover_texts = []
+
+        for cat in sorted_categories:
+            margin = cat_margin.get(cat, 0)
+            y_values.append(cat)
+            x_values.append(margin)
+            hover_texts.append(f'<b>{store["name"]}</b><br>{cat}: {margin:.1f}%')
+
+        fig.add_trace(go.Scatter(
+            name=store['name'],
+            y=y_values,
+            x=x_values,
+            mode='markers',
+            marker=dict(
+                size=10,
+                color=store_colors.get(store['name'], '#999'),
+                line=dict(color='rgba(255,255,255,0.4)', width=1)
+            ),
+            hovertemplate='%{text}<extra></extra>',
+            text=hover_texts
         ))
 
     fig.update_layout(**get_base_layout(
-        barmode='group',
         xaxis_title="Bruttomarge (%)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.12),
-        height=420,
-        margin=dict(t=60),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        ),
+        height=max(350, len(sorted_categories) * 35),
+        margin=dict(l=120, r=40, t=60, b=60),
         yaxis=dict(categoryorder='array', categoryarray=sorted_categories[::-1])
     ))
 
@@ -221,7 +262,13 @@ def create_margin_by_category_chart(df_filtered, active_stores: list,
 def create_profit_distribution_chart(df_filtered, active_stores: list,
                                       cat_col: str, profit_col: str,
                                       filter_by_store) -> go.Figure:
-    """Erstellt Bruttogewinn-Verteilung Chart
+    """Erstellt 100% gestapeltes horizontales Balkendiagramm für Bruttogewinn-Anteil
+
+    Management-taugliches Chart:
+    - Ein Balken pro Standort
+    - Segmente = Produktkategorien
+    - Nur Top-1 und Top-2 beschriftet, Rest per Tooltip
+    - Sortierung nach Bruttogewinn-Anteil (absteigend)
 
     Args:
         df_filtered: Gefilterter DataFrame
@@ -234,6 +281,7 @@ def create_profit_distribution_chart(df_filtered, active_stores: list,
         Plotly Figure
     """
     store_profit_pct = {}
+    store_profit_abs = {}
     total_profit_by_cat = {}
 
     for store in active_stores:
@@ -242,19 +290,43 @@ def create_profit_distribution_chart(df_filtered, active_stores: list,
         total_profit = cat_profit.sum()
         cat_pct = (cat_profit / total_profit * 100) if total_profit > 0 else cat_profit * 0
         store_profit_pct[store['name']] = cat_pct
+        store_profit_abs[store['name']] = cat_profit
 
         for cat in cat_pct.index:
             if cat not in total_profit_by_cat:
                 total_profit_by_cat[cat] = 0
             total_profit_by_cat[cat] += cat_pct[cat]
 
+    # Sortiere Kategorien nach Gesamtgewinn-Anteil
     sorted_categories = sorted(total_profit_by_cat.keys(),
                                key=lambda x: total_profit_by_cat[x], reverse=True)
 
     fig = go.Figure()
 
-    for cat in sorted_categories:
-        values = [store_profit_pct[store['name']].get(cat, 0) for store in active_stores]
+    for i, cat in enumerate(sorted_categories):
+        values = []
+        texts = []
+        hover_texts = []
+
+        for store in active_stores:
+            pct = store_profit_pct[store['name']].get(cat, 0)
+            abs_profit = store_profit_abs[store['name']].get(cat, 0)
+            values.append(pct)
+
+            # Nur Top-1 und Top-2 beschriften
+            store_cats_sorted = sorted(
+                store_profit_pct[store['name']].items(),
+                key=lambda x: x[1],
+                reverse=True
+            )
+            top_cats = [c[0] for c in store_cats_sorted[:2]]
+
+            if cat in top_cats:
+                texts.append(f"{pct:.1f}%")
+            else:
+                texts.append("")
+
+            hover_texts.append(f'<b>{cat}</b><br>{store["name"]}: {pct:.1f}% ({abs_profit:,.0f} €)')
 
         fig.add_trace(go.Bar(
             name=cat,
@@ -262,18 +334,28 @@ def create_profit_distribution_chart(df_filtered, active_stores: list,
             x=values,
             orientation='h',
             marker_color=get_category_color(cat),
-            text=[f"{v:.1f}%" for v in values],
+            text=texts,
             textposition='inside',
-            insidetextanchor='middle'
+            textfont=dict(size=11, color='white'),
+            insidetextanchor='middle',
+            hovertemplate='%{text}<extra></extra>',
+            hovertext=hover_texts
         ))
 
     fig.update_layout(**get_base_layout(
         barmode='stack',
         xaxis_title="Anteil am Bruttogewinn (%)",
-        xaxis=dict(range=[0, 100]),
-        legend=dict(orientation="h", yanchor="bottom", y=1.15, xanchor="center", x=0.5),
-        height=320,
-        margin=dict(l=120, r=20, t=80, b=40)
+        xaxis=dict(range=[0, 100], showgrid=True, gridcolor='rgba(255,255,255,0.1)'),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=10)
+        ),
+        height=300,
+        margin=dict(l=120, r=20, t=60, b=40)
     ))
 
     return fig
