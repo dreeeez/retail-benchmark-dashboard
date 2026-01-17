@@ -398,7 +398,7 @@ GO
 
 
 -- View 9: list_views.V_LIST_G18_MARKETING_BY_CAMPAIGN
--- Zweck: ROAS pro einzelner Kampagne - ersetzt extract_campaign_id() Regex
+-- Zweck: ROAS und Profit pro einzelner Kampagne
 CREATE OR ALTER VIEW list_views.V_LIST_G18_MARKETING_BY_CAMPAIGN (
     IdStore,
     StoreName,
@@ -407,31 +407,32 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_MARKETING_BY_CAMPAIGN (
     CampaignType,
     RevenueEur,
     CostEur,
+    DiscountEur,
     Quantity,
-    ROAS
+    ROAS,
+    CampaignProfit
 )
 AS
-SELECT
-    s.ID_STORE AS IdStore,
-    s.StoreName AS StoreName,
-    s.ID_CAMPAIGN AS IdCampaign,
-    s.Kampagne AS CampaignName,
-    s.KampagneTyp AS CampaignType,
-    SUM(s.RevenueEUR) AS RevenueEur,
-    ISNULL(costs.CostEur, 0) AS CostEur,
-    SUM(s.SalesAmount) AS Quantity,
-    -- ROAS = Umsatz / Kosten
-    CASE
-        WHEN ISNULL(costs.CostEur, 0) > 0
-        THEN SUM(s.RevenueEUR) / costs.CostEur
-        ELSE NULL
-    END AS ROAS
-FROM dbo.V_LIST_MONTHLY_SALES s
-LEFT JOIN (
-    -- Kosten pro Kampagne extrahieren (aus Beschreibung mit ID)
+WITH SalesAgg AS (
+    -- Aggregiere Sales pro Store und Kampagne
     SELECT
         ID_STORE,
-        -- Extrahiere Campaign-ID aus "Marketing Campaign [XX]: Name"
+        StoreName,
+        ID_CAMPAIGN,
+        Kampagne,
+        KampagneTyp,
+        SUM(RevenueEUR) AS RevenueEur,
+        SUM(DiscountEUR) AS DiscountEur,
+        SUM(SalesAmount) AS Quantity
+    FROM dbo.V_LIST_MONTHLY_SALES
+    WHERE ID_CAMPAIGN != 0
+    GROUP BY ID_STORE, StoreName, ID_CAMPAIGN, Kampagne, KampagneTyp
+),
+CostsAgg AS (
+    -- Kosten pro Kampagne extrahieren (aus Beschreibung mit ID)
+    -- Format: "Marketing Campaign [XX]: Name" -> extrahiere XX als Campaign-ID
+    SELECT
+        ID_STORE,
         CAST(SUBSTRING(
             Beschreibung,
             CHARINDEX('[', Beschreibung) + 1,
@@ -440,15 +441,34 @@ LEFT JOIN (
         SUM(WertEUR) AS CostEur
     FROM dbo.V_LIST_MONTHLY_COSTS
     WHERE Kostenkategorie = 'Marketing Campaign'
-    AND Beschreibung LIKE '%[%]%'  -- Nur Zeilen mit Campaign-ID
+    AND CHARINDEX('[', Beschreibung) > 0
+    AND CHARINDEX(']', Beschreibung) > CHARINDEX('[', Beschreibung)
     GROUP BY ID_STORE, SUBSTRING(
         Beschreibung,
         CHARINDEX('[', Beschreibung) + 1,
         CHARINDEX(']', Beschreibung) - CHARINDEX('[', Beschreibung) - 1
     )
-) costs ON s.ID_STORE = costs.ID_STORE AND s.ID_CAMPAIGN = costs.ID_CAMPAIGN
-WHERE s.ID_CAMPAIGN != 0
-GROUP BY s.ID_STORE, s.StoreName, s.ID_CAMPAIGN, s.Kampagne, s.KampagneTyp, costs.CostEur;
+)
+SELECT
+    s.ID_STORE AS IdStore,
+    s.StoreName AS StoreName,
+    s.ID_CAMPAIGN AS IdCampaign,
+    s.Kampagne AS CampaignName,
+    s.KampagneTyp AS CampaignType,
+    s.RevenueEur AS RevenueEur,
+    ISNULL(c.CostEur, 0) AS CostEur,
+    s.DiscountEur AS DiscountEur,
+    s.Quantity AS Quantity,
+    -- ROAS = Umsatz / Kosten
+    CASE
+        WHEN ISNULL(c.CostEur, 0) > 0
+        THEN s.RevenueEur / c.CostEur
+        ELSE NULL
+    END AS ROAS,
+    -- Campaign Profit = Umsatz - Kosten - Discount
+    (s.RevenueEur - ISNULL(c.CostEur, 0) - s.DiscountEur) AS CampaignProfit
+FROM SalesAgg s
+LEFT JOIN CostsAgg c ON s.ID_STORE = c.ID_STORE AND s.ID_CAMPAIGN = c.ID_CAMPAIGN;
 GO
 
 

@@ -23,6 +23,7 @@ from src.db.repository import (
     load_data,
     load_kpi,
     load_marketing_kpi,
+    load_marketing_by_campaign,
     load_sales_agg,
     load_rent_and_revenue_per_m2,
     load_price_segment_data,
@@ -48,6 +49,9 @@ from src.charts.marketing import (
     create_marketing_trend_chart,
     create_marketing_bar_chart,
     create_marketing_quote_chart,
+    create_top_campaigns_overall_chart,
+    create_top_campaigns_per_store_chart,
+    create_campaign_profit_chart,
 )
 from src.charts.categories import (
     create_revenue_distribution_chart,
@@ -356,6 +360,34 @@ if df is not None and len(df) > 0:
                                 <div style="color: #aaa; font-size: 0.75em; margin-top: 8px;">{int(mkpi['stueck_mit_marketing']):,} Stück verkauft</div>
                             </div>
                             """.replace(",", "."), unsafe_allow_html=True)
+
+                    # Top Kampagnen Charts
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    campaign_data = load_marketing_by_campaign()
+                    if campaign_data is not None and not campaign_data.empty:
+                        col_overall, col_per_store = st.columns(2)
+
+                        with col_overall:
+                            st.markdown(chart_header("🏆 Top 5 Kampagnen nach Gesamtumsatz",
+                                "<strong>Berechnung:</strong> Summierter Umsatz aller Stores pro Kampagne<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt die erfolgreichsten Kampagnen über alle Filialen hinweg. Identifiziert die stärksten Marketing-Initiativen."), unsafe_allow_html=True)
+                            fig = create_top_campaigns_overall_chart(campaign_data, active_stores)
+                            st.plotly_chart(fig, use_container_width=True)
+
+                        with col_per_store:
+                            st.markdown(chart_header("📍 Top 3 Kampagnen je Filiale",
+                                "<strong>Berechnung:</strong> Top 3 Kampagnen nach RevenueEur pro Store<br><br>"
+                                "<strong>Nutzen:</strong> Vergleicht die erfolgreichsten Kampagnen zwischen den Filialen. Zeigt lokale Unterschiede in der Kampagnen-Performance."), unsafe_allow_html=True)
+                            fig = create_top_campaigns_per_store_chart(campaign_data, active_stores)
+                            st.plotly_chart(fig, use_container_width=True)
+
+                        # Kampagnenprofit Chart
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.markdown(chart_header("💰 Top 10 Kampagnen nach Profit",
+                            "<strong>Berechnung:</strong> Kampagnenumsatz - Kampagnenkosten - Rabatte<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt die profitabelsten Kampagnen nach Abzug aller Kosten und Rabatte. Grüne Balken = profitabel, rote Balken = Verlust. Ermöglicht Identifikation der wirklich rentablen Marketing-Initiativen."), unsafe_allow_html=True)
+                        fig = create_campaign_profit_chart(campaign_data, active_stores)
+                        st.plotly_chart(fig, use_container_width=True)
 
                 else:
                     st.info("Keine Marketing-Daten verfügbar.")
