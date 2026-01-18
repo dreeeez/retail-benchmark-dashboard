@@ -114,23 +114,11 @@ def authenticate_user(username: str, password: str) -> dict:
             conn.close()
 
     except Exception as e:
-        error_msg = str(e).lower()
-        if 'login failed' in error_msg or 'authentication' in error_msg:
-            return {
-                'authenticated': False,
-                'security_level': None,
-                'message': 'Ungültige Anmeldedaten'
-            }
-        if 'connection' in error_msg or 'connect' in error_msg:
-            return {
-                'authenticated': False,
-                'security_level': None,
-                'message': 'Datenbankverbindung fehlgeschlagen'
-            }
+        # Debug: Zeige den vollen Fehler
         return {
             'authenticated': False,
             'security_level': None,
-            'message': f'Fehler bei der Anmeldung: {str(e)}'
+            'message': f'DB-Fehler: {str(e)}'
         }
 
 
