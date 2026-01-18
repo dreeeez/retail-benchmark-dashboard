@@ -3,12 +3,11 @@ Benchmark Dashboard - Gruppe 18
 Datenbankverbindung
 
 Unterstützt:
-- Lokale Entwicklung via config.json
-- Streamlit Cloud via Session-Credentials aus Login
+- Lokale Entwicklung via config.json + pyodbc
+- Streamlit Cloud via Session-Credentials + pymssql
 """
 
 import json
-import pyodbc
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -49,19 +48,43 @@ def get_db_config():
 
 
 def get_connection():
-    """Erstellt Verbindung zur SQL Server Datenbank"""
+    """Erstellt Verbindung zur SQL Server Datenbank
+
+    Verwendet pyodbc lokal (mit ODBC Driver) oder pymssql in der Cloud.
+    """
     cfg = get_db_config()
 
-    conn_str = (
-        "DRIVER={ODBC Driver 18 for SQL Server};"
-        f"SERVER={cfg['server']};"
-        f"DATABASE={cfg['database']};"
-        f"UID={cfg['user']};"
-        f"PWD={cfg['password']};"
-        "Encrypt=no;"
-    )
+    # Prüfe ob ODBC Driver verfügbar ist
+    use_pyodbc = False
+    try:
+        import pyodbc
+        # Prüfe ob der Driver tatsächlich existiert
+        drivers = [d for d in pyodbc.drivers() if 'SQL Server' in d]
+        if drivers:
+            use_pyodbc = True
+    except Exception:
+        pass
 
-    return pyodbc.connect(conn_str)
+    if use_pyodbc:
+        import pyodbc
+        conn_str = (
+            "DRIVER={ODBC Driver 18 for SQL Server};"
+            f"SERVER={cfg['server']};"
+            f"DATABASE={cfg['database']};"
+            f"UID={cfg['user']};"
+            f"PWD={cfg['password']};"
+            "Encrypt=no;"
+        )
+        return pyodbc.connect(conn_str)
+
+    # Fallback: pymssql (Cloud ohne ODBC Driver)
+    import pymssql
+    return pymssql.connect(
+        server=cfg['server'],
+        user=cfg['user'],
+        password=cfg['password'],
+        database=cfg['database']
+    )
 
 
 @contextmanager

@@ -12,3 +12,4 @@ plotly>=5.18.0
 
 # Datenbankverbindung
 pyodbc>=5.0.0
+pymssql>=2.2.0

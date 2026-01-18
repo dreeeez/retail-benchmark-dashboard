@@ -5,8 +5,48 @@ User Authentication Module
 Authentifizierung gegen T_USER Tabelle mit Security Level Check
 """
 
-import pyodbc
 from src.db.connection import DB_SERVER, DB_DATABASE
+
+
+def _get_auth_connection(username: str, password: str):
+    """Erstellt DB-Verbindung für Authentifizierung
+
+    Versucht pyodbc (lokal) oder pymssql (Cloud).
+
+    Returns:
+        tuple: (connection, use_pyodbc_flag)
+    """
+    # Prüfe ob ODBC Driver verfügbar ist
+    use_pyodbc = False
+    try:
+        import pyodbc
+        # Prüfe ob der Driver tatsächlich existiert
+        drivers = [d for d in pyodbc.drivers() if 'SQL Server' in d]
+        if drivers:
+            use_pyodbc = True
+    except Exception:
+        pass
+
+    if use_pyodbc:
+        import pyodbc
+        conn_str = (
+            "DRIVER={ODBC Driver 18 for SQL Server};"
+            f"SERVER={DB_SERVER};"
+            f"DATABASE={DB_DATABASE};"
+            f"UID={username};"
+            f"PWD={password};"
+            "Encrypt=no;"
+        )
+        return pyodbc.connect(conn_str), True
+
+    # Fallback: pymssql (Cloud ohne ODBC Driver)
+    import pymssql
+    return pymssql.connect(
+        server=DB_SERVER,
+        user=username,
+        password=password,
+        database=DB_DATABASE
+    ), False
 
 
 def authenticate_user(username: str, password: str) -> dict:
@@ -23,25 +63,24 @@ def authenticate_user(username: str, password: str) -> dict:
         - message: str (Fehlermeldung oder Erfolg)
     """
     try:
-        # Direkte Verbindung mit Login-Credentials
-        conn_str = (
-            "DRIVER={ODBC Driver 18 for SQL Server};"
-            f"SERVER={DB_SERVER};"
-            f"DATABASE={DB_DATABASE};"
-            f"UID={username};"
-            f"PWD={password};"
-            "Encrypt=no;"
-        )
-        conn = pyodbc.connect(conn_str)
+        conn, is_pyodbc = _get_auth_connection(username, password)
         try:
             cursor = conn.cursor()
 
             # Prüfe ob User mit Credentials existiert
-            cursor.execute("""
-                SELECT USERNAME, USERPASS, SECURITYLEVEL
-                FROM dbo.T_USER
-                WHERE USERNAME = ? AND USERPASS = ?
-            """, (username, password))
+            # pyodbc verwendet ?, pymssql verwendet %s
+            if is_pyodbc:
+                cursor.execute("""
+                    SELECT USERNAME, USERPASS, SECURITYLEVEL
+                    FROM dbo.T_USER
+                    WHERE USERNAME = ? AND USERPASS = ?
+                """, (username, password))
+            else:
+                cursor.execute("""
+                    SELECT USERNAME, USERPASS, SECURITYLEVEL
+                    FROM dbo.T_USER
+                    WHERE USERNAME = %s AND USERPASS = %s
+                """, (username, password))
 
             user = cursor.fetchone()
 
@@ -74,13 +113,20 @@ def authenticate_user(username: str, password: str) -> dict:
         finally:
             conn.close()
 
-    except pyodbc.InterfaceError:
-        return {
-            'authenticated': False,
-            'security_level': None,
-            'message': 'Datenbankverbindung fehlgeschlagen. Bitte Credentials prüfen.'
-        }
     except Exception as e:
+        error_msg = str(e).lower()
+        if 'login failed' in error_msg or 'authentication' in error_msg:
+            return {
+                'authenticated': False,
+                'security_level': None,
+                'message': 'Ungültige Anmeldedaten'
+            }
+        if 'connection' in error_msg or 'connect' in error_msg:
+            return {
+                'authenticated': False,
+                'security_level': None,
+                'message': 'Datenbankverbindung fehlgeschlagen'
+            }
         return {
             'authenticated': False,
             'security_level': None,
