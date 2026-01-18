@@ -6,7 +6,7 @@ Persistente Filter und User-Info in der Sidebar
 """
 
 import streamlit as st
-from src.config.stores import STORES
+from src.config.stores import get_stores
 from src.config.settings import MONTH_NAMES
 from src.auth.login_ui import get_current_user, logout
 
@@ -56,10 +56,11 @@ def render_store_filter() -> list:
     Returns:
         list: Ausgewählte Store-Namen
     """
+    stores = get_stores()
     selected = st.multiselect(
         "🏪 Filialen",
-        options=[s['name'] for s in STORES],
-        default=[s['name'] for s in STORES],
+        options=[s['name'] for s in stores],
+        default=[s['name'] for s in stores],
         key="store_filter"
     )
     return selected

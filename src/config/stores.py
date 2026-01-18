@@ -90,16 +90,25 @@ def load_stores_from_db() -> list:
 
 
 # =============================================================================
-# AKTIVE STORES (GLOBAL)
+# AKTIVE STORES (LAZY LOADING)
 # =============================================================================
 
-# Lade Stores beim Import des Moduls
-STORES = load_stores_from_db()
+def get_stores() -> list:
+    """
+    Gibt die Liste der Stores zurück.
+    Lädt sie beim ersten Aufruf aus der Datenbank (lazy loading).
 
-# Fallback falls keine Stores geladen werden konnten
-if not STORES:
-    st.warning("⚠️ Keine Stores mit Sales-Daten gefunden. Bitte Datenbankverbindung prüfen.")
-    STORES = []
+    WICHTIG: Erst nach Login aufrufen, sonst keine DB-Credentials verfügbar!
+    """
+    if 'loaded_stores' not in st.session_state:
+        st.session_state.loaded_stores = load_stores_from_db()
+    return st.session_state.loaded_stores
+
+
+# Legacy-Kompatibilität: STORES als Property-Wrapper
+# ACHTUNG: Direkter Zugriff auf STORES beim Import funktioniert nicht mehr!
+# Stattdessen get_stores() verwenden.
+STORES = []  # Platzhalter für Abwärtskompatibilität
 
 
 # =============================================================================
@@ -108,12 +117,15 @@ if not STORES:
 
 def get_store_ids() -> list:
     """Gibt Liste aller Store-IDs zurück"""
-    return [store['id'] for store in STORES]
+    return [store['id'] for store in get_stores()]
 
 
 def get_store_ids_sql() -> str:
     """Gibt Store-IDs als SQL-kompatiblen String zurück: '51003003, 51005005, 51014014'"""
-    return ', '.join(str(s['id']) for s in STORES)
+    stores = get_stores()
+    if not stores:
+        return '0'  # Fallback um SQL-Fehler zu vermeiden
+    return ', '.join(str(s['id']) for s in stores)
 
 
 # =============================================================================
@@ -125,7 +137,7 @@ def get_store_by_name(name: str):
     if not name:
         return None
     name_lower = name.lower()
-    for store in STORES:
+    for store in get_stores():
         if store['name'].lower() in name_lower or name_lower in store['name'].lower():
             return store
     return None
@@ -133,7 +145,7 @@ def get_store_by_name(name: str):
 
 def get_store_by_id(store_id: int):
     """Findet Store-Config anhand der ID"""
-    for store in STORES:
+    for store in get_stores():
         if store['id'] == store_id:
             return store
     return None
@@ -153,7 +165,7 @@ def get_store_color_bg(store_name: str) -> str:
 
 def get_all_store_names() -> list:
     """Gibt Liste aller Store-Namen zurück"""
-    return [store['name'] for store in STORES]
+    return [store['name'] for store in get_stores()]
 
 
 def reload_stores():
@@ -161,8 +173,8 @@ def reload_stores():
     Lädt Stores neu aus der Datenbank.
     Nützlich wenn neue Stores hinzugekommen sind.
     """
-    global STORES
     # Cache löschen und neu laden
     load_stores_from_db.clear()
-    STORES = load_stores_from_db()
-    return STORES
+    if 'loaded_stores' in st.session_state:
+        del st.session_state.loaded_stores
+    return get_stores()

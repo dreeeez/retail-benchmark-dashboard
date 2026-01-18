@@ -18,7 +18,7 @@ import streamlit as st
 from src.auth.login_ui import render_login_screen
 
 # Config
-from src.config.stores import STORES
+from src.config.stores import get_stores
 from src.config.settings import MONTH_NAMES
 
 # DB
@@ -126,7 +126,7 @@ if df is not None and len(df) > 0:
         stores_data = {}
         stores_kpis = {}
 
-        for store in STORES:
+        for store in get_stores():
             matching_name = next((s for s in available_stores if store['name'].lower() in s.lower()), None)
             if matching_name:
                 stores_data[store['name']] = filtered_df[filtered_df[filiale_col] == matching_name]
@@ -135,7 +135,7 @@ if df is not None and len(df) > 0:
                 else:
                     stores_kpis[store['name']] = calculate_kpis(stores_data[store['name']])
 
-        active_stores = [s for s in STORES if s['name'] in stores_data and s['name'] in selected_stores]
+        active_stores = [s for s in get_stores() if s['name'] in stores_data and s['name'] in selected_stores]
 
         # =================================================================
         # TABS

@@ -8,7 +8,6 @@ Seiten-Setup, Header und Filter.
 import streamlit as st
 
 from src.ui.styles import DASHBOARD_CSS
-from src.config.stores import STORES
 from src.config.settings import MONTH_NAMES
 
 
