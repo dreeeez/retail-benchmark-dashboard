@@ -58,7 +58,6 @@ from src.charts.marketing import (
     create_campaign_profit_chart,
 )
 from src.charts.categories import (
-    create_revenue_distribution_chart,
     create_margin_by_category_chart,
     create_profit_distribution_chart,
     create_price_segment_chart,
@@ -104,8 +103,7 @@ if df is not None and len(df) > 0:
 
         # Alle verfügbaren Sections definieren
         dashboard_all_sections = ['KPI-Karten', 'Margen-Vergleich', 'Kostenstruktur']
-        cat_all_sections = ['Umsatzverteilung (Donut)', 'Bruttomarge (%)',
-                           'Bruttogewinn-Anteil (%)', 'Umsatz-Trend']
+        cat_all_sections = ['Bruttogewinn-Anteil (%)', 'Bruttomarge (%)', 'Umsatz-Trend']
 
         # Session State für Multiselects initialisieren
         if 'dashboard_multiselect' not in st.session_state:
@@ -484,11 +482,11 @@ if df is not None and len(df) > 0:
 
                             st.markdown("<br>", unsafe_allow_html=True)
 
-                        if 'Umsatzverteilung (Donut)' in selected_cat_sections:
-                            st.markdown(chart_header("📊 Umsatzverteilung nach Kategorie",
-                                "<strong>Berechnung:</strong> Umsatz je Kategorie / Gesamtumsatz × 100<br><br>"
-                                "<strong>Nutzen:</strong> Zeigt welche Produktkategorien den meisten Umsatz generieren. Hilft bei Sortimentsoptimierung und Identifikation von Umsatztreibern."), unsafe_allow_html=True)
-                            fig = create_revenue_distribution_chart(df_filtered_cat, active_stores, cat_col, revenue_col, filter_by_store)
+                        if 'Bruttogewinn-Anteil (%)' in selected_cat_sections and profit_col:
+                            st.markdown(chart_header("💰 Bruttogewinn-Anteil je Kategorie (%)",
+                                "<strong>Berechnung:</strong> Bruttogewinn je Kategorie / Gesamtbruttogewinn × 100<br><br>"
+                                "<strong>Nutzen:</strong> Zeigt welche Kategorien am meisten zum Gewinn beitragen. Kombiniert Umsatzvolumen und Marge zu einer Gesamtbewertung."), unsafe_allow_html=True)
+                            fig = create_profit_distribution_chart(df_filtered_cat, active_stores, cat_col, profit_col, filter_by_store)
                             st.plotly_chart(fig, use_container_width=True)
 
                         if 'Bruttomarge (%)' in selected_cat_sections and profit_col:
@@ -496,13 +494,6 @@ if df is not None and len(df) > 0:
                                 "<strong>Berechnung:</strong> (Umsatz - Wareneinsatz) / Umsatz × 100 je Kategorie<br><br>"
                                 "<strong>Nutzen:</strong> Zeigt welche Kategorien am profitabelsten sind. Hohe Marge = mehr Gewinn pro Euro Umsatz. Basis für Preisstrategien und Sortimentsentscheidungen."), unsafe_allow_html=True)
                             fig = create_margin_by_category_chart(df_filtered_cat, active_stores, cat_col, profit_col, revenue_col, filter_by_store)
-                            st.plotly_chart(fig, use_container_width=True)
-
-                        if 'Bruttogewinn-Anteil (%)' in selected_cat_sections and profit_col:
-                            st.markdown(chart_header("💰 Bruttogewinn-Anteil je Kategorie (%)",
-                                "<strong>Berechnung:</strong> Bruttogewinn je Kategorie / Gesamtbruttogewinn × 100<br><br>"
-                                "<strong>Nutzen:</strong> Zeigt welche Kategorien am meisten zum Gewinn beitragen. Kombiniert Umsatzvolumen und Marge zu einer Gesamtbewertung."), unsafe_allow_html=True)
-                            fig = create_profit_distribution_chart(df_filtered_cat, active_stores, cat_col, profit_col, filter_by_store)
                             st.plotly_chart(fig, use_container_width=True)
 
                         st.markdown(chart_header("💎 Umsatzverteilung nach Preissegment (%)",

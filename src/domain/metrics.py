@@ -5,6 +5,7 @@ Metriken-Berechnung
 KPI-Extraktion aus Views und Legacy-Berechnung.
 """
 
+import pandas as pd
 from src.utils.safe import safe_sum, safe_mean
 
 
@@ -37,10 +38,13 @@ def get_kpis_from_view(kpi_df, store_id: int) -> dict:
         }
 
     # Aggregiere über alle Monate (falls mehrere Zeilen)
-    umsatz = store_data['TotalRevenueEur'].sum()
+    umsatz = store_data['TotalRevenueEur'].sum()  # Jetzt bereits Netto-Umsatz (mit Discount-Abzug)
     bruttogewinn = store_data['TotalGrossProfitEur'].sum()
     nettogewinn = store_data['NetProfitEur'].sum()
     gesamtkosten_opex = store_data['TotalCostsEur'].sum()
+
+    # Optional: TotalDiscountEur für Transparenz
+    total_discount = store_data.get('TotalDiscountEur', pd.Series([0])).sum()
 
     # Einzelne Kostenkomponenten (OPEX)
     personalkosten = store_data['HumanResourcesEur'].sum()
@@ -51,6 +55,7 @@ def get_kpis_from_view(kpi_df, store_id: int) -> dict:
     # Wareneinsatz (COGS) = Umsatz - Bruttogewinn
     # Entspricht den Transfer-Preisen / Einkaufskosten der verkauften Waren
     # Bruttogewinn = Umsatz - Wareneinsatz → Wareneinsatz = Umsatz - Bruttogewinn
+    # HINWEIS: Umsatz ist jetzt bereits Netto (Brutto-Umsatz - Rabatte)
     wareneinsatz = umsatz - bruttogewinn
 
     # Gesamtkosten = Wareneinsatz (COGS) + OPEX (Personal, Betrieb, Logistik, Marketing)

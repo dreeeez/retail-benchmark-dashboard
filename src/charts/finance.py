@@ -61,12 +61,23 @@ def create_revenue_bar_chart(active_stores: list, stores_kpis: dict) -> go.Figur
 
     store_names = [s['name'] for s in active_stores]
     umsatz_values = [stores_kpis[s['name']]['umsatz'] for s in active_stores]
-    colors = [s['color'] for s in active_stores]
+
+    # Transparente Farben
+    colors = []
+    borders = []
+    for s in active_stores:
+        hex_color = s['color'].lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+        colors.append(f'rgba({r},{g},{b},0.7)')
+        borders.append(f'rgba({r},{g},{b},0.9)')
 
     fig.add_trace(go.Bar(
         x=store_names,
         y=umsatz_values,
-        marker_color=colors,
+        marker=dict(
+            color=colors,
+            line=dict(color=borders, width=1)
+        ),
         text=[format_currency(v) for v in umsatz_values],
         textposition='outside'
     ))
@@ -96,13 +107,22 @@ def create_ebit_chart(stores_data: dict, active_stores: list, monat_col: str) ->
 
         ebit_col = next((c for c in store_df.columns if 'ebit' in c.lower()), None)
 
+        # Transparente Farbe
+        hex_color = store['color'].lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+        transparent_color = f'rgba({r},{g},{b},0.7)'
+        border_color = f'rgba({r},{g},{b},0.9)'
+
         if ebit_col:
             monthly = store_df.groupby(monat_col)[ebit_col].sum().reset_index()
             fig.add_trace(go.Bar(
                 x=monthly[monat_col],
                 y=monthly[ebit_col],
                 name=store['name'],
-                marker_color=store['color']
+                marker=dict(
+                    color=transparent_color,
+                    line=dict(color=border_color, width=1)
+                )
             ))
         else:
             # Fallback: EBIT berechnen
@@ -119,7 +139,10 @@ def create_ebit_chart(stores_data: dict, active_stores: list, monat_col: str) ->
                     x=monthly[monat_col],
                     y=monthly['EBIT_calc'],
                     name=store['name'],
-                    marker_color=store['color']
+                    marker=dict(
+                        color=transparent_color,
+                        line=dict(color=border_color, width=1)
+                    )
                 ))
 
     fig.update_layout(**get_base_layout(
@@ -161,10 +184,22 @@ def create_margin_chart(active_stores: list, stores_kpis: dict, margin_type: str
         ]
         y_title = "EBIT-Marge (%)"
 
+    # Transparente Farben
+    colors = []
+    borders = []
+    for s in active_stores:
+        hex_color = s['color'].lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+        colors.append(f'rgba({r},{g},{b},0.7)')
+        borders.append(f'rgba({r},{g},{b},0.9)')
+
     fig.add_trace(go.Bar(
         x=store_names,
         y=margins,
-        marker_color=[s['color'] for s in active_stores],
+        marker=dict(
+            color=colors,
+            line=dict(color=borders, width=1)
+        ),
         text=[f"{m:.1f}%" for m in margins],
         textposition='outside'
     ))
@@ -193,11 +228,23 @@ def create_cost_ratio_chart(active_stores: list, stores_kpis: dict) -> go.Figure
         for s in active_stores
     ]
 
+    # Transparente Farben
+    colors = []
+    borders = []
+    for s in active_stores:
+        hex_color = s['color'].lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+        colors.append(f'rgba({r},{g},{b},0.7)')
+        borders.append(f'rgba({r},{g},{b},0.9)')
+
     fig.add_trace(go.Bar(
         name='Kostenquote',
         x=store_names,
         y=ratios,
-        marker_color=[s['color'] for s in active_stores],
+        marker=dict(
+            color=colors,
+            line=dict(color=borders, width=1)
+        ),
         text=[f"{v:.1f}%" for v in ratios],
         textposition='outside'
     ))

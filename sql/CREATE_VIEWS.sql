@@ -19,6 +19,7 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_SALES_DETAIL (
     MaterialDescription,
     BenchmarkCategory,
     Preissegment,
+    DiscountEur,
     RevenueEur,
     GrossProfitEur,
     TransferCostEur,
@@ -82,8 +83,15 @@ SELECT
     -- Preissegment direkt aus Basis-View
     s.ProduktPreisSegment AS Preissegment,
 
-    s.RevenueEUR AS RevenueEur,
-    (s.RevenueEUR - s.TransferPriceEUR) AS GrossProfitEur,
+    -- DiscountEur für Netto-Umsatz Berechnung
+    s.DiscountEUR AS DiscountEur,
+
+    -- RevenueEur = Brutto-Umsatz - Rabatt (Netto-Umsatz)
+    (s.RevenueEUR - s.DiscountEUR) AS RevenueEur,
+
+    -- GrossProfitEur = Netto-Umsatz - Wareneinsatz
+    ((s.RevenueEUR - s.DiscountEUR) - s.TransferPriceEUR) AS GrossProfitEur,
+
     s.TransferPriceEUR AS TransferCostEur,
     s.SalesPriceEUR AS SalesPriceEur,
     s.SalesAmount AS Quantity
@@ -105,6 +113,7 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_SALES_AGG (
     IdStore,
     StoreName,
     BenchmarkCategory,
+    TotalDiscountEur,
     TotalRevenueEur,
     TotalGrossProfitEur,
     TotalTransferCostEur,
@@ -118,6 +127,7 @@ SELECT
     StoreName,
     BenchmarkCategory,
 
+    SUM(DiscountEur) AS TotalDiscountEur,
     SUM(RevenueEur) AS TotalRevenueEur,
     SUM(GrossProfitEur) AS TotalGrossProfitEur,
     SUM(TransferCostEur) AS TotalTransferCostEur,
@@ -194,6 +204,7 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_BENCHMARK_KPI (
     IdCalmonthStd,
     IdStore,
     StoreName,
+    TotalDiscountEur,
     TotalRevenueEur,
     TotalGrossProfitEur,
     TotalCostsEur,
@@ -212,6 +223,7 @@ SELECT
     s.StoreName,
 
     -- Summierte Basisgrößen (über alle Kategorien)
+    SUM(s.TotalDiscountEur) AS TotalDiscountEur,
     SUM(s.TotalRevenueEur) AS TotalRevenueEur,
     SUM(s.TotalGrossProfitEur) AS TotalGrossProfitEur,
     c.TotalCostsEur,
@@ -484,6 +496,7 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_STORE_DETAILS (
     StoreName,
     StoreM2,
     Mietkosten,
+    TotalDiscount,
     Umsatz,
     UmsatzProM2
 )
@@ -494,7 +507,8 @@ WITH SalesAgg AS (
         ID_STORE,
         MAX(StoreName) AS StoreName,
         MAX(StoreM2) AS StoreM2,
-        SUM(RevenueEUR) AS Umsatz
+        SUM(DiscountEUR) AS TotalDiscount,
+        SUM(RevenueEUR - DiscountEUR) AS Umsatz
     FROM dbo.V_LIST_MONTHLY_SALES
     GROUP BY FORMAT(ID_CALMONTH, 'yyyy-MM'), ID_STORE
 ),
@@ -513,6 +527,7 @@ SELECT
     s.StoreName AS StoreName,
     s.StoreM2,
     ISNULL(c.Mietkosten, 0) AS Mietkosten,
+    s.TotalDiscount,
     s.Umsatz,
     CASE
         WHEN s.StoreM2 > 0 THEN s.Umsatz / s.StoreM2

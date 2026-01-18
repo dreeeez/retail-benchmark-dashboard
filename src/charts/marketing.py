@@ -56,17 +56,23 @@ def create_marketing_bar_chart(active_stores: list, marketing_kpis: dict) -> go.
     cost_data = []
     for store in active_stores:
         mkpi = marketing_kpis.get(store['name'], {})
+        hex_color = store['color'].lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
         cost_data.append({
             'name': store['name'],
             'cost': mkpi.get('marketing', 0),
-            'color': store['color']
+            'color': f'rgba({r},{g},{b},0.7)',
+            'border': f'rgba({r},{g},{b},0.9)'
         })
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=[d['name'] for d in cost_data],
         y=[d['cost'] for d in cost_data],
-        marker_color=[d['color'] for d in cost_data],
+        marker=dict(
+            color=[d['color'] for d in cost_data],
+            line=dict(color=[d['border'] for d in cost_data], width=1)
+        ),
         text=[f"{d['cost']:,.0f} €".replace(",", ".") for d in cost_data],
         textposition='outside'
     ))
@@ -96,17 +102,23 @@ def create_marketing_quote_chart(active_stores: list, marketing_kpis: dict) -> g
     quote_data = []
     for store in active_stores:
         mkpi = marketing_kpis.get(store['name'], {})
+        hex_color = store['color'].lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
         quote_data.append({
             'name': store['name'],
             'quote': mkpi.get('marketing_quote', 0),
-            'color': store['color']
+            'color': f'rgba({r},{g},{b},0.7)',
+            'border': f'rgba({r},{g},{b},0.9)'
         })
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=[d['name'] for d in quote_data],
         y=[d['quote'] for d in quote_data],
-        marker_color=[d['color'] for d in quote_data],
+        marker=dict(
+            color=[d['color'] for d in quote_data],
+            line=dict(color=[d['border'] for d in quote_data], width=1)
+        ),
         text=[f"{d['quote']:.2f}%" for d in quote_data],
         textposition='outside'
     ))
@@ -158,7 +170,10 @@ def create_top_campaigns_overall_chart(campaign_df, active_stores: list) -> go.F
         y=top5_overall['CampaignName'],
         x=top5_overall['RevenueEur'],
         orientation='h',
-        marker_color='rgba(0, 212, 255, 0.7)',
+        marker=dict(
+            color='rgba(0, 212, 255, 0.7)',
+            line=dict(color='rgba(0, 212, 255, 0.9)', width=1)
+        ),
         text=[_format_revenue_short(val) for val in top5_overall['RevenueEur']],
         textposition='outside',
         textfont=dict(size=11, color='white'),

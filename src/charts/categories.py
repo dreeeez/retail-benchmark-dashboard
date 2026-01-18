@@ -269,6 +269,7 @@ def create_profit_distribution_chart(df_filtered, active_stores: list,
     - Segmente = Produktkategorien
     - Nur Top-1 und Top-2 beschriftet, Rest per Tooltip
     - Sortierung nach Bruttogewinn-Anteil (absteigend)
+    - Transparente Farben passend zum Bruttomarge-Chart
 
     Args:
         df_filtered: Gefilterter DataFrame
@@ -308,6 +309,13 @@ def create_profit_distribution_chart(df_filtered, active_stores: list,
         texts = []
         hover_texts = []
 
+        # Transparente Farbe wie beim Bruttomarge-Chart
+        base_color = get_category_color(cat)
+        hex_color = base_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+        transparent_color = f'rgba({r},{g},{b},0.7)'  # Leicht transparent für modernen Look
+        border_color = f'rgba({r},{g},{b},0.9)'
+
         for store in active_stores:
             pct = store_profit_pct[store['name']].get(cat, 0)
             abs_profit = store_profit_abs[store['name']].get(cat, 0)
@@ -333,7 +341,10 @@ def create_profit_distribution_chart(df_filtered, active_stores: list,
             y=[s['name'] for s in active_stores],
             x=values,
             orientation='h',
-            marker_color=get_category_color(cat),
+            marker=dict(
+                color=transparent_color,
+                line=dict(color=border_color, width=1)
+            ),
             text=texts,
             textposition='inside',
             textfont=dict(size=11, color='white'),
@@ -400,12 +411,22 @@ def create_price_segment_chart(price_segment_data, active_stores: list) -> go.Fi
     for segment in available_segments:
         values = [store_segment_pct[store['name']].get(segment, 0) for store in active_stores]
 
+        # Transparente Farbe wie bei den anderen Charts
+        base_color = segment_colors.get(segment, '#666')
+        hex_color = base_color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+        transparent_color = f'rgba({r},{g},{b},0.7)'
+        border_color = f'rgba({r},{g},{b},0.9)'
+
         fig.add_trace(go.Bar(
             name=segment,
             y=[s['name'] for s in active_stores],
             x=values,
             orientation='h',
-            marker_color=segment_colors.get(segment, '#666'),
+            marker=dict(
+                color=transparent_color,
+                line=dict(color=border_color, width=1)
+            ),
             text=[f"{v:.1f}%" for v in values],
             textposition='inside',
             insidetextanchor='middle',
