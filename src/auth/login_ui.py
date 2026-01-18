@@ -20,6 +20,8 @@ def render_login_screen():
         st.session_state.authenticated = False
         st.session_state.security_level = None
         st.session_state.username = None
+        st.session_state.db_user = None
+        st.session_state.db_password = None
 
     # Wenn bereits eingeloggt, return True
     if st.session_state.authenticated:
@@ -83,6 +85,8 @@ def render_login_screen():
                         st.session_state.authenticated = True
                         st.session_state.security_level = result['security_level']
                         st.session_state.username = result['username']
+                        st.session_state.db_user = username
+                        st.session_state.db_password = password
                         st.success(f"✓ {result['message']} (Security Level {result['security_level']})")
                         st.rerun()
                     else:
@@ -112,6 +116,8 @@ def logout():
     st.session_state.authenticated = False
     st.session_state.security_level = None
     st.session_state.username = None
+    st.session_state.db_user = None
+    st.session_state.db_password = None
     st.rerun()
 
 

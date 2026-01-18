@@ -5,15 +5,16 @@ User Authentication Module
 Authentifizierung gegen T_USER Tabelle mit Security Level Check
 """
 
-from src.db.connection import db_connection
+import pyodbc
+from src.db.connection import DB_SERVER, DB_DATABASE
 
 
 def authenticate_user(username: str, password: str) -> dict:
     """Authentifiziert einen User gegen T_USER und prüft Security Level
 
     Args:
-        username: Benutzername
-        password: Passwort
+        username: Benutzername (= DB User)
+        password: Passwort (= DB Password)
 
     Returns:
         dict mit:
@@ -22,7 +23,17 @@ def authenticate_user(username: str, password: str) -> dict:
         - message: str (Fehlermeldung oder Erfolg)
     """
     try:
-        with db_connection() as conn:
+        # Direkte Verbindung mit Login-Credentials
+        conn_str = (
+            "DRIVER={ODBC Driver 18 for SQL Server};"
+            f"SERVER={DB_SERVER};"
+            f"DATABASE={DB_DATABASE};"
+            f"UID={username};"
+            f"PWD={password};"
+            "Encrypt=no;"
+        )
+        conn = pyodbc.connect(conn_str)
+        try:
             cursor = conn.cursor()
 
             # Prüfe ob User mit Credentials existiert
@@ -60,7 +71,15 @@ def authenticate_user(username: str, password: str) -> dict:
                 'message': 'Anmeldung erfolgreich',
                 'username': username
             }
+        finally:
+            conn.close()
 
+    except pyodbc.InterfaceError:
+        return {
+            'authenticated': False,
+            'security_level': None,
+            'message': 'Datenbankverbindung fehlgeschlagen. Bitte Credentials prüfen.'
+        }
     except Exception as e:
         return {
             'authenticated': False,
