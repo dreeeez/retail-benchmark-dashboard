@@ -53,12 +53,14 @@ def _get_auth_connection(username: str, password: str):
 
     # Beide Methoden fehlgeschlagen - benutzerfreundliche Fehlermeldung
     error_msg = str(pymssql_error).lower() if pymssql_error else ""
-    if "login failed" in error_msg or "authentication" in error_msg:
-        raise Exception("Ungültige Anmeldedaten")
-    elif "network" in error_msg or "connection" in error_msg or "timeout" in error_msg:
-        raise Exception("Verbindung zum Server fehlgeschlagen")
-    else:
-        raise Exception("Ungültige Anmeldedaten")
+
+    # Netzwerk-Fehler erkennen (Server nicht erreichbar)
+    network_keywords = ["timeout", "unreachable", "refused", "reset", "timed out"]
+    if any(kw in error_msg for kw in network_keywords):
+        raise Exception("Verbindung zum Server fehlgeschlagen. Bitte später erneut versuchen.")
+
+    # Alle anderen Fehler = Anmeldedaten falsch oder keine DB-Berechtigung
+    raise Exception("Ungültige Anmeldedaten oder keine Zugriffsberechtigung")
 
 
 def authenticate_user(username: str, password: str) -> dict:
