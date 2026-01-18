@@ -343,11 +343,16 @@ if df is not None and len(df) > 0:
                             st.plotly_chart(fig, use_container_width=True)
 
                         with col_per_store:
-                            st.markdown(chart_header("📍 Top 3 Kampagnen je Filiale",
-                                "<strong>Berechnung:</strong> Top 3 Kampagnen nach RevenueEur pro Store<br><br>"
+                            st.markdown(chart_header("📍 Top 5 Kampagnen je Filiale",
+                                "<strong>Berechnung:</strong> Top 5 Kampagnen nach RevenueEur pro Store<br><br>"
                                 "<strong>Nutzen:</strong> Vergleicht die erfolgreichsten Kampagnen zwischen den Filialen. Zeigt lokale Unterschiede in der Kampagnen-Performance."), unsafe_allow_html=True)
-                            fig = create_top_campaigns_per_store_chart(campaign_data, active_stores)
-                            st.plotly_chart(fig, use_container_width=True)
+
+                            # Tabs für jeden Store
+                            store_tabs = st.tabs([s['name'] for s in active_stores])
+                            for idx, store in enumerate(active_stores):
+                                with store_tabs[idx]:
+                                    fig = create_top_campaigns_per_store_chart(campaign_data, store)
+                                    st.plotly_chart(fig, use_container_width=True)
 
                         # Kampagnenprofit Chart
                         st.markdown("<br>", unsafe_allow_html=True)
