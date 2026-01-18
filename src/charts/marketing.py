@@ -249,67 +249,57 @@ def create_top_campaigns_per_store_chart(campaign_df, store: dict) -> go.Figure:
     return fig
 
 
-def create_campaign_profit_chart(campaign_df, active_stores: list) -> go.Figure:
-    """Erstellt Top 3 Profit-Kampagnen pro Store (horizontal, gruppiert)
+def create_campaign_profit_chart(campaign_df, store: dict) -> go.Figure:
+    """Erstellt Top 5 Profit-Kampagnen Chart für einen einzelnen Store (horizontal)
 
     Profit = RevenueEur - CostEur - DiscountEur
 
     Args:
         campaign_df: DataFrame aus load_marketing_by_campaign()
-        active_stores: Liste der Store-Configs
+        store: Store-Config Dictionary mit id, name, color
 
     Returns:
-        Plotly Figure mit horizontalem gruppierten Balkendiagramm
+        Plotly Figure mit horizontalem Balkendiagramm
     """
     fig = go.Figure()
 
-    # Sammle alle Top 3 Profit-Kampagnen aller Stores
-    all_campaign_names = set()
-    store_data = {}
+    store_campaigns = campaign_df[campaign_df['IdStore'] == store['id']].copy()
 
-    for store in active_stores:
-        store_campaigns = campaign_df[campaign_df['IdStore'] == store['id']].copy()
-        if not store_campaigns.empty:
-            # Top 3 nach CampaignProfit sortieren
-            top3 = store_campaigns.nlargest(3, 'CampaignProfit')
-            store_data[store['name']] = top3
-            all_campaign_names.update(top3['CampaignName'].tolist())
+    if store_campaigns.empty:
+        # Leerer Chart wenn keine Daten
+        fig.update_layout(**get_base_layout(
+            height=300,
+            margin=dict(l=20, r=20, t=10, b=10)
+        ))
+        return fig
 
-    # Sortiere Kampagnennamen alphabetisch für konsistente Reihenfolge
-    sorted_campaigns = sorted(all_campaign_names)
+    # Top 5 nach Profit, sortiert für horizontale Darstellung (niedrigste oben)
+    top5 = store_campaigns.nlargest(5, 'CampaignProfit').sort_values('CampaignProfit', ascending=True)
 
-    for store in active_stores:
-        if store['name'] in store_data:
-            top3 = store_data[store['name']]
+    # Transparente Farbe aus Store-Farbe
+    hex_color = store['color'].lstrip('#')
+    r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
 
-            # Erstelle dict für schnellen Zugriff
-            campaign_profit = dict(zip(top3['CampaignName'], top3['CampaignProfit']))
-
-            # Baue Arrays für alle Kampagnen (0 wenn nicht in Top 3)
-            y_values = sorted_campaigns
-            x_values = [campaign_profit.get(name, 0) for name in sorted_campaigns]
-            text_values = [_format_revenue_short(val) if val > 0 else "" for val in x_values]
-
-            fig.add_trace(go.Bar(
-                name=store['name'],
-                y=y_values,
-                x=x_values,
-                orientation='h',
-                marker_color=f"rgba({int(store['color'][1:3], 16)}, {int(store['color'][3:5], 16)}, {int(store['color'][5:7], 16)}, 0.7)",
-                text=text_values,
-                textposition='outside',
-                textfont=dict(size=10, color='white'),
-                hovertemplate='<b>%{y}</b><br>Profit: %{x:,.0f} EUR<extra></extra>'
-            ))
+    fig.add_trace(go.Bar(
+        y=top5['CampaignName'],
+        x=top5['CampaignProfit'],
+        orientation='h',
+        marker=dict(
+            color=f'rgba({r},{g},{b},0.7)',
+            line=dict(color=f'rgba({r},{g},{b},0.9)', width=1)
+        ),
+        text=[_format_revenue_short(val) for val in top5['CampaignProfit']],
+        textposition='outside',
+        textfont=dict(size=11, color='white'),
+        hovertemplate='<b>%{y}</b><br>Profit: %{x:,.0f} €<extra></extra>'
+    ))
 
     fig.update_layout(**get_base_layout(
         xaxis_title="",
         yaxis_title="",
-        showlegend=True,
-        legend=get_legend_horizontal(),
-        height=350,
-        barmode='group',
-        margin=dict(l=20, r=20, t=40, b=10),
+        showlegend=False,
+        height=300,
+        margin=dict(l=20, r=80, t=10, b=10),
         xaxis=dict(showticklabels=False, showgrid=False, zeroline=True, zerolinecolor='rgba(255,255,255,0.3)'),
         yaxis=dict(tickfont=dict(size=11))
     ))

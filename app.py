@@ -356,11 +356,16 @@ if df is not None and len(df) > 0:
 
                         # Kampagnenprofit Chart
                         st.markdown("<br>", unsafe_allow_html=True)
-                        st.markdown(chart_header("💰 Top 10 Kampagnen nach Profit",
+                        st.markdown(chart_header("💰 Top 5 Kampagnen nach Profit je Filiale",
                             "<strong>Berechnung:</strong> Kampagnenumsatz - Kampagnenkosten - Rabatte<br><br>"
-                            "<strong>Nutzen:</strong> Zeigt die profitabelsten Kampagnen nach Abzug aller Kosten und Rabatte. Grüne Balken = profitabel, rote Balken = Verlust. Ermöglicht Identifikation der wirklich rentablen Marketing-Initiativen."), unsafe_allow_html=True)
-                        fig = create_campaign_profit_chart(campaign_data, active_stores)
-                        st.plotly_chart(fig, use_container_width=True)
+                            "<strong>Nutzen:</strong> Zeigt die profitabelsten Kampagnen nach Abzug aller Kosten und Rabatte. Ermöglicht Identifikation der wirklich rentablen Marketing-Initiativen."), unsafe_allow_html=True)
+
+                        # Tabs für jeden Store
+                        profit_tabs = st.tabs([s['name'] for s in active_stores])
+                        for idx, store in enumerate(active_stores):
+                            with profit_tabs[idx]:
+                                fig = create_campaign_profit_chart(campaign_data, store)
+                                st.plotly_chart(fig, use_container_width=True)
 
                 else:
                     st.info("Keine Marketing-Daten verfügbar.")
