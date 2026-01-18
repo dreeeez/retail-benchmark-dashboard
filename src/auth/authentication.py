@@ -11,42 +11,35 @@ from src.db.connection import DB_SERVER, DB_DATABASE
 def _get_auth_connection(username: str, password: str):
     """Erstellt DB-Verbindung für Authentifizierung
 
-    Versucht pyodbc (lokal) oder pymssql (Cloud).
+    Versucht pymssql zuerst (Cloud-kompatibel), dann pyodbc als Fallback.
 
     Returns:
         tuple: (connection, use_pyodbc_flag)
     """
-    # Prüfe ob ODBC Driver verfügbar ist
-    use_pyodbc = False
+    # Versuche zuerst pymssql (funktioniert überall ohne ODBC Driver)
     try:
-        import pyodbc
-        # Prüfe ob der Driver tatsächlich existiert
-        drivers = [d for d in pyodbc.drivers() if 'SQL Server' in d]
-        if drivers:
-            use_pyodbc = True
+        import pymssql
+        conn = pymssql.connect(
+            server=DB_SERVER,
+            user=username,
+            password=password,
+            database=DB_DATABASE
+        )
+        return conn, False
     except Exception:
         pass
 
-    if use_pyodbc:
-        import pyodbc
-        conn_str = (
-            "DRIVER={ODBC Driver 18 for SQL Server};"
-            f"SERVER={DB_SERVER};"
-            f"DATABASE={DB_DATABASE};"
-            f"UID={username};"
-            f"PWD={password};"
-            "Encrypt=no;"
-        )
-        return pyodbc.connect(conn_str), True
-
-    # Fallback: pymssql (Cloud ohne ODBC Driver)
-    import pymssql
-    return pymssql.connect(
-        server=DB_SERVER,
-        user=username,
-        password=password,
-        database=DB_DATABASE
-    ), False
+    # Fallback: pyodbc (lokal mit ODBC Driver)
+    import pyodbc
+    conn_str = (
+        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"SERVER={DB_SERVER};"
+        f"DATABASE={DB_DATABASE};"
+        f"UID={username};"
+        f"PWD={password};"
+        "Encrypt=no;"
+    )
+    return pyodbc.connect(conn_str), True
 
 
 def authenticate_user(username: str, password: str) -> dict:

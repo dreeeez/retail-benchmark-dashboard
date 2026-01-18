@@ -50,41 +50,33 @@ def get_db_config():
 def get_connection():
     """Erstellt Verbindung zur SQL Server Datenbank
 
-    Verwendet pyodbc lokal (mit ODBC Driver) oder pymssql in der Cloud.
+    Versucht pymssql zuerst (Cloud-kompatibel), dann pyodbc als Fallback.
     """
     cfg = get_db_config()
 
-    # Prüfe ob ODBC Driver verfügbar ist
-    use_pyodbc = False
+    # Versuche zuerst pymssql (funktioniert überall ohne ODBC Driver)
     try:
-        import pyodbc
-        # Prüfe ob der Driver tatsächlich existiert
-        drivers = [d for d in pyodbc.drivers() if 'SQL Server' in d]
-        if drivers:
-            use_pyodbc = True
+        import pymssql
+        return pymssql.connect(
+            server=cfg['server'],
+            user=cfg['user'],
+            password=cfg['password'],
+            database=cfg['database']
+        )
     except Exception:
         pass
 
-    if use_pyodbc:
-        import pyodbc
-        conn_str = (
-            "DRIVER={ODBC Driver 18 for SQL Server};"
-            f"SERVER={cfg['server']};"
-            f"DATABASE={cfg['database']};"
-            f"UID={cfg['user']};"
-            f"PWD={cfg['password']};"
-            "Encrypt=no;"
-        )
-        return pyodbc.connect(conn_str)
-
-    # Fallback: pymssql (Cloud ohne ODBC Driver)
-    import pymssql
-    return pymssql.connect(
-        server=cfg['server'],
-        user=cfg['user'],
-        password=cfg['password'],
-        database=cfg['database']
+    # Fallback: pyodbc (lokal mit ODBC Driver)
+    import pyodbc
+    conn_str = (
+        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"SERVER={cfg['server']};"
+        f"DATABASE={cfg['database']};"
+        f"UID={cfg['user']};"
+        f"PWD={cfg['password']};"
+        "Encrypt=no;"
     )
+    return pyodbc.connect(conn_str)
 
 
 @contextmanager
