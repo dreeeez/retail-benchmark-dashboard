@@ -31,10 +31,10 @@ STORE_COLORS = [
 # DYNAMISCHE STORE-LADEN AUS DATENBANK
 # =============================================================================
 
-@st.cache_data(ttl=3600)  # Cache für 1 Stunde
-def load_stores_from_db() -> list:
+def _load_stores_from_db() -> list:
     """
     Lädt alle Stores mit Sales-Daten aus der Datenbank.
+    INTERN - nutze get_stores() statt dieser Funktion!
 
     Berücksichtigt nur Stores die:
     - Sales-Umsatz haben (RevenueEUR > 0)
@@ -85,8 +85,8 @@ def load_stores_from_db() -> list:
         return stores
 
     except Exception as e:
-        st.error(f"Fehler beim Laden der Stores: {e}")
-        return []
+        # Kein st.error hier - wird im get_stores() behandelt
+        raise e
 
 
 # =============================================================================
@@ -97,12 +97,24 @@ def get_stores() -> list:
     """
     Gibt die Liste der Stores zurück.
     Lädt sie beim ersten Aufruf aus der Datenbank (lazy loading).
+    Cached in Session-State für Performance.
 
     WICHTIG: Erst nach Login aufrufen, sonst keine DB-Credentials verfügbar!
     """
-    if 'loaded_stores' not in st.session_state:
-        st.session_state.loaded_stores = load_stores_from_db()
-    return st.session_state.loaded_stores
+    # Prüfe ob bereits geladen
+    if 'loaded_stores' in st.session_state and st.session_state.loaded_stores:
+        return st.session_state.loaded_stores
+
+    # Versuche zu laden
+    try:
+        stores = _load_stores_from_db()
+        if stores:
+            st.session_state.loaded_stores = stores
+            return stores
+    except Exception as e:
+        st.error(f"Fehler beim Laden der Stores: {e}")
+
+    return []
 
 
 # Legacy-Kompatibilität: STORES als Property-Wrapper
@@ -173,8 +185,7 @@ def reload_stores():
     Lädt Stores neu aus der Datenbank.
     Nützlich wenn neue Stores hinzugekommen sind.
     """
-    # Cache löschen und neu laden
-    load_stores_from_db.clear()
+    # Session-Cache löschen und neu laden
     if 'loaded_stores' in st.session_state:
         del st.session_state.loaded_stores
     return get_stores()
