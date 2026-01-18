@@ -15,7 +15,12 @@ def _get_auth_connection(username: str, password: str):
 
     Returns:
         tuple: (connection, use_pyodbc_flag)
+
+    Raises:
+        Exception: Mit benutzerfreundlicher Fehlermeldung bei Login-Fehlern
     """
+    pymssql_error = None
+
     # Versuche zuerst pymssql (funktioniert überall ohne ODBC Driver)
     try:
         import pymssql
@@ -26,20 +31,34 @@ def _get_auth_connection(username: str, password: str):
             database=DB_DATABASE
         )
         return conn, False
+    except Exception as e:
+        pymssql_error = e
+
+    # Fallback: pyodbc (nur lokal mit ODBC Driver)
+    try:
+        import pyodbc
+        # Prüfe ob ODBC Driver verfügbar ist
+        if 'ODBC Driver 18 for SQL Server' in pyodbc.drivers():
+            conn_str = (
+                "DRIVER={ODBC Driver 18 for SQL Server};"
+                f"SERVER={DB_SERVER};"
+                f"DATABASE={DB_DATABASE};"
+                f"UID={username};"
+                f"PWD={password};"
+                "Encrypt=no;"
+            )
+            return pyodbc.connect(conn_str), True
     except Exception:
         pass
 
-    # Fallback: pyodbc (lokal mit ODBC Driver)
-    import pyodbc
-    conn_str = (
-        "DRIVER={ODBC Driver 18 for SQL Server};"
-        f"SERVER={DB_SERVER};"
-        f"DATABASE={DB_DATABASE};"
-        f"UID={username};"
-        f"PWD={password};"
-        "Encrypt=no;"
-    )
-    return pyodbc.connect(conn_str), True
+    # Beide Methoden fehlgeschlagen - benutzerfreundliche Fehlermeldung
+    error_msg = str(pymssql_error).lower() if pymssql_error else ""
+    if "login failed" in error_msg or "authentication" in error_msg:
+        raise Exception("Ungültige Anmeldedaten")
+    elif "network" in error_msg or "connection" in error_msg or "timeout" in error_msg:
+        raise Exception("Verbindung zum Server fehlgeschlagen")
+    else:
+        raise Exception("Ungültige Anmeldedaten")
 
 
 def authenticate_user(username: str, password: str) -> dict:
