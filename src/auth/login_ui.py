@@ -6,7 +6,7 @@ Streamlit-basierter Login-Screen
 """
 
 import streamlit as st
-from src.auth.authentication import authenticate_user, dev_bypass_login
+from src.auth.authentication import authenticate_user
 
 
 def render_login_screen():
@@ -63,15 +63,7 @@ def render_login_screen():
             username = st.text_input("Benutzername", placeholder="USERNAME")
             password = st.text_input("Passwort", type="password", placeholder="USERPASS")
 
-            col_login, col_dev = st.columns([2, 1])
-
-            with col_login:
-                login_clicked = st.form_submit_button("Anmelden", use_container_width=True)
-
-            with col_dev:
-                dev_clicked = st.form_submit_button("🔧 Dev", use_container_width=True,
-                                                    type="secondary",
-                                                    help="Entwickler-Bypass (später entfernen!)")
+            login_clicked = st.form_submit_button("Anmelden", use_container_width=True)
 
         # Verarbeite Login
         if login_clicked:
@@ -91,15 +83,6 @@ def render_login_screen():
                         st.rerun()
                     else:
                         st.error(f"✗ {result['message']}")
-
-        # Dev-Bypass
-        if dev_clicked:
-            st.warning("⚠️ DEV MODE - Bypass aktiv (später entfernen!)")
-            result = dev_bypass_login()
-            st.session_state.authenticated = True
-            st.session_state.security_level = result['security_level']
-            st.session_state.username = result['username']
-            st.rerun()
 
     # Footer
     st.markdown("""
