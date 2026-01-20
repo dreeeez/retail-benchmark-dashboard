@@ -100,5 +100,36 @@ SELECT
     SUM(Wert) as Wert
 FROM list_views.V_LIST_G15_GESAMT_DBSCHEMA_FINAL
 WHERE StoreName IN ({store_names})
+{quarter_filter}
 GROUP BY StoreName, Kenngröße
 """
+
+
+def build_quarter_filter_db(period: str) -> str:
+    """Baut SQL WHERE-Klausel für Deckungsbeitrag-View (V_LIST_G15_GESAMT_DBSCHEMA_FINAL)
+
+    Die View hat Spalten: Monat (Datum '2026-01-31'), Quartal (1-4), MonatNr (1-12)
+
+    Args:
+        period: 'all' für alle, 'Q1'-'Q4' für Quartale, oder '2024-01' für einzelnen Monat
+
+    Returns:
+        Leerer String oder passende AND-Klausel
+    """
+    if period == 'all':
+        return ''
+
+    # Quartalsfilter: Q1, Q2, Q3, Q4
+    quarter_map = {'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4}
+    if period in quarter_map:
+        return f"AND Quartal = {quarter_map[period]}"
+
+    # Monatsfilter: '2024-01' -> MonatNr = 1
+    if '-' in period:
+        try:
+            month_nr = int(period.split('-')[1])
+            return f"AND MonatNr = {month_nr}"
+        except (IndexError, ValueError):
+            return ''
+
+    return ''

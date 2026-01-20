@@ -14,6 +14,7 @@ import pandas as pd
 from src.db.connection import db_connection
 from src.db.queries import (
     build_month_filter,
+    build_quarter_filter,
     SQL_EXPORT_MONTHLY,
     SQL_KPI,
     SQL_MARKETING_KPI,
@@ -265,18 +266,22 @@ def load_waterfall_data():
 # =============================================================================
 
 @st.cache_data(ttl=300)
-def load_deckungsbeitrag():
+def load_deckungsbeitrag(quarter: str = 'all'):
     """Lädt Deckungsbeitragsdaten aus V_LIST_G15_GESAMT_DBSCHEMA_FINAL
 
     Für: Tab Deckungsbeitrag (DB I, DB II, DB III)
+
+    Args:
+        quarter: 'all', 'Q1', 'Q2', 'Q3', 'Q4' oder einzelner Monat wie '2024-01'
     """
     from src.config.stores import get_stores
     stores = get_stores()
     store_names = ", ".join([f"'{s['name']}'" for s in stores])
+    quarter_filter = build_quarter_filter(quarter)
     try:
         with db_connection() as conn:
             df = pd.read_sql(
-                SQL_DECKUNGSBEITRAG.format(store_names=store_names),
+                SQL_DECKUNGSBEITRAG.format(store_names=store_names, quarter_filter=quarter_filter),
                 conn
             )
         return df
