@@ -108,7 +108,7 @@ GROUP BY StoreName, Kenngröße
 def build_quarter_filter_db(period: str) -> str:
     """Baut SQL WHERE-Klausel für Deckungsbeitrag-View (V_LIST_G15_GESAMT_DBSCHEMA_FINAL)
 
-    Die View hat Spalten: Monat (Datum '2026-01-31'), Quartal (1-4), MonatNr (1-12)
+    Die View hat Spalten: Monat (Datum '2026-01-31'), Quartal ('Q1'-'Q4' als VARCHAR), MonatNr (1-12)
 
     Args:
         period: 'all' für alle, 'Q1'-'Q4' für Quartale, oder '2024-01' für einzelnen Monat
@@ -119,10 +119,9 @@ def build_quarter_filter_db(period: str) -> str:
     if period == 'all':
         return ''
 
-    # Quartalsfilter: Q1, Q2, Q3, Q4
-    quarter_map = {'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4}
-    if period in quarter_map:
-        return f"AND Quartal = {quarter_map[period]}"
+    # Quartalsfilter: Q1, Q2, Q3, Q4 (Quartal ist VARCHAR in der View!)
+    if period in ('Q1', 'Q2', 'Q3', 'Q4'):
+        return f"AND Quartal = '{period}'"
 
     # Monatsfilter: '2024-01' -> MonatNr = 1
     if '-' in period:

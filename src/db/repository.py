@@ -14,7 +14,7 @@ import pandas as pd
 from src.db.connection import db_connection
 from src.db.queries import (
     build_month_filter,
-    build_quarter_filter,
+    build_quarter_filter_db,
     SQL_EXPORT_MONTHLY,
     SQL_KPI,
     SQL_MARKETING_KPI,
@@ -277,7 +277,7 @@ def load_deckungsbeitrag(quarter: str = 'all'):
     from src.config.stores import get_stores
     stores = get_stores()
     store_names = ", ".join([f"'{s['name']}'" for s in stores])
-    quarter_filter = build_quarter_filter(quarter)
+    quarter_filter = build_quarter_filter_db(quarter)
     try:
         with db_connection() as conn:
             df = pd.read_sql(
