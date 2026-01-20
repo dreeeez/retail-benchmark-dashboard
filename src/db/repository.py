@@ -23,6 +23,7 @@ from src.db.queries import (
     SQL_STORE_DETAILS,
     SQL_SALES_AGG,
     SQL_PRICE_SEGMENT,
+    SQL_DECKUNGSBEITRAG,
 )
 # Import von get_store_ids_sql entfernt - wird in Funktionen importiert um zirkuläre Abhängigkeit zu vermeiden
 
@@ -257,3 +258,27 @@ def load_costs_detail_data():
 def load_waterfall_data():
     """LEGACY: Nutzt jetzt load_kpi()"""
     return load_kpi('all')
+
+
+# =============================================================================
+# TAB 5: DECKUNGSBEITRAG
+# =============================================================================
+
+@st.cache_data(ttl=300)
+def load_deckungsbeitrag():
+    """Lädt Deckungsbeitragsdaten aus V_LIST_G15_GESAMT_DBSCHEMA_FINAL
+
+    Für: Tab Deckungsbeitrag (DB I, DB II, DB III)
+    """
+    from src.config.stores import get_stores
+    stores = get_stores()
+    store_names = ", ".join([f"'{s['name']}'" for s in stores])
+    try:
+        with db_connection() as conn:
+            df = pd.read_sql(
+                SQL_DECKUNGSBEITRAG.format(store_names=store_names),
+                conn
+            )
+        return df
+    except Exception:
+        return None

@@ -91,3 +91,14 @@ WHERE IdStore IN ({store_ids})
 GROUP BY IdStore, StoreName, Preissegment
 ORDER BY IdStore, SUM(RevenueEur) DESC
 """
+
+# Tab 5: Deckungsbeitrag
+SQL_DECKUNGSBEITRAG = """
+SELECT
+    StoreName,
+    Kenngröße,
+    SUM(Wert) as Wert
+FROM list_views.V_LIST_G15_GESAMT_DBSCHEMA_FINAL
+WHERE StoreName IN ({store_names})
+GROUP BY StoreName, Kenngröße
+"""

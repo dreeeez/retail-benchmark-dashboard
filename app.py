@@ -30,6 +30,7 @@ from src.db.repository import (
     load_sales_agg,
     load_rent_and_revenue_per_m2,
     load_price_segment_data,
+    load_deckungsbeitrag,
 )
 
 # Domain
@@ -140,8 +141,8 @@ if df is not None and len(df) > 0:
         # =================================================================
         # TABS
         # =================================================================
-        tab_main, tab_marketing, tab_costs, tab_categories, tab_data = st.tabs([
-            "📊 Finanzperformance", "📢 Marketing", "💸 Kostenanalyse", "🚲 Produktkategorien", "📋 Export"
+        tab_main, tab_marketing, tab_costs, tab_categories, tab_db, tab_data = st.tabs([
+            "📊 Finanzperformance", "📢 Marketing", "💸 Kostenanalyse", "🚲 Produktkategorien", "📈 Deckungsbeitrag", "📋 Export"
         ])
 
         if len(active_stores) >= 1:
@@ -522,7 +523,117 @@ if df is not None and len(df) > 0:
                     st.warning("Keine Kategoriedaten verfügbar.")
 
             # =============================================================
-            # TAB 5: EXPORT
+            # TAB 5: DECKUNGSBEITRAG
+            # =============================================================
+            with tab_db:
+                st.subheader("📈 Deckungsbeitragsrechnung")
+                st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
+                db_data = load_deckungsbeitrag()
+                if db_data is not None and not db_data.empty:
+                    # Berechne Deckungsbeiträge für jeden Store
+                    for store in active_stores:
+                        store_db = db_data[db_data['StoreName'] == store['name']]
+                        if store_db.empty:
+                            continue
+
+                        # Pivot: Kenngröße -> Wert
+                        values = {}
+                        for _, row in store_db.iterrows():
+                            values[row['Kenngröße']] = row['Wert']
+
+                        # Berechne DB-Stufen
+                        umsatz = values.get('UmsatzEUR', 0)
+                        wareneinsatz = abs(values.get('TransferPriceEUR', 0))
+                        db1 = umsatz - wareneinsatz
+
+                        rabatt_material = abs(values.get('DiscountAufMaterialEUR', 0))
+                        rabatt_kategorie = abs(values.get('DiscountAufMaterialKategorieEUR', 0))
+                        rabatte_gesamt = rabatt_material + rabatt_kategorie
+                        db2 = db1 - rabatte_gesamt
+
+                        personal = abs(values.get('Monthly Salary', 0)) + abs(values.get('Monthly Social Costs', 0))
+                        miete = abs(values.get('Monthly Rent', 0))
+                        logistik = abs(values.get('Additional Procurement Costs', 0))
+                        marketing = abs(values.get('Marketing Campaign', 0))
+                        commission = abs(values.get('Commission', 0))
+                        betriebskosten = personal + miete + logistik + marketing + commission
+                        db3 = db2 - betriebskosten
+
+                        # DB-Margen in Prozent
+                        db1_pct = (db1 / umsatz * 100) if umsatz > 0 else 0
+                        db2_pct = (db2 / umsatz * 100) if umsatz > 0 else 0
+                        db3_pct = (db3 / umsatz * 100) if umsatz > 0 else 0
+
+                        # Anzeige als Card
+                        st.markdown(f"""
+                        <div style="background: {store['color_bg']}; border: 1px solid {store['color']};
+                                    border-radius: 15px; padding: 20px; margin-bottom: 20px;">
+                            <h3 style="color: {store['color']}; margin-bottom: 20px; text-align: center;">{store['name']}</h3>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 1.1em;">
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 10px; color: white;">Umsatz</td>
+                                    <td style="padding: 10px; text-align: right; color: #00ff88; font-weight: bold;">{format_currency(umsatz)}</td>
+                                    <td style="padding: 10px; text-align: right; color: #aaa;">100%</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 10px; color: #aaa;">- Wareneinsatz</td>
+                                    <td style="padding: 10px; text-align: right; color: #ff6b6b;">{format_currency(wareneinsatz)}</td>
+                                    <td style="padding: 10px; text-align: right; color: #aaa;"></td>
+                                </tr>
+                                <tr style="border-bottom: 2px solid {store['color']}; background: rgba(255,255,255,0.05);">
+                                    <td style="padding: 10px; color: white; font-weight: bold;">= DB I (Rohertrag)</td>
+                                    <td style="padding: 10px; text-align: right; color: {'#00ff88' if db1 > 0 else '#ff6b6b'}; font-weight: bold;">{format_currency(db1)}</td>
+                                    <td style="padding: 10px; text-align: right; color: {store['color']}; font-weight: bold;">{db1_pct:.1f}%</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 10px; color: #aaa;">- Rabatte</td>
+                                    <td style="padding: 10px; text-align: right; color: #ff6b6b;">{format_currency(rabatte_gesamt)}</td>
+                                    <td style="padding: 10px; text-align: right; color: #aaa;"></td>
+                                </tr>
+                                <tr style="border-bottom: 2px solid {store['color']}; background: rgba(255,255,255,0.05);">
+                                    <td style="padding: 10px; color: white; font-weight: bold;">= DB II</td>
+                                    <td style="padding: 10px; text-align: right; color: {'#00ff88' if db2 > 0 else '#ff6b6b'}; font-weight: bold;">{format_currency(db2)}</td>
+                                    <td style="padding: 10px; text-align: right; color: {store['color']}; font-weight: bold;">{db2_pct:.1f}%</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 10px; color: #aaa;">- Personal</td>
+                                    <td style="padding: 10px; text-align: right; color: #ff6b6b;">{format_currency(personal)}</td>
+                                    <td style="padding: 10px; text-align: right; color: #aaa;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 10px; color: #aaa;">- Miete</td>
+                                    <td style="padding: 10px; text-align: right; color: #ff6b6b;">{format_currency(miete)}</td>
+                                    <td style="padding: 10px; text-align: right; color: #aaa;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 10px; color: #aaa;">- Logistik</td>
+                                    <td style="padding: 10px; text-align: right; color: #ff6b6b;">{format_currency(logistik)}</td>
+                                    <td style="padding: 10px; text-align: right; color: #aaa;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 10px; color: #aaa;">- Marketing</td>
+                                    <td style="padding: 10px; text-align: right; color: #ff6b6b;">{format_currency(marketing)}</td>
+                                    <td style="padding: 10px; text-align: right; color: #aaa;"></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                    <td style="padding: 10px; color: #aaa;">- Provisionen</td>
+                                    <td style="padding: 10px; text-align: right; color: #ff6b6b;">{format_currency(commission)}</td>
+                                    <td style="padding: 10px; text-align: right; color: #aaa;"></td>
+                                </tr>
+                                <tr style="background: rgba(255,255,255,0.1);">
+                                    <td style="padding: 15px; color: white; font-weight: bold; font-size: 1.2em;">= DB III (Betriebsergebnis)</td>
+                                    <td style="padding: 15px; text-align: right; color: {'#00ff88' if db3 > 0 else '#ff6b6b'}; font-weight: bold; font-size: 1.2em;">{format_currency(db3)}</td>
+                                    <td style="padding: 15px; text-align: right; color: {store['color']}; font-weight: bold; font-size: 1.2em;">{db3_pct:.1f}%</td>
+                                </tr>
+                            </table>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("Keine Deckungsbeitragsdaten verfügbar.")
+
+            # =============================================================
+            # TAB 6: EXPORT
             # =============================================================
             with tab_data:
                 st.subheader("📋 Rohdaten-Export")
