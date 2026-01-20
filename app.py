@@ -527,31 +527,26 @@ if df is not None and len(df) > 0:
             # =============================================================
             with tab_db:
                 # Titel und optionaler Quartalsfilter
-                col_db_title, col_db_filter = st.columns([3, 1])
-                with col_db_title:
-                    # Zeige aktuellen Zeitraum aus Sidebar-Filter
-                    period_label = MONTH_NAMES.get(selected_month, selected_month)
-                    st.subheader(f"📈 Deckungsbeitragsrechnung - {period_label}")
-                with col_db_filter:
-                    # Zusätzlicher Quartalsfilter (nur wenn Sidebar auf "Gesamt" steht)
-                    if selected_month == 'all':
-                        db_quarter_options = {
-                            'Gesamtjahr': 'all',
-                            'Q1 (Jan-Mär)': 'Q1',
-                            'Q2 (Apr-Jun)': 'Q2',
-                            'Q3 (Jul-Sep)': 'Q3',
-                            'Q4 (Okt-Dez)': 'Q4',
-                        }
-                        selected_db_quarter_label = st.selectbox(
-                            "Quartal",
-                            options=list(db_quarter_options.keys()),
-                            index=0,
-                            key="db_quarter_filter"
-                        )
-                        selected_db_period = db_quarter_options[selected_db_quarter_label]
-                    else:
-                        # Nutze den Sidebar-Monatsfilter direkt
-                        selected_db_period = selected_month
+                # Zeige aktuellen Zeitraum aus Sidebar-Filter
+                period_label = MONTH_NAMES.get(selected_month, selected_month)
+                st.subheader(f"📈 Deckungsbeitragsrechnung - {period_label}")
+
+                # Zusätzlicher Quartalsfilter als horizontale Radio-Buttons (nur wenn Sidebar auf "Gesamt" steht)
+                if selected_month == 'all':
+                    db_quarter_options = ['Gesamtjahr', 'Q1', 'Q2', 'Q3', 'Q4']
+                    db_quarter_map = {'Gesamtjahr': 'all', 'Q1': 'Q1', 'Q2': 'Q2', 'Q3': 'Q3', 'Q4': 'Q4'}
+
+                    selected_db_quarter_label = st.radio(
+                        "Zeitraum:",
+                        options=db_quarter_options,
+                        index=0,
+                        key="db_quarter_filter",
+                        horizontal=True
+                    )
+                    selected_db_period = db_quarter_map[selected_db_quarter_label]
+                else:
+                    # Nutze den Sidebar-Monatsfilter direkt
+                    selected_db_period = selected_month
 
                 st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
