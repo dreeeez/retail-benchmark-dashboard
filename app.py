@@ -64,7 +64,7 @@ from src.charts.categories import (
 )
 
 # Services
-from src.services.aggregations import aggregate_marketing_kpis, calculate_cost_percentages
+from src.services.aggregations import aggregate_marketing_kpis, aggregate_romi, calculate_cost_percentages
 from src.services.filters import create_store_filter
 
 # Utils
@@ -329,32 +329,35 @@ if df is not None and len(df) > 0:
                             </div>
                             """.replace(",", "."), unsafe_allow_html=True)
 
-                    # Top Kampagnen Charts
+                    # ROMI - Return on Marketing Investment
                     st.markdown("<br>", unsafe_allow_html=True)
                     campaign_data = load_marketing_by_campaign()
                     if campaign_data is not None and not campaign_data.empty:
-                        col_overall, col_per_store = st.columns(2)
+                        st.markdown(chart_header("📈 ROMI - Return on Marketing Investment",
+                            "<strong>Berechnung:</strong> Summe(Kampagnen-Profit) / Summe(Marketing-Kosten)<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt die Rendite der Marketing-Investitionen. ROMI > 1 bedeutet profitables Marketing. Höherer ROMI = effizientere Marketing-Strategie."), unsafe_allow_html=True)
+                        st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
 
-                        with col_overall:
-                            st.markdown(chart_header("🏆 Top 5 Kampagnen nach Gesamtumsatz",
-                                "<strong>Berechnung:</strong> Summierter Umsatz aller Stores pro Kampagne<br><br>"
-                                "<strong>Nutzen:</strong> Zeigt die erfolgreichsten Kampagnen über alle Filialen hinweg. Identifiziert die stärksten Marketing-Initiativen."), unsafe_allow_html=True)
-                            fig = create_top_campaigns_overall_chart(campaign_data, active_stores)
-                            st.plotly_chart(fig, use_container_width=True)
+                        romi_cols = st.columns(len(active_stores))
+                        for idx, store in enumerate(active_stores):
+                            romi_data = aggregate_romi(campaign_data, store['id'])
+                            with romi_cols[idx]:
+                                # Farbe basierend auf ROMI-Wert
+                                romi_color = '#00ff88' if romi_data['romi'] > 1 else '#ff6b6b'
+                                st.markdown(f"""
+                                <div class="hover-card" style="background: {store['color_bg']}; border: 1px solid {store['color']};
+                                            border-radius: 12px; padding: 20px; text-align: center;">
+                                    <div style="color: {store['color']}; font-weight: bold; margin-bottom: 10px;">{store['name']}</div>
+                                    <div style="font-size: 2em; font-weight: bold; color: {romi_color};">{romi_data['romi']:.2f}x</div>
+                                    <div style="color: #aaa; font-size: 0.8em;">Return on Marketing</div>
+                                    <div style="color: #aaa; font-size: 0.75em; margin-top: 8px;">
+                                        Profit: {format_currency(romi_data['total_profit'])} |
+                                        Kosten: {format_currency(romi_data['total_cost'])}
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
 
-                        with col_per_store:
-                            st.markdown(chart_header("📍 Top 5 Kampagnen je Filiale",
-                                "<strong>Berechnung:</strong> Top 5 Kampagnen nach RevenueEur pro Store<br><br>"
-                                "<strong>Nutzen:</strong> Vergleicht die erfolgreichsten Kampagnen zwischen den Filialen. Zeigt lokale Unterschiede in der Kampagnen-Performance."), unsafe_allow_html=True)
-
-                            # Tabs für jeden Store
-                            store_tabs = st.tabs([s['name'] for s in active_stores])
-                            for idx, store in enumerate(active_stores):
-                                with store_tabs[idx]:
-                                    fig = create_top_campaigns_per_store_chart(campaign_data, store)
-                                    st.plotly_chart(fig, use_container_width=True)
-
-                        # Kampagnenprofit Chart
+                        # Top Kampagnen nach Profit
                         st.markdown("<br>", unsafe_allow_html=True)
                         st.markdown(chart_header("💰 Top 5 Kampagnen nach Profit je Filiale",
                             "<strong>Berechnung:</strong> Kampagnenumsatz - Kampagnenkosten - Rabatte<br><br>"
@@ -365,7 +368,7 @@ if df is not None and len(df) > 0:
                         for idx, store in enumerate(active_stores):
                             with profit_tabs[idx]:
                                 fig = create_campaign_profit_chart(campaign_data, store)
-                                st.plotly_chart(fig, use_container_width=True)
+                                st.plotly_chart(fig, use_container_width=True, config={'autosizable': True, 'responsive': True})
 
                 else:
                     st.info("Keine Marketing-Daten verfügbar.")

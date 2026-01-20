@@ -300,7 +300,7 @@ def create_campaign_profit_chart(campaign_df, store: dict) -> go.Figure:
         showlegend=False,
         height=300,
         margin=dict(l=20, r=80, t=10, b=10),
-        xaxis=dict(showticklabels=False, showgrid=False, zeroline=True, zerolinecolor='rgba(255,255,255,0.3)'),
+        xaxis=dict(showticklabels=False, showgrid=False, zeroline=True, zerolinecolor='rgba(255,255,255,0.3)', autorange=True),
         yaxis=dict(tickfont=dict(size=11))
     ))
 

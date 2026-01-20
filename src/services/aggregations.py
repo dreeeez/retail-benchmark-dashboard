@@ -55,6 +55,42 @@ def aggregate_marketing_kpis(marketing_df, store_id: int) -> dict:
     }
 
 
+def aggregate_romi(campaign_df, store_id: int) -> dict:
+    """Berechnet ROMI (Return on Marketing Investment) für einen Store
+
+    ROMI = Summe(CampaignProfit) / Summe(CostEur)
+
+    Args:
+        campaign_df: DataFrame aus load_marketing_by_campaign()
+        store_id: Store-ID
+
+    Returns:
+        Dict mit ROMI-Werten
+    """
+    store_data = campaign_df[campaign_df['IdStore'] == store_id]
+
+    if store_data.empty:
+        return {
+            'total_profit': 0,
+            'total_cost': 0,
+            'romi': 0,
+            'campaign_count': 0
+        }
+
+    total_profit = store_data['CampaignProfit'].sum()
+    total_cost = store_data['CostEur'].sum()
+    campaign_count = len(store_data)
+
+    romi = (total_profit / total_cost) if total_cost > 0 else 0
+
+    return {
+        'total_profit': total_profit,
+        'total_cost': total_cost,
+        'romi': romi,
+        'campaign_count': campaign_count
+    }
+
+
 def calculate_cost_percentages(kpis: dict) -> dict:
     """Berechnet Kostenanteile in Prozent vom Umsatz
 
