@@ -321,15 +321,8 @@ def create_profit_distribution_chart(df_filtered, active_stores: list,
             abs_profit = store_profit_abs[store['name']].get(cat, 0)
             values.append(pct)
 
-            # Nur Top-1 und Top-2 beschriften
-            store_cats_sorted = sorted(
-                store_profit_pct[store['name']].items(),
-                key=lambda x: x[1],
-                reverse=True
-            )
-            top_cats = [c[0] for c in store_cats_sorted[:2]]
-
-            if cat in top_cats:
+            # Alle Kategorien mit Prozentangabe beschriften (wenn genug Platz)
+            if pct >= 2:  # Nur anzeigen wenn >= 2% für Lesbarkeit
                 texts.append(f"{pct:.1f}%")
             else:
                 texts.append("")

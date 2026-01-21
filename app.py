@@ -550,7 +550,8 @@ if df is not None and len(df) > 0:
 
                 st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
-                db_data = load_deckungsbeitrag(selected_db_period)
+                store_names_tuple = tuple(s['name'] for s in active_stores)
+                db_data = load_deckungsbeitrag(selected_db_period, store_names_tuple)
                 if db_data is not None and not db_data.empty:
                     # Berechne Deckungsbeiträge für jeden Store
                     for store in active_stores:

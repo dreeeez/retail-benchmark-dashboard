@@ -266,17 +266,21 @@ def load_waterfall_data():
 # =============================================================================
 
 @st.cache_data(ttl=300)
-def load_deckungsbeitrag(quarter: str = 'all'):
+def load_deckungsbeitrag(quarter: str = 'all', store_names_tuple: tuple = None):
     """Lädt Deckungsbeitragsdaten aus V_LIST_G15_GESAMT_DBSCHEMA_FINAL
 
     Für: Tab Deckungsbeitrag (DB I, DB II, DB III)
 
     Args:
         quarter: 'all', 'Q1', 'Q2', 'Q3', 'Q4' oder einzelner Monat wie '2024-01'
+        store_names_tuple: Tuple der Store-Namen für Caching-Kompatibilität
     """
     from src.config.stores import get_stores
-    stores = get_stores()
-    store_names = ", ".join([f"'{s['name']}'" for s in stores])
+    if store_names_tuple is None:
+        stores = get_stores()
+        store_names = ", ".join([f"'{s['name']}'" for s in stores])
+    else:
+        store_names = ", ".join([f"'{name}'" for name in store_names_tuple])
     quarter_filter = build_quarter_filter_db(quarter)
     try:
         with db_connection() as conn:
