@@ -53,6 +53,8 @@ from src.charts.marketing import (
     create_marketing_trend_chart,
     create_marketing_bar_chart,
     create_marketing_quote_chart,
+    create_marketing_revenue_share_chart,
+    create_roas_monthly_chart,
     create_top_campaigns_overall_chart,
     create_top_campaigns_per_store_chart,
     create_campaign_profit_chart,
@@ -64,7 +66,7 @@ from src.charts.categories import (
 )
 
 # Services
-from src.services.aggregations import aggregate_marketing_kpis, aggregate_romi, calculate_cost_percentages
+from src.services.aggregations import aggregate_marketing_kpis, calculate_cost_percentages
 from src.services.filters import create_store_filter
 
 # Utils
@@ -308,6 +310,14 @@ if df is not None and len(df) > 0:
                         fig = create_marketing_quote_chart(active_stores, marketing_kpis)
                         st.plotly_chart(fig, use_container_width=True)
 
+                    # Marketing-Umsatzanteil (100% Stacked)
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown(chart_header("📊 Marketing-Umsatzanteil",
+                        "<strong>Berechnung:</strong> Marketing-attributierter Umsatz / Gesamtumsatz × 100<br><br>"
+                        "<strong>Nutzen:</strong> Zeigt, wie viel Prozent des Umsatzes durch Marketing-Kampagnen generiert wurde vs. organischer Umsatz ohne Kampagnen-Einfluss."), unsafe_allow_html=True)
+                    fig = create_marketing_revenue_share_chart(active_stores, marketing_kpis)
+                    st.plotly_chart(fig, use_container_width=True)
+
                     # CPA - Cost per Acquisition (wie im alten Design)
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.markdown(chart_header("💰 CPA - Cost per Acquisition",
@@ -329,34 +339,16 @@ if df is not None and len(df) > 0:
                             </div>
                             """.replace(",", "."), unsafe_allow_html=True)
 
-                    # ROMI - Return on Marketing Investment
+                    # ROAS - Return on Advertising Spend (monatlich)
                     st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown(chart_header("📈 ROAS im Zeitverlauf",
+                        "<strong>Berechnung:</strong> Marketing-attributierter Umsatz / Marketing-Kosten pro Monat<br><br>"
+                        "<strong>Nutzen:</strong> Zeigt die monatliche Marketing-Effizienz. ROAS > 1 bedeutet, dass jeder investierte Euro mehr als einen Euro Umsatz generiert. Die gestrichelte Linie markiert den Break-even."), unsafe_allow_html=True)
+                    fig = create_roas_monthly_chart(marketing_all_months, active_stores)
+                    st.plotly_chart(fig, use_container_width=True)
+
                     campaign_data = load_marketing_by_campaign()
                     if campaign_data is not None and not campaign_data.empty:
-                        st.markdown(chart_header("📈 ROMI - Return on Marketing Investment",
-                            "<strong>Berechnung:</strong> Summe(Kampagnen-Profit) / Summe(Marketing-Kosten)<br><br>"
-                            "<strong>Nutzen:</strong> Zeigt die Rendite der Marketing-Investitionen. ROMI > 1 bedeutet profitables Marketing. Höherer ROMI = effizientere Marketing-Strategie."), unsafe_allow_html=True)
-                        st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
-
-                        romi_cols = st.columns(len(active_stores))
-                        for idx, store in enumerate(active_stores):
-                            romi_data = aggregate_romi(campaign_data, store['id'])
-                            with romi_cols[idx]:
-                                # Farbe basierend auf ROMI-Wert
-                                romi_color = '#00ff88' if romi_data['romi'] > 1 else '#ff6b6b'
-                                st.markdown(f"""
-                                <div class="hover-card" style="background: {store['color_bg']}; border: 1px solid {store['color']};
-                                            border-radius: 12px; padding: 20px; text-align: center;">
-                                    <div style="color: {store['color']}; font-weight: bold; margin-bottom: 10px;">{store['name']}</div>
-                                    <div style="font-size: 2em; font-weight: bold; color: {romi_color};">{romi_data['romi']:.2f}x</div>
-                                    <div style="color: #aaa; font-size: 0.8em;">Return on Marketing</div>
-                                    <div style="color: #aaa; font-size: 0.75em; margin-top: 8px;">
-                                        Profit: {format_currency(romi_data['total_profit'])} |
-                                        Kosten: {format_currency(romi_data['total_cost'])}
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-
                         # Top Kampagnen nach Profit
                         st.markdown("<br>", unsafe_allow_html=True)
                         st.markdown(chart_header("💰 Top 5 Kampagnen nach Profit je Filiale",

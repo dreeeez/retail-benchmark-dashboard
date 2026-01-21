@@ -13,6 +13,7 @@ from src.charts.finance import (
 from src.charts.marketing import (
     create_marketing_trend_chart,
     create_marketing_quote_chart,
+    create_marketing_revenue_share_chart,
 )
 from src.charts.categories import (
     create_revenue_distribution_chart,
@@ -35,6 +36,7 @@ __all__ = [
     # Marketing
     'create_marketing_trend_chart',
     'create_marketing_quote_chart',
+    'create_marketing_revenue_share_chart',
     # Categories
     'create_revenue_distribution_chart',
     'create_quantity_heatmap',
