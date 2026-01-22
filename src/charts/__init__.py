@@ -9,6 +9,7 @@ from src.charts.finance import (
     create_ebit_chart,
     create_margin_chart,
     create_cost_ratio_chart,
+    create_cost_treemap,
 )
 from src.charts.marketing import (
     create_marketing_trend_chart,
@@ -34,6 +35,7 @@ __all__ = [
     'create_ebit_chart',
     'create_margin_chart',
     'create_cost_ratio_chart',
+    'create_cost_treemap',
     # Marketing
     'create_marketing_trend_chart',
     'create_marketing_quote_chart',

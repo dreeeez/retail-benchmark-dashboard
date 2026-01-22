@@ -252,3 +252,118 @@ def create_cost_ratio_chart(active_stores: list, stores_kpis: dict) -> go.Figure
     fig.update_layout(**get_base_layout(yaxis_title="Kostenquote (%)"))
 
     return fig
+
+
+def create_cost_treemap(costs_detail_df, active_stores: list) -> go.Figure:
+    """Erstellt Treemap für Kostenstruktur-Analyse
+
+    Zeigt hierarchisch: Store -> Kostenkategorie -> Größe nach Betrag
+    Ermöglicht visuellen Vergleich der Kostenverteilung zwischen Filialen.
+
+    Args:
+        costs_detail_df: DataFrame aus load_costs_detail() mit Spalten:
+                        IdStore, StoreName, Kostenkategorie, KostenEur
+        active_stores: Liste der Store-Configs
+
+    Returns:
+        Plotly Figure mit Treemap
+    """
+    import plotly.express as px
+
+    # Nur aktive Stores
+    active_store_ids = [store['id'] for store in active_stores]
+    filtered_df = costs_detail_df[costs_detail_df['IdStore'].isin(active_store_ids)].copy()
+
+    if filtered_df.empty:
+        fig = go.Figure()
+        fig.update_layout(**get_base_layout(height=500))
+        return fig
+
+    # Aggregiere über alle Monate (falls Monatsfilter 'all')
+    agg_df = filtered_df.groupby(['StoreName', 'Kostenkategorie'], as_index=False)['KostenEur'].sum()
+
+    # Absolute Werte für Treemap (Kosten sind negativ in DB)
+    agg_df['KostenAbs'] = agg_df['KostenEur'].abs()
+
+    # Berechne Prozentanteil innerhalb jedes Stores
+    store_totals = agg_df.groupby('StoreName')['KostenAbs'].transform('sum')
+    agg_df['Prozent'] = (agg_df['KostenAbs'] / store_totals * 100).round(1)
+
+    # Berechne Durchschnitt pro Kategorie (über alle Stores) für Benchmark
+    category_avg = agg_df.groupby('Kostenkategorie')['KostenAbs'].mean().to_dict()
+    agg_df['Benchmark'] = agg_df['Kostenkategorie'].map(category_avg)
+    agg_df['AbweichungPct'] = ((agg_df['KostenAbs'] - agg_df['Benchmark']) / agg_df['Benchmark'] * 100).round(1)
+
+    # Farbe basierend auf Abweichung vom Durchschnitt
+    # Grün = unter Durchschnitt (gut), Rot = über Durchschnitt (schlecht)
+    def get_color(abw):
+        if abw <= -20:
+            return '#00ff88'  # Deutlich unter Durchschnitt - grün
+        elif abw <= -5:
+            return '#7dcea0'  # Leicht unter Durchschnitt
+        elif abw <= 5:
+            return '#f4d03f'  # Im Durchschnitt - gelb
+        elif abw <= 20:
+            return '#e59866'  # Leicht über Durchschnitt
+        else:
+            return '#ff6b6b'  # Deutlich über Durchschnitt - rot
+
+    agg_df['Farbe'] = agg_df['AbweichungPct'].apply(get_color)
+
+    # Kategorien auf Deutsch übersetzen
+    kategorie_labels = {
+        'Monthly Salary': 'Gehälter',
+        'Monthly Social Costs': 'Sozialkosten',
+        'Monthly Rent': 'Miete',
+        'Additional Procurement Costs': 'Logistik',
+        'Marketing Campaign': 'Marketing',
+        'Commission': 'Provisionen'
+    }
+    agg_df['KategorieLabel'] = agg_df['Kostenkategorie'].map(kategorie_labels).fillna(agg_df['Kostenkategorie'])
+
+    # Custom Text für Hover und Labels
+    agg_df['Label'] = agg_df.apply(
+        lambda row: f"{row['KategorieLabel']}<br>{row['KostenAbs']:,.0f} €<br>({row['Prozent']:.0f}%)",
+        axis=1
+    )
+
+    fig = px.treemap(
+        agg_df,
+        path=['StoreName', 'KategorieLabel'],
+        values='KostenAbs',
+        color='AbweichungPct',
+        color_continuous_scale=['#00ff88', '#f4d03f', '#ff6b6b'],
+        color_continuous_midpoint=0,
+        custom_data=['KostenAbs', 'Prozent', 'AbweichungPct', 'Benchmark']
+    )
+
+    fig.update_traces(
+        textinfo='label+value',
+        textfont=dict(size=12),
+        hovertemplate=(
+            '<b>%{label}</b><br>'
+            'Kosten: %{customdata[0]:,.0f} €<br>'
+            'Anteil: %{customdata[1]:.1f}%<br>'
+            'Benchmark: %{customdata[3]:,.0f} €<br>'
+            'Abweichung: %{customdata[2]:+.1f}%'
+            '<extra></extra>'
+        ),
+        marker=dict(
+            line=dict(width=2, color='#1a1a2e')
+        )
+    )
+
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        height=500,
+        margin=dict(l=10, r=10, t=30, b=10),
+        coloraxis_colorbar=dict(
+            title=dict(text="Abweichung<br>vom Ø", font=dict(color='white')),
+            ticksuffix="%",
+            tickfont=dict(color='white')
+        )
+    )
+
+    return fig

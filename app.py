@@ -30,6 +30,7 @@ from src.db.repository import (
     load_sales_agg,
     load_rent_and_revenue_per_m2,
     load_price_segment_data,
+    load_costs_detail,
 )
 
 # Domain
@@ -48,6 +49,7 @@ from src.charts.finance import (
     create_ebit_chart,
     create_margin_chart,
     create_cost_ratio_chart,
+    create_cost_treemap,
 )
 from src.charts.marketing import (
     create_marketing_trend_chart,
@@ -57,7 +59,6 @@ from src.charts.marketing import (
     create_roas_monthly_chart,
     create_top_campaigns_overall_chart,
     create_top_campaigns_per_store_chart,
-    create_campaign_profit_chart,
     create_campaign_efficiency_scatter,
 )
 from src.charts.categories import (
@@ -350,19 +351,6 @@ if df is not None and len(df) > 0:
 
                     campaign_data = load_marketing_by_campaign()
                     if campaign_data is not None and not campaign_data.empty:
-                        # Top Kampagnen nach Profit
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        st.markdown(chart_header("💰 Top 5 Kampagnen nach Profit je Filiale",
-                            "<strong>Berechnung:</strong> Kampagnenumsatz - Kampagnenkosten - Rabatte<br><br>"
-                            "<strong>Nutzen:</strong> Zeigt die profitabelsten Kampagnen nach Abzug aller Kosten und Rabatte. Ermöglicht Identifikation der wirklich rentablen Marketing-Initiativen."), unsafe_allow_html=True)
-
-                        # Tabs für jeden Store
-                        profit_tabs = st.tabs([s['name'] for s in active_stores])
-                        for idx, store in enumerate(active_stores):
-                            with profit_tabs[idx]:
-                                fig = create_campaign_profit_chart(campaign_data, store)
-                                st.plotly_chart(fig, use_container_width=True, config={'autosizable': True, 'responsive': True})
-
                         # Kampagnen-Effizienz Scatter Plot
                         st.markdown("<br>", unsafe_allow_html=True)
                         st.markdown(chart_header("🎯 Kampagnen-Effizienz (Kosten vs. Umsatz)",
@@ -417,6 +405,23 @@ if df is not None and len(df) > 0:
                     table_html += '</tr>'
                 table_html += '</tbody></table>'
                 st.markdown(table_html, unsafe_allow_html=True)
+
+                # Treemap für visuelle Kostenstruktur-Analyse
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown(chart_header("🗺️ Kostenstruktur-Treemap",
+                    "<strong>Visualisierung:</strong> Größe = absoluter Kostenbetrag, Farbe = Abweichung vom Filial-Durchschnitt<br><br>"
+                    "<strong>Interpretation:</strong><br>"
+                    "• <span style='color:#00ff88'>Grün</span> = unter Durchschnitt (gut)<br>"
+                    "• <span style='color:#f4d03f'>Gelb</span> = im Durchschnitt<br>"
+                    "• <span style='color:#ff6b6b'>Rot</span> = über Durchschnitt (Handlungsbedarf)<br><br>"
+                    "<strong>Nutzen:</strong> Zeigt auf einen Blick, wo Kostenstellen im Vergleich zu anderen Filialen aus dem Rahmen fallen."), unsafe_allow_html=True)
+
+                costs_detail = load_costs_detail(selected_month)
+                if costs_detail is not None and not costs_detail.empty:
+                    fig = create_cost_treemap(costs_detail, active_stores)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Keine detaillierten Kostendaten verfügbar.")
 
                 st.markdown("<br>", unsafe_allow_html=True)
 

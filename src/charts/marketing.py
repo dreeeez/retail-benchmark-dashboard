@@ -475,6 +475,9 @@ def create_campaign_efficiency_scatter(campaign_df, active_stores: list) -> go.F
     active_store_ids = [store['id'] for store in active_stores]
     filtered_df = campaign_df[campaign_df['IdStore'].isin(active_store_ids)].copy()
 
+    # Kampagnen ohne Kosten ausfiltern (unvollständige Daten)
+    filtered_df = filtered_df[filtered_df['CostEur'] > 0]
+
     if filtered_df.empty:
         fig.update_layout(**get_base_layout(height=400))
         return fig
@@ -491,16 +494,14 @@ def create_campaign_efficiency_scatter(campaign_df, active_stores: list) -> go.F
         fig.add_trace(go.Scatter(
             x=store_data['CostEur'],
             y=store_data['RevenueEur'],
-            mode='markers+text',
+            mode='markers',
             name=store['name'],
             marker=dict(
-                size=12,
-                color=f'rgba({r},{g},{b},0.7)',
-                line=dict(color=f'rgba({r},{g},{b},1)', width=1)
+                size=14,
+                color=f'rgba({r},{g},{b},0.8)',
+                line=dict(color=f'rgba({r},{g},{b},1)', width=2)
             ),
             text=store_data['CampaignName'],
-            textposition='top center',
-            textfont=dict(size=9, color='white'),
             hovertemplate=(
                 '<b>%{text}</b><br>'
                 'Kosten: %{x:,.0f} €<br>'
@@ -511,12 +512,17 @@ def create_campaign_efficiency_scatter(campaign_df, active_stores: list) -> go.F
             customdata=store_data['ROAS'].fillna(0)
         ))
 
+    # Kosten-Cap bei 100.000 €
+    cost_cap = 100_000
+
     # Diagonale Linie für ROAS = 1 (Break-even)
     if not filtered_df.empty:
-        max_val = max(filtered_df['CostEur'].max(), filtered_df['RevenueEur'].max()) * 1.1
+        # Maximaler Y-Wert für Kampagnen unter dem Cap
+        capped_df = filtered_df[filtered_df['CostEur'] <= cost_cap]
+        max_y = capped_df['RevenueEur'].max() * 1.1 if not capped_df.empty else cost_cap
         fig.add_trace(go.Scatter(
-            x=[0, max_val],
-            y=[0, max_val],
+            x=[0, cost_cap],
+            y=[0, cost_cap],
             mode='lines',
             name='ROAS = 1 (Break-even)',
             line=dict(color='rgba(255,255,255,0.3)', width=1, dash='dash'),
@@ -528,24 +534,23 @@ def create_campaign_efficiency_scatter(campaign_df, active_stores: list) -> go.F
         yaxis_title="Generierter Umsatz (€)",
         showlegend=True,
         legend=get_legend_horizontal(),
-        height=450,
-        margin=dict(l=60, r=20, t=20, b=60)
+        height=600,
+        margin=dict(l=70, r=30, t=40, b=70)
     ))
 
-    # Annotationen für Quadranten
-    fig.add_annotation(
-        x=0.02, y=0.98, xref="paper", yref="paper",
-        text="⭐ Perlen<br>(effizient)",
-        showarrow=False,
-        font=dict(size=10, color='#00ff88'),
-        align='left'
+    # Achsen-Formatierung verbessern mit Cap
+    fig.update_xaxes(
+        tickformat=",.0f",
+        ticksuffix=" €",
+        gridcolor='rgba(255,255,255,0.1)',
+        showgrid=True,
+        range=[0, cost_cap]
     )
-    fig.add_annotation(
-        x=0.98, y=0.02, xref="paper", yref="paper",
-        text="⚠️ Geldverbrenner<br>(ineffizient)",
-        showarrow=False,
-        font=dict(size=10, color='#ff6b6b'),
-        align='right'
+    fig.update_yaxes(
+        tickformat=",.0f",
+        ticksuffix=" €",
+        gridcolor='rgba(255,255,255,0.1)',
+        showgrid=True
     )
 
     return fig
