@@ -30,7 +30,6 @@ from src.db.repository import (
     load_sales_agg,
     load_rent_and_revenue_per_m2,
     load_price_segment_data,
-    load_costs_detail,
     load_store_details,
 )
 
@@ -49,19 +48,15 @@ from src.charts.finance import (
     create_revenue_bar_chart,
     create_ebit_chart,
     create_margin_chart,
-    create_cost_treemap,
     create_productivity_chart,
 )
 from src.charts.marketing import (
     create_marketing_trend_chart,
     create_marketing_bar_chart,
-    create_marketing_quote_chart,
     create_marketing_revenue_share_chart,
-    create_roas_monthly_chart,
     create_top_campaigns_overall_chart,
     create_top_campaigns_per_store_chart,
     create_campaign_efficiency_scatter,
-    create_cpa_monthly_chart,
     create_romi_monthly_chart,
 )
 from src.charts.categories import (
@@ -76,6 +71,22 @@ from src.services.filters import create_store_filter
 
 # Utils
 from src.utils.formatting import format_currency
+
+# =============================================================================
+# PLOTLY CHART KONFIGURATION
+# =============================================================================
+PLOTLY_CONFIG = {
+    'displayModeBar': True,
+    'displaylogo': False,
+    'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
+    'toImageButtonOptions': {
+        'format': 'png',
+        'filename': 'chart',
+        'height': 1080,
+        'width': 1920,
+        'scale': 2
+    }
+}
 
 # =============================================================================
 # SEITEN-KONFIGURATION
@@ -196,7 +207,7 @@ if df is not None and len(df) > 0:
                     store_details = load_store_details(selected_month)
                     if store_details is not None and not store_details.empty:
                         fig = create_productivity_chart(store_details, active_stores)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
                     else:
                         st.info("Keine Flächendaten verfügbar.")
 
@@ -216,7 +227,7 @@ if df is not None and len(df) > 0:
                                 "<strong>Berechnung:</strong> Summe aller Verkaufserlöse im Monat<br><br>"
                                 "<strong>Nutzen:</strong> Direkter Filialvergleich für den gewählten Zeitraum. Zeigt welche Filiale am umsatzstärksten ist."), unsafe_allow_html=True)
                             fig = create_revenue_bar_chart(active_stores, stores_kpis)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
                     with col_chart2:
                         if selected_month == 'all':
@@ -229,7 +240,7 @@ if df is not None and len(df) > 0:
                                 "<strong>Berechnung:</strong> EBIT = Umsatz - Wareneinsatz - Betriebskosten (Personal, Miete, Logistik, Marketing)<br><br>"
                                 "<strong>Nutzen:</strong> Zeigt die tatsächliche operative Profitabilität. Ein negativer EBIT bedeutet Verlust im Kerngeschäft - unabhängig von Finanzierung und Steuern."), unsafe_allow_html=True)
                         fig = create_ebit_chart(stores_data, active_stores, monat_col)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
                     if 'Margen-Vergleich' in selected_sections:
                         col_brutto, col_ebit = st.columns(2)
@@ -239,14 +250,14 @@ if df is not None and len(df) > 0:
                                 "<strong>Berechnung:</strong> (Umsatz - Wareneinsatz) / Umsatz × 100<br><br>"
                                 "<strong>Nutzen:</strong> Zeigt die Handelsspanne nach Abzug der Warenkosten. Höhere Bruttomarge = mehr Spielraum für Betriebskosten. Niedrige Werte deuten auf Preisdruck oder hohe Einkaufskosten hin."), unsafe_allow_html=True)
                             fig = create_margin_chart(active_stores, stores_kpis, 'brutto')
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
                         with col_ebit:
                             st.markdown(chart_header("📈 EBIT-Marge im Vergleich",
                                 "<strong>Berechnung:</strong> EBIT / Umsatz × 100<br><br>"
                                 "<strong>Nutzen:</strong> Zeigt wie viel vom Umsatz als operativer Gewinn übrig bleibt. Benchmark für operative Effizienz. Negative Werte = Filiale arbeitet nicht kostendeckend."), unsafe_allow_html=True)
                             fig = create_margin_chart(active_stores, stores_kpis, 'ebit')
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
             # =============================================================
             # TAB 2: MARKETING
@@ -312,59 +323,20 @@ if df is not None and len(df) > 0:
                                 "<strong>Berechnung:</strong> Summe aller Marketing-Kosten im Monat<br><br>"
                                 "<strong>Nutzen:</strong> Direkter Vergleich der Marketing-Investitionen zwischen Filialen."), unsafe_allow_html=True)
                             fig = create_marketing_bar_chart(active_stores, marketing_kpis)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
                     with col_quote:
-                        st.markdown(chart_header("📊 Marketing-Quote",
-                            "<strong>Berechnung:</strong> Marketing-Kosten / Gesamtumsatz × 100<br><br>"
-                            "<strong>Nutzen:</strong> Zeigt den Anteil des Umsatzes, der in Marketing fließt. Hilft bei der Bewertung der Marketing-Intensität. Branchenüblich im Einzelhandel: 3-8%."), unsafe_allow_html=True)
-                        fig = create_marketing_quote_chart(active_stores, marketing_kpis)
-                        st.plotly_chart(fig, use_container_width=True)
-
-                    # Marketing-Umsatzanteil (100% Stacked)
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown(chart_header("📊 Marketing-Umsatzanteil",
-                        "<strong>Berechnung:</strong> Marketing-attributierter Umsatz / Gesamtumsatz × 100<br><br>"
-                        "<strong>Nutzen:</strong> Zeigt, wie viel Prozent des Umsatzes durch Marketing-Kampagnen generiert wurde vs. organischer Umsatz ohne Kampagnen-Einfluss."), unsafe_allow_html=True)
-                    fig = create_marketing_revenue_share_chart(active_stores, marketing_kpis)
-                    st.plotly_chart(fig, use_container_width=True)
+                        st.markdown(chart_header("📊 Marketing-Umsatzanteil",
+                            "<strong>Berechnung:</strong> Marketing-attributierter Umsatz / Gesamtumsatz × 100<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt, wie viel Prozent des Umsatzes durch Marketing-Kampagnen generiert wurde vs. organischer Umsatz ohne Kampagnen-Einfluss."), unsafe_allow_html=True)
+                        fig = create_marketing_revenue_share_chart(active_stores, marketing_kpis)
+                        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
                     # Kampagnen-Daten für CPA und weitere Charts laden
                     campaign_data = load_marketing_by_campaign()
 
-                    # CPA - Cost per Acquisition im Zeitverlauf
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown(chart_header("💰 CPA - Cost per Acquisition im Zeitverlauf",
-                        "<strong>Berechnung:</strong> Marketing-Kosten / Verkaufte Stückzahl pro Kampagne pro Monat (nur bezahlte Kampagnen)<br><br>"
-                        "<strong>Nutzen:</strong> Zeigt die Akquisekosten pro verkauftem Artikel je Kampagne. Niedriger CPA = effizienteres Marketing. Rabatt-Aktionen (Kosten = 0) sind ausgeschlossen."), unsafe_allow_html=True)
+                    # Kampagnen-Effizienz: Top 8 Kampagnen pro Filiale
                     if campaign_data is not None and not campaign_data.empty:
-                        cpa_monthly_tabs = st.tabs([store['name'] for store in active_stores])
-                        for idx, store in enumerate(active_stores):
-                            with cpa_monthly_tabs[idx]:
-                                fig = create_cpa_monthly_chart(campaign_data, store)
-                                st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        st.info("Keine Kampagnen-Daten für CPA verfügbar.")
-
-                    # ROAS - Return on Advertising Spend (monatlich)
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown(chart_header("📈 ROAS im Zeitverlauf",
-                        "<strong>Berechnung:</strong> Marketing-attributierter Umsatz / Marketing-Kosten pro Monat<br><br>"
-                        "<strong>Nutzen:</strong> Zeigt die monatliche Marketing-Effizienz. ROAS > 1 bedeutet, dass jeder investierte Euro mehr als einen Euro Umsatz generiert. Die gestrichelte Linie markiert den Break-even."), unsafe_allow_html=True)
-                    fig = create_roas_monthly_chart(marketing_all_months, active_stores)
-                    st.plotly_chart(fig, use_container_width=True)
-
-                    # ROMI - Return on Marketing Investment (monatlich)
-                    if campaign_data is not None and not campaign_data.empty:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        st.markdown(chart_header("💵 ROMI im Zeitverlauf",
-                            "<strong>Berechnung:</strong> Kampagnen-Profit / Marketing-Kosten pro Monat<br><br>"
-                            "<strong>Nutzen:</strong> Zeigt die Rentabilität des Marketings. ROMI > 0 bedeutet Gewinn, ROMI < 0 bedeutet Verlust. Die gestrichelte Linie markiert den Break-even."), unsafe_allow_html=True)
-                        fig = create_romi_monthly_chart(campaign_data, active_stores)
-                        st.plotly_chart(fig, use_container_width=True)
-
-                    if campaign_data is not None and not campaign_data.empty:
-                        # Kampagnen-Effizienz: Top 8 Kampagnen pro Filiale
                         st.markdown("<br>", unsafe_allow_html=True)
                         st.markdown(chart_header("🎯 Kampagnen-Effizienz (Kosten vs. Umsatz)",
                             "<strong>Interpretation:</strong><br>"
@@ -377,7 +349,17 @@ if df is not None and len(df) > 0:
                         for idx, store in enumerate(active_stores):
                             with efficiency_tabs[idx]:
                                 fig = create_campaign_efficiency_scatter(campaign_data, store)
-                                st.plotly_chart(fig, use_container_width=True)
+                                st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
+
+
+                    # ROMI - Return on Marketing Investment (monatlich)
+                    if campaign_data is not None and not campaign_data.empty:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.markdown(chart_header("💵 ROMI im Zeitverlauf",
+                            "<strong>Berechnung:</strong> Kampagnen-Profit / Marketing-Kosten pro Monat<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt die Rentabilität des Marketings. ROMI > 0 bedeutet Gewinn, ROMI < 0 bedeutet Verlust. Die gestrichelte Linie markiert den Break-even."), unsafe_allow_html=True)
+                        fig = create_romi_monthly_chart(campaign_data, active_stores)
+                        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
                 else:
                     st.info("Keine Marketing-Daten verfügbar.")
@@ -423,22 +405,6 @@ if df is not None and len(df) > 0:
                 table_html += '</tbody></table>'
                 st.markdown(table_html, unsafe_allow_html=True)
 
-                # Treemap für visuelle Kostenstruktur-Analyse
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown(chart_header("🗺️ Kostenstruktur-Treemap",
-                    "<strong>Visualisierung:</strong> Größe = absoluter Kostenbetrag, Farbe = Abweichung vom Filial-Durchschnitt<br><br>"
-                    "<strong>Interpretation:</strong><br>"
-                    "• <span style='color:#00ff88'>Grün</span> = unter Durchschnitt (gut)<br>"
-                    "• <span style='color:#f4d03f'>Gelb</span> = im Durchschnitt<br>"
-                    "• <span style='color:#ff6b6b'>Rot</span> = über Durchschnitt (Handlungsbedarf)<br><br>"
-                    "<strong>Nutzen:</strong> Zeigt auf einen Blick, wo Kostenstellen im Vergleich zu anderen Filialen aus dem Rahmen fallen."), unsafe_allow_html=True)
-
-                costs_detail = load_costs_detail(selected_month)
-                if costs_detail is not None and not costs_detail.empty:
-                    fig = create_cost_treemap(costs_detail, active_stores)
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info("Keine detaillierten Kostendaten verfügbar.")
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -536,14 +502,14 @@ if df is not None and len(df) > 0:
                                 "<strong>Berechnung:</strong> Bruttogewinn je Kategorie / Gesamtbruttogewinn × 100<br><br>"
                                 "<strong>Nutzen:</strong> Zeigt welche Kategorien am meisten zum Gewinn beitragen. Kombiniert Umsatzvolumen und Marge zu einer Gesamtbewertung."), unsafe_allow_html=True)
                             fig = create_profit_distribution_chart(df_filtered_cat, active_stores, cat_col, profit_col, filter_by_store)
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
                         if 'Bruttomarge (%)' in selected_cat_sections and profit_col:
                             st.markdown(chart_header("📈 Bruttomarge nach Kategorie (%)",
                                 "<strong>Berechnung:</strong> (Umsatz - Wareneinsatz) / Umsatz × 100 je Kategorie<br><br>"
                                 "<strong>Nutzen:</strong> Zeigt welche Kategorien am profitabelsten sind. Hohe Marge = mehr Gewinn pro Euro Umsatz. Basis für Preisstrategien und Sortimentsentscheidungen."), unsafe_allow_html=True)
                             fig = create_margin_by_category_chart(df_filtered_cat, active_stores, cat_col, profit_col, revenue_col, filter_by_store)
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
                         st.markdown(chart_header("💎 Umsatzverteilung nach Preissegment (%)",
                             "<strong>Berechnung:</strong> Umsatz je Preissegment / Gesamtumsatz × 100<br><br>"
@@ -551,7 +517,7 @@ if df is not None and len(df) > 0:
                         price_segment_data = load_price_segment_data(selected_month)
                         if price_segment_data is not None and not price_segment_data.empty:
                             fig = create_price_segment_chart(price_segment_data, active_stores)
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
                         else:
                             st.info("Keine Preissegment-Daten verfügbar.")
                 else:

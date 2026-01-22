@@ -40,13 +40,20 @@ def create_marketing_trend_chart(marketing_df, active_stores: list) -> go.Figure
                 hovertemplate='<b>%{x}</b><br>%{y:,.0f} €<extra>' + store['name'] + '</extra>'
             ))
 
-    fig.update_layout(**get_base_layout(
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font_color='white',
         yaxis_title="Marketing (€)",
         showlegend=True,
         legend=get_legend_horizontal(),
         height=400,
-        barmode='group'
-    ))
+        barmode='group',
+        dragmode='zoom',
+        hovermode='closest',
+        xaxis=dict(autorange=True, fixedrange=False),
+        yaxis=dict(autorange=True, fixedrange=False)
+    )
 
     return fig
 
@@ -85,13 +92,10 @@ def create_marketing_bar_chart(active_stores: list, marketing_kpis: dict) -> go.
         textposition='outside'
     ))
 
-    max_cost = max([d['cost'] for d in cost_data]) if cost_data else 1
-
     fig.update_layout(**get_base_layout(
         yaxis_title="Marketing-Kosten (€)",
         showlegend=False,
-        height=400,
-        yaxis=dict(range=[0, max_cost * 1.3])
+        height=400
     ))
 
     return fig
@@ -131,13 +135,10 @@ def create_marketing_quote_chart(active_stores: list, marketing_kpis: dict) -> g
         textposition='outside'
     ))
 
-    max_quote = max([d['quote'] for d in quote_data]) if quote_data else 1
-
     fig.update_layout(**get_base_layout(
         yaxis_title="Marketing-Quote (%)",
         showlegend=False,
-        height=400,
-        yaxis=dict(range=[0, max_quote * 1.3])
+        height=400
     ))
 
     return fig
@@ -224,45 +225,50 @@ def create_marketing_revenue_share_chart(active_stores: list, marketing_kpis: di
     return fig
 
 
-def create_roas_monthly_chart(marketing_df, active_stores: list) -> go.Figure:
-    """Erstellt ROAS-Balkendiagramm pro Monat
+def create_roas_monthly_chart(marketing_df, store: dict) -> go.Figure:
+    """Erstellt ROAS-Balkendiagramm pro Monat für eine Filiale
 
-    Zeigt für jeden Store den Return on Advertising Spend (ROAS) pro Monat.
+    Zeigt den Return on Advertising Spend (ROAS) pro Monat für eine Filiale.
     ROAS = Marketing-attributierter Umsatz / Marketing-Kosten
 
     Args:
         marketing_df: DataFrame aus load_marketing_kpi('all') mit ROAS-Spalte
-        active_stores: Liste der Store-Configs
+        store: Store-Config Dictionary mit id, name, color
 
     Returns:
-        Plotly Figure (gruppiertes Balkendiagramm)
+        Plotly Figure (Balkendiagramm)
     """
     fig = go.Figure()
 
-    for store in active_stores:
-        store_data = marketing_df[marketing_df['IdStore'] == store['id']]
-        if not store_data.empty:
-            store_data = store_data.sort_values('IdCalmonthStd')
-            # Transparente Farbe für Balken
-            hex_color = store['color'].lstrip('#')
-            r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+    store_data = marketing_df[marketing_df['IdStore'] == store['id']]
 
-            # ROAS-Werte (None/NaN durch 0 ersetzen für Anzeige)
-            roas_values = store_data['ROAS'].fillna(0).tolist()
+    if store_data.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
 
-            fig.add_trace(go.Bar(
-                x=store_data['IdCalmonthStd'],
-                y=roas_values,
-                name=store['name'],
-                marker=dict(
-                    color=f'rgba({r},{g},{b},0.7)',
-                    line=dict(color=f'rgba({r},{g},{b},0.9)', width=1)
-                ),
-                text=[f"{v:.1f}x" if v > 0 else "" for v in roas_values],
-                textposition='outside',
-                textfont=dict(size=10),
-                hovertemplate='<b>%{x}</b><br>ROAS: %{y:.2f}x<extra>' + store['name'] + '</extra>'
-            ))
+    store_data = store_data.sort_values('IdCalmonthStd')
+
+    # Transparente Farbe für Balken
+    hex_color = store['color'].lstrip('#')
+    r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+    # ROAS-Werte (None/NaN durch 0 ersetzen für Anzeige)
+    roas_values = store_data['ROAS'].fillna(0).tolist()
+
+    fig.add_trace(go.Bar(
+        x=store_data['IdCalmonthStd'],
+        y=roas_values,
+        name=store['name'],
+        marker=dict(
+            color=f'rgba({r},{g},{b},0.7)',
+            line=dict(color=f'rgba({r},{g},{b},0.9)', width=1)
+        ),
+        text=[f"{v:.1f}x" if v > 0 else "" for v in roas_values],
+        textposition='outside',
+        textfont=dict(size=10),
+        hovertemplate='<b>%{x}</b><br>ROAS: %{y:.2f}x<extra></extra>',
+        showlegend=False
+    ))
 
     # Referenzlinie bei ROAS = 1 (Break-even)
     fig.add_hline(y=1, line_dash="dash", line_color="rgba(255,255,255,0.3)",
@@ -270,10 +276,8 @@ def create_roas_monthly_chart(marketing_df, active_stores: list) -> go.Figure:
 
     fig.update_layout(**get_base_layout(
         yaxis_title="ROAS (Return on Ad Spend)",
-        showlegend=True,
-        legend=get_legend_horizontal(),
-        height=400,
-        barmode='group'
+        showlegend=False,
+        height=400
     ))
 
     return fig
@@ -546,21 +550,23 @@ def create_campaign_efficiency_scatter(campaign_df, store: dict) -> go.Figure:
 
 
 def create_cpa_monthly_chart(campaign_df, store: dict) -> go.Figure:
-    """Erstellt CPA-Chart pro Kampagne und Monat für eine Filiale (gruppiertes Balkendiagramm)
+    """Erstellt Small Multiples CPA-Chart für Top 6 Kampagnen einer Filiale
 
-    Berechnet CPA = CostEur / Quantity pro Kampagne pro Monat.
-    Nur bezahlte Kampagnen werden einbezogen (CostEur > 0).
+    Zeigt 6 separate Subplots (2 Zeilen x 3 Spalten), einen pro Kampagne.
+    Jeder Subplot zeigt CPA über Zeit für eine Kampagne.
+    Monate ohne Kampagne werden nicht angezeigt (keine Nullwerte).
 
     Args:
         campaign_df: DataFrame aus load_marketing_by_campaign() mit IdCalmonthStd
         store: Store-Config Dictionary mit id, name, color
 
     Returns:
-        Plotly Figure (gruppiertes Balkendiagramm)
+        Plotly Figure mit Subplots (Small Multiples)
     """
-    fig = go.Figure()
+    from plotly.subplots import make_subplots
 
     if campaign_df is None or campaign_df.empty:
+        fig = go.Figure()
         fig.update_layout(**get_base_layout(height=400))
         return fig
 
@@ -572,6 +578,7 @@ def create_cpa_monthly_chart(campaign_df, store: dict) -> go.Figure:
     ].copy()
 
     if paid_campaigns.empty:
+        fig = go.Figure()
         fig.update_layout(**get_base_layout(height=400))
         return fig
 
@@ -581,73 +588,86 @@ def create_cpa_monthly_chart(campaign_df, store: dict) -> go.Figure:
     # Durchschnittlichen CPA pro Kampagne berechnen (über alle Monate)
     avg_cpa_per_campaign = paid_campaigns.groupby('CampaignName')['CPA'].mean().sort_values()
 
-    # Top 5 Kampagnen mit niedrigstem durchschnittlichen CPA
-    top_5_campaigns = avg_cpa_per_campaign.head(5).index.tolist()
+    # Top 6 Kampagnen mit niedrigstem durchschnittlichen CPA
+    top_6_campaigns = avg_cpa_per_campaign.head(6).index.tolist()
 
-    # Nur Daten dieser Top 5 Kampagnen
-    top_campaigns_data = paid_campaigns[paid_campaigns['CampaignName'].isin(top_5_campaigns)].copy()
-
-    # Sortiere nach Monat
-    top_campaigns_data = top_campaigns_data.sort_values('IdCalmonthStd')
-
-    if top_campaigns_data.empty:
-        fig.update_layout(**get_base_layout(height=400))
-        return fig
-
-    # Farbpalette für Kampagnen
-    campaign_colors = [
-        '#00d4ff', '#00ff88', '#ff6b6b', '#ffd93d', '#c56cf0',
-        '#ff9f43', '#54a0ff', '#5f27cd', '#01a3a4', '#f368e0'
-    ]
-
-    for idx, campaign in enumerate(top_5_campaigns):
-        campaign_data = top_campaigns_data[top_campaigns_data['CampaignName'] == campaign]
-
-        # Farbe aus Palette (zyklisch)
-        color = campaign_colors[idx % len(campaign_colors)]
-        hex_color = color.lstrip('#')
-        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
-
-        fig.add_trace(go.Bar(
-            x=campaign_data['IdCalmonthStd'],
-            y=campaign_data['CPA'],
-            name=campaign,
-            marker=dict(
-                color=f'rgba({r},{g},{b},0.7)',
-                line=dict(color=f'rgba({r},{g},{b},0.9)', width=1)
-            ),
-            text=[f"{cpa:.2f} €" for cpa in campaign_data['CPA']],
-            textposition='outside',
-            textfont=dict(size=9),
-            hovertemplate=(
-                '<b>%{x}</b><br>'
-                f'<b>{campaign}</b><br>'
-                'CPA: %{y:.2f} €<br>'
-                '<extra></extra>'
-            )
-        ))
-
-    fig.update_layout(**get_base_layout(
-        yaxis_title="CPA (€ pro Stück)",
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="center",
-            x=0.5,
-            font=dict(size=9)
-        ),
-        height=450,
-        barmode='group'
-    ))
-
-    # Y-Achse bei 0 starten
-    fig.update_yaxes(
-        tickformat=".2f",
-        ticksuffix=" €",
-        rangemode='tozero'
+    # 2 Zeilen x 3 Spalten Grid
+    fig = make_subplots(
+        rows=2, cols=3,
+        subplot_titles=top_6_campaigns,
+        vertical_spacing=0.12,
+        horizontal_spacing=0.08
     )
+
+    # Store-Farbe für alle Balken
+    hex_color = store['color'].lstrip('#')
+    r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+    # Layout anpassen (ZUERST, bevor Achsen konfiguriert werden)
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font_color='white',
+        height=600,
+        title=None,
+        showlegend=False,
+        dragmode='zoom',
+        hovermode='closest'
+    )
+
+    # Für jede Kampagne ein Subplot
+    for idx, campaign in enumerate(top_6_campaigns):
+        row = (idx // 3) + 1
+        col = (idx % 3) + 1
+
+        campaign_data = paid_campaigns[paid_campaigns['CampaignName'] == campaign].sort_values('IdCalmonthStd')
+
+        if not campaign_data.empty:
+            fig.add_trace(
+                go.Bar(
+                    x=campaign_data['IdCalmonthStd'],
+                    y=campaign_data['CPA'],
+                    width=20*24*60*60*1000,  # 20 Tage in Millisekunden für Balkenbreite
+                    marker=dict(
+                        color=f'rgba({r},{g},{b},0.8)',
+                        line=dict(color=f'rgba({r},{g},{b},1)', width=1)
+                    ),
+                    hovertemplate='<b>%{x}</b><br>CPA: %{y:.2f} €<extra></extra>',
+                    showlegend=False
+                ),
+                row=row, col=col
+            )
+
+    # NACH dem Hinzufügen aller Traces: Achsen für alle Subplots konfigurieren
+    for idx in range(6):
+        row = (idx // 3) + 1
+        col = (idx % 3) + 1
+
+        # Y-Achse formatieren
+        fig.update_yaxes(
+            title_text="CPA (€)",
+            tickformat=".0f",
+            ticksuffix=" €",
+            gridcolor='rgba(255,255,255,0.1)',
+            autorange=True,
+            fixedrange=False,
+            row=row, col=col
+        )
+
+        # X-Achse formatieren
+        fig.update_xaxes(
+            gridcolor='rgba(255,255,255,0.1)',
+            showgrid=False,
+            autorange=True,
+            fixedrange=False,
+            type='date',
+            row=row, col=col
+        )
+
+    # Subplot-Titel Styling
+    for annotation in fig.layout.annotations:
+        annotation.font.size = 11
+        annotation.font.color = 'rgba(255,255,255,0.9)'
 
     return fig
 
@@ -844,12 +864,19 @@ def create_romi_monthly_chart(campaign_df, active_stores: list) -> go.Figure:
     fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)",
                   annotation_text="Break-even", annotation_position="right")
 
-    fig.update_layout(**get_base_layout(
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font_color='white',
         yaxis_title="ROMI (Return on Marketing Investment)",
         showlegend=True,
         legend=get_legend_horizontal(),
         height=400,
-        barmode='group'
-    ))
+        barmode='group',
+        dragmode='zoom',
+        hovermode='closest',
+        xaxis=dict(autorange=True, fixedrange=False),
+        yaxis=dict(autorange=True, fixedrange=False)
+    )
 
     return fig

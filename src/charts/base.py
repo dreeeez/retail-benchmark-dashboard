@@ -20,6 +20,16 @@ def get_base_layout(**kwargs) -> dict:
         'plot_bgcolor': 'rgba(0,0,0,0)',
         'font_color': 'white',
         'transition': {'duration': 500},
+        'xaxis': {
+            'autorange': True,
+            'fixedrange': False
+        },
+        'yaxis': {
+            'autorange': True,
+            'fixedrange': False
+        },
+        'dragmode': 'zoom',
+        'hovermode': 'closest'
     }
     base.update(kwargs)
     return base

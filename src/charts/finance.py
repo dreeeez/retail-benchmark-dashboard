@@ -254,83 +254,64 @@ def create_cost_ratio_chart(active_stores: list, stores_kpis: dict) -> go.Figure
     return fig
 
 
-def create_cost_treemap(costs_detail_df, active_stores: list) -> go.Figure:
+def create_cost_treemap(stores_kpis: dict, active_stores: list) -> go.Figure:
     """Erstellt Treemap für Kostenstruktur-Analyse
 
     Zeigt hierarchisch: Store -> Kostenkategorie -> Größe nach Betrag
-    Ermöglicht visuellen Vergleich der Kostenverteilung zwischen Filialen.
+    Verwendet die gleichen 5 Hauptkategorien wie die Kostenstruktur-Tabelle.
 
     Args:
-        costs_detail_df: DataFrame aus load_costs_detail() mit Spalten:
-                        IdStore, StoreName, Kostenkategorie, KostenEur
+        stores_kpis: Dict mit KPIs pro Store (aus get_kpis_from_view)
         active_stores: Liste der Store-Configs
 
     Returns:
         Plotly Figure mit Treemap
     """
     import plotly.express as px
+    import pandas as pd
 
-    # Nur aktive Stores
-    active_store_ids = [store['id'] for store in active_stores]
-    filtered_df = costs_detail_df[costs_detail_df['IdStore'].isin(active_store_ids)].copy()
+    # Erstelle DataFrame mit den 5 Hauptkategorien
+    data_rows = []
+    for store in active_stores:
+        kpis = stores_kpis.get(store['name'], {})
 
-    if filtered_df.empty:
+        # Die 5 Hauptkategorien wie in der Tabelle
+        categories = [
+            ('Wareneinsatz', abs(kpis.get('wareneinsatz', 0))),
+            ('Personal', abs(kpis.get('personalkosten', 0))),
+            ('Miete', abs(kpis.get('betriebskosten', 0))),
+            ('Logistik', abs(kpis.get('beschaffungskosten', 0))),
+            ('Marketing', abs(kpis.get('marketingkosten', 0)))
+        ]
+
+        for kategorie, betrag in categories:
+            if betrag > 0:  # Nur Kategorien mit Werten
+                data_rows.append({
+                    'StoreName': store['name'],
+                    'Kategorie': kategorie,
+                    'Betrag': betrag
+                })
+
+    if not data_rows:
         fig = go.Figure()
         fig.update_layout(**get_base_layout(height=500))
         return fig
 
-    # Aggregiere über alle Monate (falls Monatsfilter 'all')
-    agg_df = filtered_df.groupby(['StoreName', 'Kostenkategorie'], as_index=False)['KostenEur'].sum()
-
-    # Absolute Werte für Treemap (Kosten sind negativ in DB)
-    agg_df['KostenAbs'] = agg_df['KostenEur'].abs()
+    agg_df = pd.DataFrame(data_rows)
 
     # Berechne Prozentanteil innerhalb jedes Stores
-    store_totals = agg_df.groupby('StoreName')['KostenAbs'].transform('sum')
-    agg_df['Prozent'] = (agg_df['KostenAbs'] / store_totals * 100).round(1)
+    store_totals = agg_df.groupby('StoreName')['Betrag'].transform('sum')
+    agg_df['Prozent'] = (agg_df['Betrag'] / store_totals * 100).round(1)
 
     # Berechne Durchschnitt pro Kategorie (über alle Stores) für Benchmark
-    category_avg = agg_df.groupby('Kostenkategorie')['KostenAbs'].mean().to_dict()
-    agg_df['Benchmark'] = agg_df['Kostenkategorie'].map(category_avg)
-    agg_df['AbweichungPct'] = ((agg_df['KostenAbs'] - agg_df['Benchmark']) / agg_df['Benchmark'] * 100).round(1)
-
-    # Farbe basierend auf Abweichung vom Durchschnitt
-    # Grün = unter Durchschnitt (gut), Rot = über Durchschnitt (schlecht)
-    def get_color(abw):
-        if abw <= -20:
-            return '#00ff88'  # Deutlich unter Durchschnitt - grün
-        elif abw <= -5:
-            return '#7dcea0'  # Leicht unter Durchschnitt
-        elif abw <= 5:
-            return '#f4d03f'  # Im Durchschnitt - gelb
-        elif abw <= 20:
-            return '#e59866'  # Leicht über Durchschnitt
-        else:
-            return '#ff6b6b'  # Deutlich über Durchschnitt - rot
-
-    agg_df['Farbe'] = agg_df['AbweichungPct'].apply(get_color)
-
-    # Kategorien auf Deutsch übersetzen
-    kategorie_labels = {
-        'Monthly Salary': 'Gehälter',
-        'Monthly Social Costs': 'Sozialkosten',
-        'Monthly Rent': 'Miete',
-        'Additional Procurement Costs': 'Logistik',
-        'Marketing Campaign': 'Marketing',
-        'Commission': 'Provisionen'
-    }
-    agg_df['KategorieLabel'] = agg_df['Kostenkategorie'].map(kategorie_labels).fillna(agg_df['Kostenkategorie'])
-
-    # Custom Text für Hover und Labels
-    agg_df['Label'] = agg_df.apply(
-        lambda row: f"{row['KategorieLabel']}<br>{row['KostenAbs']:,.0f} €<br>({row['Prozent']:.0f}%)",
-        axis=1
-    )
+    category_avg = agg_df.groupby('Kategorie')['Betrag'].mean().to_dict()
+    agg_df['Benchmark'] = agg_df['Kategorie'].map(category_avg)
+    agg_df['AbweichungPct'] = ((agg_df['Betrag'] - agg_df['Benchmark']) / agg_df['Benchmark'] * 100).round(1)
 
     fig = px.treemap(
         agg_df,
-        path=['StoreName', 'KategorieLabel'],
-        values='KostenAbs',
+        path=['StoreName', 'Kategorie'],
+        values='Betrag',
         color='AbweichungPct',
         color_continuous_scale=[
             'rgba(0, 255, 136, 0.7)',    # Grün - unter Durchschnitt
@@ -338,7 +319,7 @@ def create_cost_treemap(costs_detail_df, active_stores: list) -> go.Figure:
             'rgba(255, 107, 107, 0.7)'   # Rot - über Durchschnitt
         ],
         color_continuous_midpoint=0,
-        custom_data=['KostenAbs', 'Prozent', 'AbweichungPct', 'Benchmark']
+        custom_data=['Betrag', 'Prozent', 'AbweichungPct', 'Benchmark']
     )
 
     fig.update_traces(
@@ -346,7 +327,7 @@ def create_cost_treemap(costs_detail_df, active_stores: list) -> go.Figure:
         textfont=dict(size=12, color='white'),
         hovertemplate=(
             '<b>%{label}</b><br>'
-            'Kosten: %{customdata[0]:,.0f} €<br>'
+            'Betrag: %{customdata[0]:,.0f} €<br>'
             'Anteil: %{customdata[1]:.1f}%<br>'
             'Benchmark: %{customdata[3]:,.0f} €<br>'
             'Abweichung: %{customdata[2]:+.1f}%'
