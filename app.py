@@ -364,6 +364,16 @@ if df is not None and len(df) > 0:
                         "<strong>Nutzen:</strong> Zeigt die monatliche Marketing-Effizienz. ROAS > 1 bedeutet, dass jeder investierte Euro mehr als einen Euro Umsatz generiert. Die gestrichelte Linie markiert den Break-even."), unsafe_allow_html=True)
                     fig = create_roas_monthly_chart(marketing_all_months, active_stores)
                     st.plotly_chart(fig, use_container_width=True)
+
+                    # ROMI - Return on Marketing Investment (monatlich)
+                    if campaign_data is not None and not campaign_data.empty:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.markdown(chart_header("💵 ROMI im Zeitverlauf",
+                            "<strong>Berechnung:</strong> Kampagnen-Profit / Marketing-Kosten pro Monat<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt die Rentabilität des Marketings. ROMI > 0 bedeutet Gewinn, ROMI < 0 bedeutet Verlust. Die gestrichelte Linie markiert den Break-even."), unsafe_allow_html=True)
+                        fig = create_romi_monthly_chart(campaign_data, active_stores)
+                        st.plotly_chart(fig, use_container_width=True)
+
                     if campaign_data is not None and not campaign_data.empty:
                         # Kampagnen-Effizienz Scatter Plot
                         st.markdown("<br>", unsafe_allow_html=True)
