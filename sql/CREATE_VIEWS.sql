@@ -410,8 +410,9 @@ GO
 
 
 -- View 9: list_views.V_LIST_G18_MARKETING_BY_CAMPAIGN
--- Zweck: ROAS und Profit pro einzelner Kampagne
+-- Zweck: ROAS und Profit pro einzelner Kampagne (mit Monatsauflösung)
 CREATE OR ALTER VIEW list_views.V_LIST_G18_MARKETING_BY_CAMPAIGN (
+    IdCalmonthStd,
     IdStore,
     StoreName,
     IdCampaign,
@@ -426,8 +427,9 @@ CREATE OR ALTER VIEW list_views.V_LIST_G18_MARKETING_BY_CAMPAIGN (
 )
 AS
 WITH SalesAgg AS (
-    -- Aggregiere Sales pro Store und Kampagne
+    -- Aggregiere Sales pro Monat, Store und Kampagne
     SELECT
+        FORMAT(ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
         ID_STORE,
         StoreName,
         ID_CAMPAIGN,
@@ -438,12 +440,13 @@ WITH SalesAgg AS (
         SUM(SalesAmount) AS Quantity
     FROM dbo.V_LIST_MONTHLY_SALES
     WHERE ID_CAMPAIGN != 0
-    GROUP BY ID_STORE, StoreName, ID_CAMPAIGN, Kampagne, KampagneTyp
+    GROUP BY FORMAT(ID_CALMONTH, 'yyyy-MM'), ID_STORE, StoreName, ID_CAMPAIGN, Kampagne, KampagneTyp
 ),
 CostsAgg AS (
-    -- Kosten pro Kampagne extrahieren (aus Beschreibung mit ID)
+    -- Kosten pro Monat und Kampagne extrahieren (aus Beschreibung mit ID)
     -- Format: "Marketing Campaign [XX]: Name" -> extrahiere XX als Campaign-ID
     SELECT
+        FORMAT(ID_CALMONTH, 'yyyy-MM') AS IdCalmonthStd,
         ID_STORE,
         CAST(SUBSTRING(
             Beschreibung,
@@ -455,13 +458,14 @@ CostsAgg AS (
     WHERE Kostenkategorie = 'Marketing Campaign'
     AND CHARINDEX('[', Beschreibung) > 0
     AND CHARINDEX(']', Beschreibung) > CHARINDEX('[', Beschreibung)
-    GROUP BY ID_STORE, SUBSTRING(
+    GROUP BY FORMAT(ID_CALMONTH, 'yyyy-MM'), ID_STORE, SUBSTRING(
         Beschreibung,
         CHARINDEX('[', Beschreibung) + 1,
         CHARINDEX(']', Beschreibung) - CHARINDEX('[', Beschreibung) - 1
     )
 )
 SELECT
+    s.IdCalmonthStd AS IdCalmonthStd,
     s.ID_STORE AS IdStore,
     s.StoreName AS StoreName,
     s.ID_CAMPAIGN AS IdCampaign,
@@ -480,7 +484,7 @@ SELECT
     -- Campaign Profit = Umsatz - Kosten - Discount
     (s.RevenueEur - ISNULL(c.CostEur, 0) - s.DiscountEur) AS CampaignProfit
 FROM SalesAgg s
-LEFT JOIN CostsAgg c ON s.ID_STORE = c.ID_STORE AND s.ID_CAMPAIGN = c.ID_CAMPAIGN;
+LEFT JOIN CostsAgg c ON s.IdCalmonthStd = c.IdCalmonthStd AND s.ID_STORE = c.ID_STORE AND s.ID_CAMPAIGN = c.ID_CAMPAIGN;
 GO
 
 

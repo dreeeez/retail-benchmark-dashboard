@@ -61,6 +61,9 @@ from src.charts.marketing import (
     create_top_campaigns_overall_chart,
     create_top_campaigns_per_store_chart,
     create_campaign_efficiency_scatter,
+    create_cpa_monthly_chart,
+    create_cpa_top5_per_store_chart,
+    create_romi_monthly_chart,
 )
 from src.charts.categories import (
     create_margin_by_category_chart,
@@ -327,26 +330,32 @@ if df is not None and len(df) > 0:
                     fig = create_marketing_revenue_share_chart(active_stores, marketing_kpis)
                     st.plotly_chart(fig, use_container_width=True)
 
-                    # CPA - Cost per Acquisition (wie im alten Design)
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown(chart_header("💰 CPA - Cost per Acquisition",
-                        "<strong>Berechnung:</strong> Marketing-Kosten / Verkaufte Stückzahl (bei Kampagnen)<br><br>"
-                        "<strong>Nutzen:</strong> Zeigt die Akquisekosten pro verkauftem Artikel. Niedriger CPA = effizienteres Marketing. Ermöglicht ROI-Bewertung einzelner Kampagnen."), unsafe_allow_html=True)
-                    st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+                    # Kampagnen-Daten für CPA und weitere Charts laden
+                    campaign_data = load_marketing_by_campaign()
 
-                    cpa_cols = st.columns(len(active_stores))
-                    for idx, store in enumerate(active_stores):
-                        mkpi = marketing_kpis[store['name']]
-                        with cpa_cols[idx]:
-                            st.markdown(f"""
-                            <div class="hover-card" style="background: {store['color_bg']}; border: 1px solid {store['color']};
-                                        border-radius: 12px; padding: 20px; text-align: center;">
-                                <div style="color: {store['color']}; font-weight: bold; margin-bottom: 10px;">{store['name']}</div>
-                                <div style="font-size: 2em; font-weight: bold; color: white;">{mkpi['cpa']:.2f} €</div>
-                                <div style="color: #aaa; font-size: 0.8em;">pro Stück</div>
-                                <div style="color: #aaa; font-size: 0.75em; margin-top: 8px;">{int(mkpi['stueck_mit_marketing']):,} Stück verkauft</div>
-                            </div>
-                            """.replace(",", "."), unsafe_allow_html=True)
+                    # CPA - Cost per Acquisition im Zeitverlauf
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown(chart_header("💰 CPA - Cost per Acquisition im Zeitverlauf",
+                        "<strong>Berechnung:</strong> Marketing-Kosten / Verkaufte Stückzahl pro Kampagne pro Monat (nur bezahlte Kampagnen)<br><br>"
+                        "<strong>Nutzen:</strong> Zeigt die Akquisekosten pro verkauftem Artikel je Kampagne. Niedriger CPA = effizienteres Marketing. Rabatt-Aktionen (Kosten = 0) sind ausgeschlossen."), unsafe_allow_html=True)
+                    if campaign_data is not None and not campaign_data.empty:
+                        fig = create_cpa_monthly_chart(campaign_data, active_stores)
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("Keine Kampagnen-Daten für CPA verfügbar.")
+
+                    # Top 5 Kampagnen nach Effizienz je Filiale (Tabs)
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown(chart_header("🏆 Top Kampagnen nach Effizienz je Filiale",
+                        "<strong>Bezahlte Kampagnen:</strong> Sortiert nach CPA (Kosten / Verkäufe) - niedriger = besser<br>"
+                        "<strong>Rabatt-Aktionen:</strong> Sortiert nach Verkaufszahl - höher = besser<br><br>"
+                        "<strong>Nutzen:</strong> Zeigt die effizientesten Kampagnen je Filiale."), unsafe_allow_html=True)
+                    if campaign_data is not None and not campaign_data.empty:
+                        cpa_store_tabs = st.tabs([store['name'] for store in active_stores])
+                        for idx, store in enumerate(active_stores):
+                            with cpa_store_tabs[idx]:
+                                fig = create_cpa_top5_per_store_chart(campaign_data, store)
+                                st.plotly_chart(fig, use_container_width=True)
 
                     # ROAS - Return on Advertising Spend (monatlich)
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -355,8 +364,6 @@ if df is not None and len(df) > 0:
                         "<strong>Nutzen:</strong> Zeigt die monatliche Marketing-Effizienz. ROAS > 1 bedeutet, dass jeder investierte Euro mehr als einen Euro Umsatz generiert. Die gestrichelte Linie markiert den Break-even."), unsafe_allow_html=True)
                     fig = create_roas_monthly_chart(marketing_all_months, active_stores)
                     st.plotly_chart(fig, use_container_width=True)
-
-                    campaign_data = load_marketing_by_campaign()
                     if campaign_data is not None and not campaign_data.empty:
                         # Kampagnen-Effizienz Scatter Plot
                         st.markdown("<br>", unsafe_allow_html=True)

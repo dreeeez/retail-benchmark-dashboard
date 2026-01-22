@@ -554,3 +554,304 @@ def create_campaign_efficiency_scatter(campaign_df, active_stores: list) -> go.F
     )
 
     return fig
+
+
+def create_cpa_monthly_chart(campaign_df, active_stores: list) -> go.Figure:
+    """Erstellt CPA-Chart pro Kampagne und Monat (gruppiertes Balkendiagramm)
+
+    Berechnet CPA = CostEur / Quantity pro Kampagne pro Monat.
+    Nur bezahlte Kampagnen werden einbezogen (CostEur > 0).
+
+    Args:
+        campaign_df: DataFrame aus load_marketing_by_campaign() mit IdCalmonthStd
+        active_stores: Liste der Store-Configs
+
+    Returns:
+        Plotly Figure (gruppiertes Balkendiagramm)
+    """
+    fig = go.Figure()
+
+    if campaign_df is None or campaign_df.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    # Nur aktive Stores und bezahlte Kampagnen (CostEur > 0)
+    active_store_ids = [store['id'] for store in active_stores]
+    paid_campaigns = campaign_df[
+        (campaign_df['IdStore'].isin(active_store_ids)) &
+        (campaign_df['CostEur'] > 0) &
+        (campaign_df['Quantity'] > 0)
+    ].copy()
+
+    if paid_campaigns.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    # CPA berechnen pro Kampagne pro Monat
+    paid_campaigns['CPA'] = paid_campaigns['CostEur'] / paid_campaigns['Quantity']
+
+    # Sortiere nach Monat
+    paid_campaigns = paid_campaigns.sort_values('IdCalmonthStd')
+
+    # Alle Kampagnen sammeln
+    all_campaigns = paid_campaigns['CampaignName'].unique()
+
+    # Farbpalette für Kampagnen
+    campaign_colors = [
+        '#00d4ff', '#00ff88', '#ff6b6b', '#ffd93d', '#c56cf0',
+        '#ff9f43', '#54a0ff', '#5f27cd', '#01a3a4', '#f368e0'
+    ]
+
+    for idx, campaign in enumerate(all_campaigns):
+        campaign_data = paid_campaigns[paid_campaigns['CampaignName'] == campaign]
+
+        # Farbe aus Palette (zyklisch)
+        color = campaign_colors[idx % len(campaign_colors)]
+        hex_color = color.lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+        fig.add_trace(go.Bar(
+            x=campaign_data['IdCalmonthStd'],
+            y=campaign_data['CPA'],
+            name=campaign,
+            marker=dict(
+                color=f'rgba({r},{g},{b},0.7)',
+                line=dict(color=f'rgba({r},{g},{b},0.9)', width=1)
+            ),
+            text=[f"{cpa:.2f} €" for cpa in campaign_data['CPA']],
+            textposition='outside',
+            textfont=dict(size=9),
+            hovertemplate=(
+                '<b>%{x}</b><br>'
+                f'<b>{campaign}</b><br>'
+                'CPA: %{y:.2f} €<br>'
+                '<extra></extra>'
+            )
+        ))
+
+    fig.update_layout(**get_base_layout(
+        yaxis_title="CPA (€ pro Stück)",
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=9)
+        ),
+        height=450,
+        barmode='group'
+    ))
+
+    # Y-Achse bei 0 starten
+    fig.update_yaxes(
+        tickformat=".2f",
+        ticksuffix=" €",
+        rangemode='tozero'
+    )
+
+    return fig
+
+
+def create_cpa_top5_per_store_chart(campaign_df, store: dict) -> go.Figure:
+    """Erstellt Top 5 Kampagnen Chart nach Effizienz für einen Store (horizontal)
+
+    - Bezahlte Kampagnen: CPA = CostEur / Quantity (niedriger = besser)
+    - Rabatt-Aktionen (CostEur = 0): Sortiert nach Quantity (höher = besser)
+
+    Args:
+        campaign_df: DataFrame aus load_marketing_by_campaign()
+        store: Store-Config Dictionary mit id, name, color
+
+    Returns:
+        Plotly Figure mit horizontalem Balkendiagramm
+    """
+    fig = go.Figure()
+
+    if campaign_df is None or campaign_df.empty:
+        fig.update_layout(**get_base_layout(height=350))
+        return fig
+
+    # Alle Kampagnen dieses Stores mit Verkäufen
+    store_campaigns = campaign_df[
+        (campaign_df['IdStore'] == store['id']) &
+        (campaign_df['Quantity'] > 0)
+    ].copy()
+
+    if store_campaigns.empty:
+        fig.update_layout(**get_base_layout(height=350))
+        return fig
+
+    # Aggregiere pro Kampagne (über alle Monate)
+    campaign_agg = store_campaigns.groupby('CampaignName').agg({
+        'CostEur': 'sum',
+        'Quantity': 'sum'
+    }).reset_index()
+
+    # Teile in bezahlte und Rabatt-Aktionen
+    paid = campaign_agg[campaign_agg['CostEur'] > 0].copy()
+    discounts = campaign_agg[campaign_agg['CostEur'] == 0].copy()
+
+    # Bezahlte: CPA berechnen, Top 5 nach niedrigstem CPA
+    if not paid.empty:
+        paid['CPA'] = paid['CostEur'] / paid['Quantity']
+        paid['Label'] = paid['CPA'].apply(lambda x: f"{x:.2f} € CPA")
+        paid['Typ'] = 'Bezahlt'
+        paid_top5 = paid.nsmallest(5, 'CPA')
+    else:
+        paid_top5 = paid
+
+    # Rabatt-Aktionen: Top 5 nach höchster Quantity
+    if not discounts.empty:
+        discounts['CPA'] = 0  # Für Sortierung
+        discounts['Label'] = discounts['Quantity'].apply(lambda x: f"{int(x):,} Stück".replace(",", "."))
+        discounts['Typ'] = 'Rabatt'
+        discount_top5 = discounts.nlargest(5, 'Quantity')
+    else:
+        discount_top5 = discounts
+
+    # Transparente Farbe aus Store-Farbe
+    hex_color = store['color'].lstrip('#')
+    r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+    # Bezahlte Kampagnen (Store-Farbe)
+    if not paid_top5.empty:
+        paid_sorted = paid_top5.sort_values('CPA', ascending=False)
+        fig.add_trace(go.Bar(
+            y=paid_sorted['CampaignName'],
+            x=paid_sorted['Quantity'],
+            orientation='h',
+            name='Bezahlte Kampagnen',
+            marker=dict(
+                color=f'rgba({r},{g},{b},0.7)',
+                line=dict(color=f'rgba({r},{g},{b},0.9)', width=1)
+            ),
+            text=paid_sorted['Label'],
+            textposition='outside',
+            textfont=dict(size=10, color='white'),
+            hovertemplate='<b>%{y}</b><br>Verkäufe: %{x:,}<br>%{text}<extra>Bezahlt</extra>'
+        ))
+
+    # Rabatt-Aktionen (Grün)
+    if not discount_top5.empty:
+        discount_sorted = discount_top5.sort_values('Quantity', ascending=True)
+        fig.add_trace(go.Bar(
+            y=discount_sorted['CampaignName'],
+            x=discount_sorted['Quantity'],
+            orientation='h',
+            name='Rabatt-Aktionen',
+            marker=dict(
+                color='rgba(0, 255, 136, 0.7)',
+                line=dict(color='rgba(0, 255, 136, 0.9)', width=1)
+            ),
+            text=discount_sorted['Label'],
+            textposition='outside',
+            textfont=dict(size=10, color='white'),
+            hovertemplate='<b>%{y}</b><br>Verkäufe: %{x:,}<extra>Rabatt-Aktion</extra>'
+        ))
+
+    fig.update_layout(**get_base_layout(
+        xaxis_title="Verkäufe (Stück)",
+        yaxis_title="",
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=9)
+        ),
+        height=400,
+        margin=dict(l=20, r=100, t=40, b=40),
+        yaxis=dict(tickfont=dict(size=10))
+    ))
+
+    return fig
+
+
+def create_romi_monthly_chart(campaign_df, active_stores: list) -> go.Figure:
+    """Erstellt ROMI-Zeitverlauf-Chart (Return on Marketing Investment pro Monat)
+
+    Berechnet ROMI = SUM(CampaignProfit) / SUM(CostEur) pro Monat und Store.
+    Nur bezahlte Kampagnen werden einbezogen (CostEur > 0).
+
+    Args:
+        campaign_df: DataFrame aus load_marketing_by_campaign() mit IdCalmonthStd
+        active_stores: Liste der Store-Configs
+
+    Returns:
+        Plotly Figure (gruppiertes Balkendiagramm)
+    """
+    fig = go.Figure()
+
+    if campaign_df is None or campaign_df.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    # Nur aktive Stores und bezahlte Kampagnen (CostEur > 0)
+    active_store_ids = [store['id'] for store in active_stores]
+    paid_campaigns = campaign_df[
+        (campaign_df['IdStore'].isin(active_store_ids)) &
+        (campaign_df['CostEur'] > 0)
+    ].copy()
+
+    if paid_campaigns.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    for store in active_stores:
+        store_data = paid_campaigns[paid_campaigns['IdStore'] == store['id']]
+        if store_data.empty:
+            continue
+
+        # Aggregiere pro Monat: ROMI = SUM(CampaignProfit) / SUM(CostEur)
+        monthly_agg = store_data.groupby('IdCalmonthStd').agg({
+            'CampaignProfit': 'sum',
+            'CostEur': 'sum'
+        }).reset_index()
+
+        # ROMI berechnen (nur wenn CostEur > 0)
+        monthly_agg['ROMI'] = monthly_agg.apply(
+            lambda row: row['CampaignProfit'] / row['CostEur'] if row['CostEur'] > 0 else 0,
+            axis=1
+        )
+
+        monthly_agg = monthly_agg.sort_values('IdCalmonthStd')
+
+        # Transparente Farbe
+        hex_color = store['color'].lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+        fig.add_trace(go.Bar(
+            x=monthly_agg['IdCalmonthStd'],
+            y=monthly_agg['ROMI'],
+            name=store['name'],
+            marker=dict(
+                color=f'rgba({r},{g},{b},0.7)',
+                line=dict(color=f'rgba({r},{g},{b},0.9)', width=1)
+            ),
+            text=[f"{romi:.1f}x" if romi != 0 else "" for romi in monthly_agg['ROMI']],
+            textposition='outside',
+            textfont=dict(size=10),
+            hovertemplate=(
+                '<b>%{x}</b><br>'
+                'ROMI: %{y:.2f}x<br>'
+                '<extra>' + store['name'] + '</extra>'
+            )
+        ))
+
+    # Referenzlinie bei ROMI = 0 (Break-even)
+    fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)",
+                  annotation_text="Break-even", annotation_position="right")
+
+    fig.update_layout(**get_base_layout(
+        yaxis_title="ROMI (Return on Marketing Investment)",
+        showlegend=True,
+        legend=get_legend_horizontal(),
+        height=400,
+        barmode='group'
+    ))
+
+    return fig

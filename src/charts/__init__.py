@@ -16,6 +16,9 @@ from src.charts.marketing import (
     create_marketing_quote_chart,
     create_marketing_revenue_share_chart,
     create_campaign_efficiency_scatter,
+    create_cpa_monthly_chart,
+    create_cpa_top5_per_store_chart,
+    create_romi_monthly_chart,
 )
 from src.charts.categories import (
     create_revenue_distribution_chart,
@@ -41,6 +44,9 @@ __all__ = [
     'create_marketing_quote_chart',
     'create_marketing_revenue_share_chart',
     'create_campaign_efficiency_scatter',
+    'create_cpa_monthly_chart',
+    'create_cpa_top5_per_store_chart',
+    'create_romi_monthly_chart',
     # Categories
     'create_revenue_distribution_chart',
     'create_quantity_heatmap',

@@ -100,17 +100,21 @@ def load_marketing_kpi(month: str = 'all'):
 
 
 @st.cache_data(ttl=300)
-def load_marketing_by_campaign():
+def load_marketing_by_campaign(month: str = 'all'):
     """Lädt ROAS pro Kampagne aus V_LIST_G18_MARKETING_BY_CAMPAIGN
 
-    Für: Tab Marketing (Kampagnen-Breakdown)
+    Für: Tab Marketing (Kampagnen-Breakdown, CPA-Zeitverlauf)
+
+    Args:
+        month: 'all' für alle Monate oder 'YYYY-MM' für einen bestimmten Monat
     """
     from src.config.stores import get_store_ids_sql
     store_ids = get_store_ids_sql()
+    month_filter = build_month_filter(month)
     try:
         with db_connection() as conn:
             df = pd.read_sql(
-                SQL_MARKETING_BY_CAMPAIGN.format(store_ids=store_ids),
+                SQL_MARKETING_BY_CAMPAIGN.format(store_ids=store_ids, month_filter=month_filter),
                 conn
             )
         return df

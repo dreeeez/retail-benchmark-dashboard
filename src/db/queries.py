@@ -50,6 +50,7 @@ WHERE IdStore IN ({store_ids})
 SQL_MARKETING_BY_CAMPAIGN = """
 SELECT * FROM list_views.V_LIST_G18_MARKETING_BY_CAMPAIGN
 WHERE IdStore IN ({store_ids})
+{month_filter}
 """
 
 # Tab 3: Kostenanalyse
