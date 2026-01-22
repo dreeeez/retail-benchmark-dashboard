@@ -449,3 +449,103 @@ def create_campaign_profit_chart(campaign_df, store: dict) -> go.Figure:
     ))
 
     return fig
+
+
+def create_campaign_efficiency_scatter(campaign_df, active_stores: list) -> go.Figure:
+    """Erstellt Scatter Plot für Kampagnen-Effizienz (Kosten vs. Umsatz)
+
+    X-Achse: Marketing-Kosten (CostEur)
+    Y-Achse: Generierter Umsatz (RevenueEur)
+
+    Interpretation:
+    - Oben links = "Perlen" (wenig Kosten, viel Umsatz) = hoher ROAS
+    - Unten rechts = "Geldverbrenner" (hohe Kosten, wenig Umsatz) = niedriger ROAS
+    - Diagonale = Break-even (ROAS = 1)
+
+    Args:
+        campaign_df: DataFrame aus load_marketing_by_campaign()
+        active_stores: Liste der Store-Configs
+
+    Returns:
+        Plotly Figure mit Scatter Plot
+    """
+    fig = go.Figure()
+
+    # Nur Kampagnen der aktiven Stores
+    active_store_ids = [store['id'] for store in active_stores]
+    filtered_df = campaign_df[campaign_df['IdStore'].isin(active_store_ids)].copy()
+
+    if filtered_df.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    # Für jeden Store eine eigene Trace (Farbe)
+    for store in active_stores:
+        store_data = filtered_df[filtered_df['IdStore'] == store['id']]
+        if store_data.empty:
+            continue
+
+        hex_color = store['color'].lstrip('#')
+        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+        fig.add_trace(go.Scatter(
+            x=store_data['CostEur'],
+            y=store_data['RevenueEur'],
+            mode='markers+text',
+            name=store['name'],
+            marker=dict(
+                size=12,
+                color=f'rgba({r},{g},{b},0.7)',
+                line=dict(color=f'rgba({r},{g},{b},1)', width=1)
+            ),
+            text=store_data['CampaignName'],
+            textposition='top center',
+            textfont=dict(size=9, color='white'),
+            hovertemplate=(
+                '<b>%{text}</b><br>'
+                'Kosten: %{x:,.0f} €<br>'
+                'Umsatz: %{y:,.0f} €<br>'
+                'ROAS: %{customdata:.1f}x'
+                '<extra>' + store['name'] + '</extra>'
+            ),
+            customdata=store_data['ROAS'].fillna(0)
+        ))
+
+    # Diagonale Linie für ROAS = 1 (Break-even)
+    if not filtered_df.empty:
+        max_val = max(filtered_df['CostEur'].max(), filtered_df['RevenueEur'].max()) * 1.1
+        fig.add_trace(go.Scatter(
+            x=[0, max_val],
+            y=[0, max_val],
+            mode='lines',
+            name='ROAS = 1 (Break-even)',
+            line=dict(color='rgba(255,255,255,0.3)', width=1, dash='dash'),
+            hoverinfo='skip'
+        ))
+
+    fig.update_layout(**get_base_layout(
+        xaxis_title="Marketing-Kosten (€)",
+        yaxis_title="Generierter Umsatz (€)",
+        showlegend=True,
+        legend=get_legend_horizontal(),
+        height=450,
+        margin=dict(l=60, r=20, t=20, b=60)
+    ))
+
+    # Annotationen für Quadranten
+    fig.add_annotation(
+        x=0.02, y=0.98, xref="paper", yref="paper",
+        text="⭐ Perlen<br>(effizient)",
+        showarrow=False,
+        font=dict(size=10, color='#00ff88'),
+        align='left'
+    )
+    fig.add_annotation(
+        x=0.98, y=0.02, xref="paper", yref="paper",
+        text="⚠️ Geldverbrenner<br>(ineffizient)",
+        showarrow=False,
+        font=dict(size=10, color='#ff6b6b'),
+        align='right'
+    )
+
+    return fig

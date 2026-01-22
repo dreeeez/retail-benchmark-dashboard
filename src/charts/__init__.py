@@ -14,6 +14,7 @@ from src.charts.marketing import (
     create_marketing_trend_chart,
     create_marketing_quote_chart,
     create_marketing_revenue_share_chart,
+    create_campaign_efficiency_scatter,
 )
 from src.charts.categories import (
     create_revenue_distribution_chart,
@@ -37,6 +38,7 @@ __all__ = [
     'create_marketing_trend_chart',
     'create_marketing_quote_chart',
     'create_marketing_revenue_share_chart',
+    'create_campaign_efficiency_scatter',
     # Categories
     'create_revenue_distribution_chart',
     'create_quantity_heatmap',

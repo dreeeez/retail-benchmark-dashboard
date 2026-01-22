@@ -58,6 +58,7 @@ from src.charts.marketing import (
     create_top_campaigns_overall_chart,
     create_top_campaigns_per_store_chart,
     create_campaign_profit_chart,
+    create_campaign_efficiency_scatter,
 )
 from src.charts.categories import (
     create_margin_by_category_chart,
@@ -361,6 +362,17 @@ if df is not None and len(df) > 0:
                             with profit_tabs[idx]:
                                 fig = create_campaign_profit_chart(campaign_data, store)
                                 st.plotly_chart(fig, use_container_width=True, config={'autosizable': True, 'responsive': True})
+
+                        # Kampagnen-Effizienz Scatter Plot
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.markdown(chart_header("🎯 Kampagnen-Effizienz (Kosten vs. Umsatz)",
+                            "<strong>Interpretation:</strong><br>"
+                            "• <span style='color:#00ff88'>⭐ Oben links</span> = Perlen (wenig Kosten, viel Umsatz)<br>"
+                            "• <span style='color:#ff6b6b'>⚠️ Unten rechts</span> = Geldverbrenner (hohe Kosten, wenig Umsatz)<br>"
+                            "• Gestrichelte Linie = Break-even (ROAS = 1)<br><br>"
+                            "<strong>Nutzen:</strong> Hilft bei der Entscheidung, welche Kampagnen im nächsten Monat mehr Budget bekommen oder gestrichen werden sollten."), unsafe_allow_html=True)
+                        fig = create_campaign_efficiency_scatter(campaign_data, active_stores)
+                        st.plotly_chart(fig, use_container_width=True)
 
                 else:
                     st.info("Keine Marketing-Daten verfügbar.")
