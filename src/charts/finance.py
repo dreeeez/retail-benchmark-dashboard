@@ -332,14 +332,18 @@ def create_cost_treemap(costs_detail_df, active_stores: list) -> go.Figure:
         path=['StoreName', 'KategorieLabel'],
         values='KostenAbs',
         color='AbweichungPct',
-        color_continuous_scale=['#00ff88', '#f4d03f', '#ff6b6b'],
+        color_continuous_scale=[
+            'rgba(0, 255, 136, 0.7)',    # Grün - unter Durchschnitt
+            'rgba(244, 208, 63, 0.7)',   # Gelb - im Durchschnitt
+            'rgba(255, 107, 107, 0.7)'   # Rot - über Durchschnitt
+        ],
         color_continuous_midpoint=0,
         custom_data=['KostenAbs', 'Prozent', 'AbweichungPct', 'Benchmark']
     )
 
     fig.update_traces(
         textinfo='label+value',
-        textfont=dict(size=12),
+        textfont=dict(size=12, color='white'),
         hovertemplate=(
             '<b>%{label}</b><br>'
             'Kosten: %{customdata[0]:,.0f} €<br>'
@@ -349,8 +353,10 @@ def create_cost_treemap(costs_detail_df, active_stores: list) -> go.Figure:
             '<extra></extra>'
         ),
         marker=dict(
-            line=dict(width=2, color='#1a1a2e')
-        )
+            line=dict(width=1, color='rgba(255,255,255,0.3)'),
+            cornerradius=5
+        ),
+        opacity=0.85
     )
 
     fig.update_layout(
@@ -362,7 +368,10 @@ def create_cost_treemap(costs_detail_df, active_stores: list) -> go.Figure:
         coloraxis_colorbar=dict(
             title=dict(text="Abweichung<br>vom Ø", font=dict(color='white')),
             ticksuffix="%",
-            tickfont=dict(color='white')
+            tickfont=dict(color='white'),
+            bgcolor='rgba(0,0,0,0.3)',
+            bordercolor='rgba(255,255,255,0.2)',
+            borderwidth=1
         )
     )
 
