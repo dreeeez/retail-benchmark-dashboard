@@ -451,100 +451,89 @@ def create_campaign_profit_chart(campaign_df, store: dict) -> go.Figure:
     return fig
 
 
-def create_campaign_efficiency_scatter(campaign_df, active_stores: list) -> go.Figure:
-    """Erstellt Scatter Plot für Kampagnen-Effizienz (Kosten vs. Umsatz)
+def create_campaign_efficiency_scatter(campaign_df, store: dict) -> go.Figure:
+    """Erstellt gruppierten Bar Chart für Top 8 Kampagnen (Kosten vs. Umsatz) einer Filiale
 
-    X-Achse: Marketing-Kosten (CostEur)
-    Y-Achse: Generierter Umsatz (RevenueEur)
-
-    Interpretation:
-    - Oben links = "Perlen" (wenig Kosten, viel Umsatz) = hoher ROAS
-    - Unten rechts = "Geldverbrenner" (hohe Kosten, wenig Umsatz) = niedriger ROAS
-    - Diagonale = Break-even (ROAS = 1)
+    Zeigt die Top 8 Kampagnen nach Umsatz mit zwei Balken pro Kampagne:
+    - Marketing-Kosten (CostEur)
+    - Generierter Umsatz (RevenueEur)
 
     Args:
         campaign_df: DataFrame aus load_marketing_by_campaign()
-        active_stores: Liste der Store-Configs
+        store: Store-Config Dictionary mit id, name, color
 
     Returns:
-        Plotly Figure mit Scatter Plot
+        Plotly Figure mit gruppiertem Bar Chart
     """
     fig = go.Figure()
 
-    # Nur Kampagnen der aktiven Stores
-    active_store_ids = [store['id'] for store in active_stores]
-    filtered_df = campaign_df[campaign_df['IdStore'].isin(active_store_ids)].copy()
-
-    # Kampagnen ohne Kosten ausfiltern (unvollständige Daten)
-    filtered_df = filtered_df[filtered_df['CostEur'] > 0]
-
-    if filtered_df.empty:
+    if campaign_df is None or campaign_df.empty:
         fig.update_layout(**get_base_layout(height=400))
         return fig
 
-    # Für jeden Store eine eigene Trace (Farbe)
-    for store in active_stores:
-        store_data = filtered_df[filtered_df['IdStore'] == store['id']]
-        if store_data.empty:
-            continue
+    # Nur Kampagnen dieser Filiale
+    store_campaigns = campaign_df[campaign_df['IdStore'] == store['id']].copy()
 
-        hex_color = store['color'].lstrip('#')
-        r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+    if store_campaigns.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
 
-        fig.add_trace(go.Scatter(
-            x=store_data['CostEur'],
-            y=store_data['RevenueEur'],
-            mode='markers',
-            name=store['name'],
-            marker=dict(
-                size=14,
-                color=f'rgba({r},{g},{b},0.8)',
-                line=dict(color=f'rgba({r},{g},{b},1)', width=2)
-            ),
-            text=store_data['CampaignName'],
-            hovertemplate=(
-                '<b>%{text}</b><br>'
-                'Kosten: %{x:,.0f} €<br>'
-                'Umsatz: %{y:,.0f} €<br>'
-                'ROAS: %{customdata:.1f}x'
-                '<extra>' + store['name'] + '</extra>'
-            ),
-            customdata=store_data['ROAS'].fillna(0)
-        ))
+    # Aggregiere pro Kampagne (über alle Monate)
+    campaign_totals = store_campaigns.groupby('CampaignName').agg({
+        'CostEur': 'sum',
+        'RevenueEur': 'sum'
+    }).reset_index()
 
-    # Kosten-Cap bei 100.000 €
-    cost_cap = 100_000
+    # Top 8 nach Umsatz
+    top_campaigns = campaign_totals.nlargest(8, 'RevenueEur')
 
-    # Diagonale Linie für ROAS = 1 (Break-even)
-    if not filtered_df.empty:
-        # Maximaler Y-Wert für Kampagnen unter dem Cap
-        capped_df = filtered_df[filtered_df['CostEur'] <= cost_cap]
-        max_y = capped_df['RevenueEur'].max() * 1.1 if not capped_df.empty else cost_cap
-        fig.add_trace(go.Scatter(
-            x=[0, cost_cap],
-            y=[0, cost_cap],
-            mode='lines',
-            name='ROAS = 1 (Break-even)',
-            line=dict(color='rgba(255,255,255,0.3)', width=1, dash='dash'),
-            hoverinfo='skip'
-        ))
+    if top_campaigns.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
 
-    fig.update_layout(**get_base_layout(
-        xaxis_title="Marketing-Kosten (€)",
-        yaxis_title="Generierter Umsatz (€)",
-        showlegend=True,
-        legend=get_legend_horizontal(),
-        height=600,
-        margin=dict(l=70, r=30, t=40, b=70)
+    campaign_names = top_campaigns['CampaignName'].tolist()
+    costs = top_campaigns['CostEur'].tolist()
+    revenues = top_campaigns['RevenueEur'].tolist()
+
+    # Balken für Kosten
+    fig.add_trace(go.Bar(
+        x=campaign_names,
+        y=costs,
+        name='Marketing-Kosten',
+        marker=dict(
+            color='rgba(255, 71, 87, 0.8)',
+            line=dict(color='rgba(255, 71, 87, 1)', width=2)
+        ),
+        hovertemplate='<b>%{x}</b><br>Kosten: %{y:,.0f} €<extra></extra>'
     ))
 
-    # Achsen-Formatierung verbessern mit Cap
+    # Balken für Umsatz
+    fig.add_trace(go.Bar(
+        x=campaign_names,
+        y=revenues,
+        name='Generierter Umsatz',
+        marker=dict(
+            color='rgba(0, 255, 136, 0.8)',
+            line=dict(color='rgba(0, 255, 136, 1)', width=2)
+        ),
+        hovertemplate='<b>%{x}</b><br>Umsatz: %{y:,.0f} €<extra></extra>'
+    ))
+
+    fig.update_layout(**get_base_layout(
+        xaxis_title="Kampagne",
+        yaxis_title="Betrag (€)",
+        showlegend=True,
+        legend=get_legend_horizontal(),
+        barmode='group',
+        height=500,
+        margin=dict(l=70, r=30, t=40, b=100)
+    ))
+
+    # Achsen-Formatierung
     fig.update_xaxes(
-        tickformat=",.0f",
-        ticksuffix=" €",
         gridcolor='rgba(255,255,255,0.1)',
-        showgrid=True,
-        range=[0, cost_cap]
+        showgrid=False,
+        tickangle=-45
     )
     fig.update_yaxes(
         tickformat=",.0f",
@@ -556,15 +545,15 @@ def create_campaign_efficiency_scatter(campaign_df, active_stores: list) -> go.F
     return fig
 
 
-def create_cpa_monthly_chart(campaign_df, active_stores: list) -> go.Figure:
-    """Erstellt CPA-Chart pro Kampagne und Monat (gruppiertes Balkendiagramm)
+def create_cpa_monthly_chart(campaign_df, store: dict) -> go.Figure:
+    """Erstellt CPA-Chart pro Kampagne und Monat für eine Filiale (gruppiertes Balkendiagramm)
 
     Berechnet CPA = CostEur / Quantity pro Kampagne pro Monat.
     Nur bezahlte Kampagnen werden einbezogen (CostEur > 0).
 
     Args:
         campaign_df: DataFrame aus load_marketing_by_campaign() mit IdCalmonthStd
-        active_stores: Liste der Store-Configs
+        store: Store-Config Dictionary mit id, name, color
 
     Returns:
         Plotly Figure (gruppiertes Balkendiagramm)
@@ -575,10 +564,9 @@ def create_cpa_monthly_chart(campaign_df, active_stores: list) -> go.Figure:
         fig.update_layout(**get_base_layout(height=400))
         return fig
 
-    # Nur aktive Stores und bezahlte Kampagnen (CostEur > 0)
-    active_store_ids = [store['id'] for store in active_stores]
+    # Nur diese Filiale und bezahlte Kampagnen (CostEur > 0)
     paid_campaigns = campaign_df[
-        (campaign_df['IdStore'].isin(active_store_ids)) &
+        (campaign_df['IdStore'] == store['id']) &
         (campaign_df['CostEur'] > 0) &
         (campaign_df['Quantity'] > 0)
     ].copy()
@@ -590,11 +578,21 @@ def create_cpa_monthly_chart(campaign_df, active_stores: list) -> go.Figure:
     # CPA berechnen pro Kampagne pro Monat
     paid_campaigns['CPA'] = paid_campaigns['CostEur'] / paid_campaigns['Quantity']
 
-    # Sortiere nach Monat
-    paid_campaigns = paid_campaigns.sort_values('IdCalmonthStd')
+    # Durchschnittlichen CPA pro Kampagne berechnen (über alle Monate)
+    avg_cpa_per_campaign = paid_campaigns.groupby('CampaignName')['CPA'].mean().sort_values()
 
-    # Alle Kampagnen sammeln
-    all_campaigns = paid_campaigns['CampaignName'].unique()
+    # Top 5 Kampagnen mit niedrigstem durchschnittlichen CPA
+    top_5_campaigns = avg_cpa_per_campaign.head(5).index.tolist()
+
+    # Nur Daten dieser Top 5 Kampagnen
+    top_campaigns_data = paid_campaigns[paid_campaigns['CampaignName'].isin(top_5_campaigns)].copy()
+
+    # Sortiere nach Monat
+    top_campaigns_data = top_campaigns_data.sort_values('IdCalmonthStd')
+
+    if top_campaigns_data.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
 
     # Farbpalette für Kampagnen
     campaign_colors = [
@@ -602,8 +600,8 @@ def create_cpa_monthly_chart(campaign_df, active_stores: list) -> go.Figure:
         '#ff9f43', '#54a0ff', '#5f27cd', '#01a3a4', '#f368e0'
     ]
 
-    for idx, campaign in enumerate(all_campaigns):
-        campaign_data = paid_campaigns[paid_campaigns['CampaignName'] == campaign]
+    for idx, campaign in enumerate(top_5_campaigns):
+        campaign_data = top_campaigns_data[top_campaigns_data['CampaignName'] == campaign]
 
         # Farbe aus Palette (zyklisch)
         color = campaign_colors[idx % len(campaign_colors)]

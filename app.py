@@ -62,7 +62,6 @@ from src.charts.marketing import (
     create_top_campaigns_per_store_chart,
     create_campaign_efficiency_scatter,
     create_cpa_monthly_chart,
-    create_cpa_top5_per_store_chart,
     create_romi_monthly_chart,
 )
 from src.charts.categories import (
@@ -339,23 +338,13 @@ if df is not None and len(df) > 0:
                         "<strong>Berechnung:</strong> Marketing-Kosten / Verkaufte Stückzahl pro Kampagne pro Monat (nur bezahlte Kampagnen)<br><br>"
                         "<strong>Nutzen:</strong> Zeigt die Akquisekosten pro verkauftem Artikel je Kampagne. Niedriger CPA = effizienteres Marketing. Rabatt-Aktionen (Kosten = 0) sind ausgeschlossen."), unsafe_allow_html=True)
                     if campaign_data is not None and not campaign_data.empty:
-                        fig = create_cpa_monthly_chart(campaign_data, active_stores)
-                        st.plotly_chart(fig, use_container_width=True)
+                        cpa_monthly_tabs = st.tabs([store['name'] for store in active_stores])
+                        for idx, store in enumerate(active_stores):
+                            with cpa_monthly_tabs[idx]:
+                                fig = create_cpa_monthly_chart(campaign_data, store)
+                                st.plotly_chart(fig, use_container_width=True)
                     else:
                         st.info("Keine Kampagnen-Daten für CPA verfügbar.")
-
-                    # Top 5 Kampagnen nach Effizienz je Filiale (Tabs)
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown(chart_header("🏆 Top Kampagnen nach Effizienz je Filiale",
-                        "<strong>Bezahlte Kampagnen:</strong> Sortiert nach CPA (Kosten / Verkäufe) - niedriger = besser<br>"
-                        "<strong>Rabatt-Aktionen:</strong> Sortiert nach Verkaufszahl - höher = besser<br><br>"
-                        "<strong>Nutzen:</strong> Zeigt die effizientesten Kampagnen je Filiale."), unsafe_allow_html=True)
-                    if campaign_data is not None and not campaign_data.empty:
-                        cpa_store_tabs = st.tabs([store['name'] for store in active_stores])
-                        for idx, store in enumerate(active_stores):
-                            with cpa_store_tabs[idx]:
-                                fig = create_cpa_top5_per_store_chart(campaign_data, store)
-                                st.plotly_chart(fig, use_container_width=True)
 
                     # ROAS - Return on Advertising Spend (monatlich)
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -375,16 +364,20 @@ if df is not None and len(df) > 0:
                         st.plotly_chart(fig, use_container_width=True)
 
                     if campaign_data is not None and not campaign_data.empty:
-                        # Kampagnen-Effizienz Scatter Plot
+                        # Kampagnen-Effizienz: Top 8 Kampagnen pro Filiale
                         st.markdown("<br>", unsafe_allow_html=True)
                         st.markdown(chart_header("🎯 Kampagnen-Effizienz (Kosten vs. Umsatz)",
                             "<strong>Interpretation:</strong><br>"
-                            "• <span style='color:#00ff88'>⭐ Oben links</span> = Perlen (wenig Kosten, viel Umsatz)<br>"
-                            "• <span style='color:#ff6b6b'>⚠️ Unten rechts</span> = Geldverbrenner (hohe Kosten, wenig Umsatz)<br>"
-                            "• Gestrichelte Linie = Break-even (ROAS = 1)<br><br>"
-                            "<strong>Nutzen:</strong> Hilft bei der Entscheidung, welche Kampagnen im nächsten Monat mehr Budget bekommen oder gestrichen werden sollten."), unsafe_allow_html=True)
-                        fig = create_campaign_efficiency_scatter(campaign_data, active_stores)
-                        st.plotly_chart(fig, use_container_width=True)
+                            "• <span style='color:#ff4757'>Rote Balken</span> = Marketing-Kosten pro Kampagne<br>"
+                            "• <span style='color:#00ff88'>Grüne Balken</span> = Generierter Umsatz pro Kampagne<br>"
+                            "• Zeigt die Top 8 Kampagnen nach Umsatz je Filiale<br>"
+                            "• Je größer die Differenz (Grün > Rot), desto effizienter die Kampagne<br><br>"
+                            "<strong>Nutzen:</strong> Direkter Vergleich von Kosten und Umsatz der erfolgreichsten Kampagnen je Filiale."), unsafe_allow_html=True)
+                        efficiency_tabs = st.tabs([store['name'] for store in active_stores])
+                        for idx, store in enumerate(active_stores):
+                            with efficiency_tabs[idx]:
+                                fig = create_campaign_efficiency_scatter(campaign_data, store)
+                                st.plotly_chart(fig, use_container_width=True)
 
                 else:
                     st.info("Keine Marketing-Daten verfügbar.")
