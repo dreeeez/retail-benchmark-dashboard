@@ -367,3 +367,80 @@ def create_cost_treemap(costs_detail_df, active_stores: list) -> go.Figure:
     )
 
     return fig
+
+
+def create_productivity_chart(store_details_df, active_stores: list) -> go.Figure:
+    """Erstellt Flächenproduktivitäts-Chart (Umsatz pro m²)
+
+    Args:
+        store_details_df: DataFrame aus load_store_details()
+        active_stores: Liste der Store-Configs
+
+    Returns:
+        Plotly Figure mit horizontalem Balkendiagramm
+    """
+    fig = go.Figure()
+
+    if store_details_df is None or store_details_df.empty:
+        fig.update_layout(**get_base_layout(height=350))
+        return fig
+
+    # Nur aktive Stores
+    active_store_ids = [store['id'] for store in active_stores]
+    df = store_details_df[store_details_df['IdStore'].isin(active_store_ids)].copy()
+
+    if df.empty:
+        fig.update_layout(**get_base_layout(height=350))
+        return fig
+
+    # Sortiere nach Umsatz pro m² (höchste zuerst für horizontale Darstellung)
+    df = df.sort_values('UmsatzProM2', ascending=True)
+
+    # Benchmark = Durchschnitt aller Stores
+    benchmark = df['UmsatzProM2'].mean()
+
+    # Farben basierend auf Performance vs. Benchmark
+    colors = []
+    for _, row in df.iterrows():
+        store_config = next((s for s in active_stores if s['id'] == row['IdStore']), None)
+        if store_config:
+            colors.append(store_config['color'])
+        else:
+            colors.append('#00d4ff')
+
+    fig.add_trace(go.Bar(
+        y=df['StoreName'],
+        x=df['UmsatzProM2'],
+        orientation='h',
+        marker=dict(color=colors, opacity=0.8),
+        text=[f"{v:,.0f} €/m²".replace(",", ".") for v in df['UmsatzProM2']],
+        textposition='outside',
+        textfont=dict(size=11, color='white'),
+        hovertemplate=(
+            '<b>%{y}</b><br>'
+            'Umsatz/m²: %{x:,.0f} €<br>'
+            f'Benchmark: {benchmark:,.0f} €/m²'
+            '<extra></extra>'
+        )
+    ))
+
+    # Benchmark-Linie
+    fig.add_vline(
+        x=benchmark,
+        line=dict(color='rgba(255,255,255,0.5)', width=2, dash='dash'),
+        annotation_text=f"Ø {benchmark:,.0f} €/m²".replace(",", "."),
+        annotation_position="top",
+        annotation_font=dict(color='white', size=10)
+    )
+
+    fig.update_layout(**get_base_layout(
+        xaxis_title="Umsatz pro m² (€)",
+        yaxis_title="",
+        showlegend=False,
+        height=300,
+        margin=dict(l=20, r=80, t=30, b=40)
+    ))
+
+    fig.update_xaxes(tickformat=",.0f", ticksuffix=" €")
+
+    return fig

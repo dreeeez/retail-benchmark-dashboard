@@ -31,6 +31,7 @@ from src.db.repository import (
     load_rent_and_revenue_per_m2,
     load_price_segment_data,
     load_costs_detail,
+    load_store_details,
 )
 
 # Domain
@@ -48,8 +49,8 @@ from src.charts.finance import (
     create_revenue_bar_chart,
     create_ebit_chart,
     create_margin_chart,
-    create_cost_ratio_chart,
     create_cost_treemap,
+    create_productivity_chart,
 )
 from src.charts.marketing import (
     create_marketing_trend_chart,
@@ -185,6 +186,18 @@ if df is not None and len(df) > 0:
                         if row_start + stores_per_row < num_stores:  # Abstand zwischen Zeilen
                             st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
 
+                    # Flächenproduktivität direkt unter KPI-Karten
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown(chart_header("📐 Flächenproduktivität (Umsatz pro m²)",
+                        "<strong>Berechnung:</strong> Gesamtumsatz / Verkaufsfläche in m²<br><br>"
+                        "<strong>Nutzen:</strong> Relativiert absolute Umsatzzahlen zur Filialgröße. Ermöglicht fairen Vergleich zwischen kleinen und großen Filialen. Die gestrichelte Linie zeigt den Durchschnitt aller Filialen."), unsafe_allow_html=True)
+                    store_details = load_store_details(selected_month)
+                    if store_details is not None and not store_details.empty:
+                        fig = create_productivity_chart(store_details, active_stores)
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("Keine Flächendaten verfügbar.")
+
                     st.markdown("<br>", unsafe_allow_html=True)
 
                     col_chart1, col_chart2 = st.columns(2)
@@ -232,12 +245,6 @@ if df is not None and len(df) > 0:
                                 "<strong>Nutzen:</strong> Zeigt wie viel vom Umsatz als operativer Gewinn übrig bleibt. Benchmark für operative Effizienz. Negative Werte = Filiale arbeitet nicht kostendeckend."), unsafe_allow_html=True)
                             fig = create_margin_chart(active_stores, stores_kpis, 'ebit')
                             st.plotly_chart(fig, use_container_width=True)
-
-                        st.markdown(chart_header("📊 Kostenquote im Vergleich",
-                            "<strong>Berechnung:</strong> Gesamtkosten / Umsatz × 100<br><br>"
-                            "<strong>Nutzen:</strong> Zeigt den Kostenanteil am Umsatz. Werte über 100% bedeuten Verlust. Ermöglicht Identifikation von Filialen mit Kostenoptimierungspotenzial."), unsafe_allow_html=True)
-                        fig = create_cost_ratio_chart(active_stores, stores_kpis)
-                        st.plotly_chart(fig, use_container_width=True)
 
             # =============================================================
             # TAB 2: MARKETING
@@ -488,10 +495,19 @@ if df is not None and len(df) > 0:
                                 "<strong>Berechnung:</strong> Summe aller verkauften Artikel<br><br>"
                                 "<strong>Nutzen:</strong> Zeigt das Absatzvolumen unabhängig vom Preis. Hohe Stückzahl bei niedrigem Umsatz deutet auf günstige Produkte hin. Wichtig für Lager- und Bestellplanung."), unsafe_allow_html=True)
 
+                            # Lade Store-Details für Fläche
+                            store_details_cat = load_store_details(selected_month)
+                            store_m2_map = {}
+                            if store_details_cat is not None and not store_details_cat.empty:
+                                for _, row in store_details_cat.iterrows():
+                                    store_m2_map[row['IdStore']] = row.get('StoreM2', 0)
+
                             sales_cols = st.columns(len(active_stores))
                             for idx, store in enumerate(active_stores):
                                 store_cat_data = filter_by_store(df_filtered_cat, store)
                                 total_qty = store_cat_data[quantity_col].sum()
+                                store_m2 = store_m2_map.get(store['id'], 0)
+                                qty_per_m2 = total_qty / store_m2 if store_m2 > 0 else 0
                                 with sales_cols[idx]:
                                     st.markdown(f"""
                                     <div class="hover-card" style="background: {store['color_bg']}; border: 1px solid {store['color']};
@@ -499,6 +515,7 @@ if df is not None and len(df) > 0:
                                         <div style="color: {store['color']}; font-size: 0.9em;">{store['name']}</div>
                                         <div style="color: {store['color']}; font-size: 2em; font-weight: bold;">{int(total_qty):,}</div>
                                         <div style="color: #aaa; font-size: 0.8em;">Stück verkauft</div>
+                                        <div style="color: #888; font-size: 0.75em; margin-top: 8px;">📐 {int(store_m2):,} m² | <span style="color: #00d4ff;">{qty_per_m2:.1f} Stück/m²</span></div>
                                     </div>
                                     """.replace(",", "."), unsafe_allow_html=True)
 
