@@ -17,33 +17,19 @@ DB_DATABASE = "ERPDEV"
 
 
 def get_db_config():
-    """Lädt DB-Konfiguration aus config.json oder Session-Credentials
+    """Lädt DB-Konfiguration aus config.json
 
     Returns:
         dict mit server, database, user, password
     """
-    # 1. Versuche config.json (lokale Entwicklung)
     config_path = Path(__file__).parent.parent.parent / "config.json"
     if config_path.exists():
         with open(config_path) as f:
             return json.load(f)
 
-    # 2. Fallback: Session-Credentials aus Login (Cloud Deployment)
-    try:
-        import streamlit as st
-        if st.session_state.get('db_user') and st.session_state.get('db_password'):
-            return {
-                'server': DB_SERVER,
-                'database': DB_DATABASE,
-                'user': st.session_state.db_user,
-                'password': st.session_state.db_password
-            }
-    except Exception:
-        pass
-
     raise FileNotFoundError(
         "Keine DB-Konfiguration gefunden. "
-        "Bitte einloggen oder config.json erstellen."
+        "Bitte config.json mit Service-Account Credentials erstellen."
     )
 
 
