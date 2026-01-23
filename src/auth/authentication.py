@@ -29,13 +29,13 @@ def authenticate_user(username: str, password: str) -> dict:
     """
     query = """
         SELECT USERNAME, ISNULL(SECURITYLEVEL, 0) AS SECURITYLEVEL
-        FROM dbo.T_USER
-        WHERE UPPER(USERNAME) = UPPER(?) AND USERPASS = ?
+        FROM dbo.LOV_USER_LOGINS
+        WHERE UPPER(USERNAME) = UPPER(%s) AND USERPASS = %s
     """
 
     try:
         with db_connection() as conn:
-            df = pd.read_sql(query, conn, params=[username, password])
+            df = pd.read_sql(query, conn, params=(username, password))
 
             if len(df) == 0:
                 return {
