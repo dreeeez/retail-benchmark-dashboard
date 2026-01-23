@@ -620,10 +620,6 @@ def create_campaign_roas_chart(campaign_df, store: dict) -> go.Figure:
         hovertemplate='<b>%{x}</b><br>ROAS: %{y:.2f}x<extra></extra>'
     ))
 
-    # Referenzlinie bei ROAS = 1 (Break-even)
-    fig.add_hline(y=1, line_dash="dash", line_color="rgba(255,255,255,0.5)",
-                  annotation_text="Break-even", annotation_position="right")
-
     fig.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -963,10 +959,6 @@ def create_romi_monthly_chart(campaign_df, active_stores: list) -> go.Figure:
                 '<extra>' + store['name'] + '</extra>'
             )
         ))
-
-    # Referenzlinie bei ROMI = 0 (Break-even)
-    fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.3)",
-                  annotation_text="Break-even", annotation_position="right")
 
     fig.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
