@@ -57,6 +57,7 @@ from src.charts.marketing import (
     create_top_campaigns_overall_chart,
     create_top_campaigns_per_store_chart,
     create_campaign_efficiency_scatter,
+    create_campaign_roas_chart,
     create_romi_monthly_chart,
 )
 from src.charts.categories import (
@@ -335,22 +336,25 @@ if df is not None and len(df) > 0:
                     # Kampagnen-Daten für CPA und weitere Charts laden
                     campaign_data = load_marketing_by_campaign()
 
-                    # Kampagnen-Effizienz: Top 8 Kampagnen pro Filiale
+                    # Kampagnen-Effizienz: Top 8 Kampagnen pro Filiale (Kosten vs. Umsatz + ROAS)
                     if campaign_data is not None and not campaign_data.empty:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        st.markdown(chart_header("🎯 Kampagnen-Effizienz (Kosten vs. Umsatz)",
+                        st.markdown(chart_header("🎯 Kampagnen-Effizienz & ROAS",
                             "<strong>Interpretation:</strong><br>"
                             "• <span style='color:#ff4757'>Rote Balken</span> = Marketing-Kosten pro Kampagne<br>"
                             "• <span style='color:#00ff88'>Grüne Balken</span> = Generierter Umsatz pro Kampagne<br>"
-                            "• Zeigt die Top 8 Kampagnen nach Umsatz je Filiale<br>"
-                            "• Je größer die Differenz (Grün > Rot), desto effizienter die Kampagne<br><br>"
-                            "<strong>Nutzen:</strong> Direkter Vergleich von Kosten und Umsatz der erfolgreichsten Kampagnen je Filiale."), unsafe_allow_html=True)
+                            "• ROAS: Grün = profitabel (≥1), Rot = Verlust (<1)<br><br>"
+                            "<strong>Nutzen:</strong> Direkter Vergleich von Kosten, Umsatz und Rentabilität der Top 8 Kampagnen je Filiale."), unsafe_allow_html=True)
                         efficiency_tabs = st.tabs([store['name'] for store in active_stores])
                         for idx, store in enumerate(active_stores):
                             with efficiency_tabs[idx]:
+                                # Kosten vs. Umsatz Chart
                                 fig = create_campaign_efficiency_scatter(campaign_data, store)
                                 st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
-
+                                # ROAS Chart darunter
+                                st.markdown("<p style='color:#aaa; font-size:0.9em; margin-top:10px;'>📈 <strong>ROAS pro Kampagne</strong> (Umsatz / Kosten)</p>", unsafe_allow_html=True)
+                                fig_roas = create_campaign_roas_chart(campaign_data, store)
+                                st.plotly_chart(fig_roas, use_container_width=True, config=PLOTLY_CONFIG)
 
                     # ROMI - Return on Marketing Investment (monatlich)
                     if campaign_data is not None and not campaign_data.empty:

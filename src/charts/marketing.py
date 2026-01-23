@@ -469,9 +469,8 @@ def create_campaign_efficiency_scatter(campaign_df, store: dict) -> go.Figure:
     Returns:
         Plotly Figure mit gruppiertem Bar Chart
     """
-    fig = go.Figure()
-
     if campaign_df is None or campaign_df.empty:
+        fig = go.Figure()
         fig.update_layout(**get_base_layout(height=400))
         return fig
 
@@ -479,6 +478,7 @@ def create_campaign_efficiency_scatter(campaign_df, store: dict) -> go.Figure:
     store_campaigns = campaign_df[campaign_df['IdStore'] == store['id']].copy()
 
     if store_campaigns.empty:
+        fig = go.Figure()
         fig.update_layout(**get_base_layout(height=400))
         return fig
 
@@ -492,12 +492,15 @@ def create_campaign_efficiency_scatter(campaign_df, store: dict) -> go.Figure:
     top_campaigns = campaign_totals.nlargest(8, 'RevenueEur')
 
     if top_campaigns.empty:
+        fig = go.Figure()
         fig.update_layout(**get_base_layout(height=400))
         return fig
 
     campaign_names = top_campaigns['CampaignName'].tolist()
     costs = top_campaigns['CostEur'].tolist()
     revenues = top_campaigns['RevenueEur'].tolist()
+
+    fig = go.Figure()
 
     # Balken für Kosten
     fig.add_trace(go.Bar(
@@ -523,25 +526,126 @@ def create_campaign_efficiency_scatter(campaign_df, store: dict) -> go.Figure:
         hovertemplate='<b>%{x}</b><br>Umsatz: %{y:,.0f} €<extra></extra>'
     ))
 
-    fig.update_layout(**get_base_layout(
+    # Layout
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font_color='white',
         xaxis_title="Kampagne",
         yaxis_title="Betrag (€)",
         showlegend=True,
         legend=get_legend_horizontal(),
         barmode='group',
-        height=500,
-        margin=dict(l=70, r=30, t=40, b=100)
+        height=400,
+        margin=dict(l=70, r=30, t=40, b=100),
+        xaxis=dict(autorange=True, fixedrange=False),
+        yaxis=dict(autorange=True, fixedrange=False, tickformat=",.0f", ticksuffix=" €")
+    )
+
+    # X-Achse
+    fig.update_xaxes(
+        gridcolor='rgba(255,255,255,0.1)',
+        showgrid=False,
+        tickangle=-25
+    )
+
+    # Y-Achse
+    fig.update_yaxes(
+        gridcolor='rgba(255,255,255,0.1)',
+        showgrid=True
+    )
+
+    return fig
+
+
+def create_campaign_roas_chart(campaign_df, store: dict) -> go.Figure:
+    """Erstellt ROAS-Chart für Top 8 Kampagnen einer Filiale
+
+    Zeigt den ROAS (Return on Advertising Spend) für die Top 8 Kampagnen.
+    ROAS = Umsatz / Kosten
+
+    Args:
+        campaign_df: DataFrame aus load_marketing_by_campaign()
+        store: Store-Config Dictionary mit id, name, color
+
+    Returns:
+        Plotly Figure mit Bar Chart
+    """
+    fig = go.Figure()
+
+    if campaign_df is None or campaign_df.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    # Nur Kampagnen dieser Filiale mit Kosten > 0
+    store_campaigns = campaign_df[
+        (campaign_df['IdStore'] == store['id']) &
+        (campaign_df['CostEur'] > 0)
+    ].copy()
+
+    if store_campaigns.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    # Aggregiere pro Kampagne (über alle Monate)
+    campaign_totals = store_campaigns.groupby('CampaignName').agg({
+        'CostEur': 'sum',
+        'RevenueEur': 'sum'
+    }).reset_index()
+
+    # ROAS berechnen
+    campaign_totals['ROAS'] = campaign_totals['RevenueEur'] / campaign_totals['CostEur']
+
+    # Top 8 nach Umsatz (gleiche wie im Effizienz-Chart)
+    top_campaigns = campaign_totals.nlargest(8, 'RevenueEur')
+
+    if top_campaigns.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    campaign_names = top_campaigns['CampaignName'].tolist()
+    roas_values = top_campaigns['ROAS'].tolist()
+
+    fig.add_trace(go.Bar(
+        x=campaign_names,
+        y=roas_values,
+        name='ROAS',
+        marker=dict(
+            color='rgba(0, 212, 255, 0.8)',
+            line=dict(color='rgba(0, 212, 255, 1)', width=2)
+        ),
+        text=[f"{r:.1f}x" for r in roas_values],
+        textposition='outside',
+        textfont=dict(size=11),
+        hovertemplate='<b>%{x}</b><br>ROAS: %{y:.2f}x<extra></extra>'
     ))
+
+    # Referenzlinie bei ROAS = 1 (Break-even)
+    fig.add_hline(y=1, line_dash="dash", line_color="rgba(255,255,255,0.5)",
+                  annotation_text="Break-even", annotation_position="right")
+
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font_color='white',
+        xaxis_title="Kampagne",
+        yaxis_title="ROAS",
+        showlegend=False,
+        height=400,
+        margin=dict(l=70, r=30, t=40, b=100),
+        xaxis=dict(autorange=True, fixedrange=False),
+        yaxis=dict(autorange=True, fixedrange=False)
+    )
 
     # Achsen-Formatierung
     fig.update_xaxes(
         gridcolor='rgba(255,255,255,0.1)',
         showgrid=False,
-        tickangle=-45
+        tickangle=-25
     )
     fig.update_yaxes(
-        tickformat=",.0f",
-        ticksuffix=" €",
+        tickformat=".1f",
+        ticksuffix="x",
         gridcolor='rgba(255,255,255,0.1)',
         showgrid=True
     )
