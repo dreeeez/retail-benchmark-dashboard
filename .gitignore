@@ -1,5 +1,6 @@
 # Lokale DB-Konfig
 config.json
+.streamlit/secrets.toml
 
 # Python Cache
 __pycache__/

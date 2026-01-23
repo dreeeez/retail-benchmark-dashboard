@@ -3,8 +3,8 @@ Benchmark Dashboard - Gruppe 18
 Datenbankverbindung
 
 Unterstützt:
-- Lokale Entwicklung via config.json + pyodbc
-- Streamlit Cloud via Session-Credentials + pymssql
+- Streamlit Cloud via st.secrets
+- Lokale Entwicklung via .streamlit/secrets.toml oder config.json
 """
 
 import json
@@ -17,19 +17,36 @@ DB_DATABASE = "ERPDEV"
 
 
 def get_db_config():
-    """Lädt DB-Konfiguration aus config.json
+    """Lädt DB-Konfiguration aus config.json oder Streamlit Secrets
+
+    Priorität:
+    1. config.json (lokale Entwicklung)
+    2. st.secrets (Streamlit Cloud)
 
     Returns:
         dict mit server, database, user, password
     """
-    config_path = Path(__file__).parent.parent.parent / "config.json"
+    # 1. Versuche config.json (lokal)
+    config_path = Path(__file__).resolve().parent.parent.parent / "config.json"
     if config_path.exists():
         with open(config_path) as f:
             return json.load(f)
 
+    # 2. Fallback: Streamlit Secrets (Cloud)
+    try:
+        import streamlit as st
+        if hasattr(st, 'secrets') and "database" in st.secrets:
+            return {
+                'server': st.secrets["database"].get("server", DB_SERVER),
+                'database': st.secrets["database"].get("database", DB_DATABASE),
+                'user': st.secrets["database"]["user"],
+                'password': st.secrets["database"]["password"]
+            }
+    except Exception:
+        pass
+
     raise FileNotFoundError(
-        "Keine DB-Konfiguration gefunden. "
-        "Bitte config.json mit Service-Account Credentials erstellen."
+        f"Keine DB-Konfiguration gefunden. Gesucht: {config_path}"
     )
 
 
