@@ -27,15 +27,25 @@ def authenticate_user(username: str, password: str) -> dict:
         - message: str (Fehlermeldung oder Erfolg)
         - username: str (Username aus DB, nur bei Erfolg)
     """
-    query = """
+    # pymssql verwendet %s, pyodbc verwendet ?
+    query_pymssql = """
         SELECT USERNAME, ISNULL(SECURITYLEVEL, 0) AS SECURITYLEVEL
         FROM dbo.LOV_USER_LOGINS
         WHERE UPPER(USERNAME) = UPPER(%s) AND USERPASS = %s
     """
+    query_pyodbc = """
+        SELECT USERNAME, ISNULL(SECURITYLEVEL, 0) AS SECURITYLEVEL
+        FROM dbo.LOV_USER_LOGINS
+        WHERE UPPER(USERNAME) = UPPER(?) AND USERPASS = ?
+    """
 
     try:
         with db_connection() as conn:
-            df = pd.read_sql(query, conn, params=(username, password))
+            # Versuche pymssql-Syntax, dann pyodbc-Syntax
+            try:
+                df = pd.read_sql(query_pymssql, conn, params=(username, password))
+            except Exception:
+                df = pd.read_sql(query_pyodbc, conn, params=[username, password])
 
             if len(df) == 0:
                 return {
