@@ -559,10 +559,10 @@ def create_campaign_efficiency_scatter(campaign_df, store: dict) -> go.Figure:
 
 
 def create_campaign_roas_chart(campaign_df, store: dict) -> go.Figure:
-    """Erstellt ROAS-Chart für Top 8 Kampagnen einer Filiale
+    """Erstellt ROAS-Chart für Top 8 bezahlte Kampagnen einer Filiale
 
     Zeigt den ROAS (Return on Advertising Spend) für die Top 8 Kampagnen.
-    ROAS = Umsatz / Kosten
+    ROAS = Umsatz / Kosten (nur Kampagnen mit Kosten > 0)
 
     Args:
         campaign_df: DataFrame aus load_marketing_by_campaign()
@@ -577,7 +577,7 @@ def create_campaign_roas_chart(campaign_df, store: dict) -> go.Figure:
         fig.update_layout(**get_base_layout(height=400))
         return fig
 
-    # Nur Kampagnen dieser Filiale mit Kosten > 0
+    # Nur bezahlte Kampagnen dieser Filiale (CostEur > 0)
     store_campaigns = campaign_df[
         (campaign_df['IdStore'] == store['id']) &
         (campaign_df['CostEur'] > 0)
@@ -593,18 +593,22 @@ def create_campaign_roas_chart(campaign_df, store: dict) -> go.Figure:
         'RevenueEur': 'sum'
     }).reset_index()
 
-    # ROAS berechnen
-    campaign_totals['ROAS'] = campaign_totals['RevenueEur'] / campaign_totals['CostEur']
-
-    # Top 8 nach Umsatz (gleiche wie im Effizienz-Chart)
+    # Top 8 nach Umsatz
     top_campaigns = campaign_totals.nlargest(8, 'RevenueEur')
 
     if top_campaigns.empty:
         fig.update_layout(**get_base_layout(height=400))
         return fig
 
+    # ROAS berechnen
     campaign_names = top_campaigns['CampaignName'].tolist()
-    roas_values = top_campaigns['ROAS'].tolist()
+    roas_values = []
+    text_labels = []
+
+    for _, row in top_campaigns.iterrows():
+        roas = row['RevenueEur'] / row['CostEur']
+        roas_values.append(roas)
+        text_labels.append(f"{roas:.1f}x")
 
     fig.add_trace(go.Bar(
         x=campaign_names,
@@ -614,10 +618,10 @@ def create_campaign_roas_chart(campaign_df, store: dict) -> go.Figure:
             color='rgba(0, 212, 255, 0.8)',
             line=dict(color='rgba(0, 212, 255, 1)', width=2)
         ),
-        text=[f"{r:.1f}x" for r in roas_values],
+        text=text_labels,
         textposition='outside',
         textfont=dict(size=11),
-        hovertemplate='<b>%{x}</b><br>ROAS: %{y:.2f}x<extra></extra>'
+        hovertemplate='<b>%{x}</b><br>ROAS: %{text}<extra></extra>'
     ))
 
     fig.update_layout(
@@ -885,6 +889,105 @@ def create_cpa_top5_per_store_chart(campaign_df, store: dict) -> go.Figure:
         margin=dict(l=20, r=100, t=40, b=40),
         yaxis=dict(tickfont=dict(size=10))
     ))
+
+    return fig
+
+
+def create_romi_per_campaign_chart(campaign_df, store: dict) -> go.Figure:
+    """Erstellt ROMI-Chart pro Kampagne für eine Filiale
+
+    Zeigt ROMI (Return on Marketing Investment) für die Top 8 bezahlten Kampagnen.
+    ROMI = Kampagnen-Profit / Kosten (gleiche Kampagnen wie ROAS-Chart)
+
+    Args:
+        campaign_df: DataFrame aus load_marketing_by_campaign()
+        store: Store-Config Dictionary mit id, name, color
+
+    Returns:
+        Plotly Figure (Balkendiagramm)
+    """
+    fig = go.Figure()
+
+    if campaign_df is None or campaign_df.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    # Nur bezahlte Kampagnen dieser Filiale (CostEur > 0) - gleich wie ROAS
+    store_campaigns = campaign_df[
+        (campaign_df['IdStore'] == store['id']) &
+        (campaign_df['CostEur'] > 0)
+    ].copy()
+
+    if store_campaigns.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    # Aggregiere pro Kampagne (über alle Monate)
+    campaign_totals = store_campaigns.groupby('CampaignName').agg({
+        'CostEur': 'sum',
+        'RevenueEur': 'sum',
+        'CampaignProfit': 'sum'
+    }).reset_index()
+
+    # Top 8 nach Umsatz (gleiche wie ROAS-Chart)
+    top_campaigns = campaign_totals.nlargest(8, 'RevenueEur')
+
+    if top_campaigns.empty:
+        fig.update_layout(**get_base_layout(height=400))
+        return fig
+
+    # ROMI berechnen
+    campaign_names = top_campaigns['CampaignName'].tolist()
+    romi_values = []
+    text_labels = []
+
+    for _, row in top_campaigns.iterrows():
+        romi = row['CampaignProfit'] / row['CostEur']
+        romi_values.append(romi)
+        text_labels.append(f"{romi:.1f}x")
+
+    # Store-Farbe
+    hex_color = store['color'].lstrip('#')
+    r, g, b = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+    fig.add_trace(go.Bar(
+        x=campaign_names,
+        y=romi_values,
+        name='ROMI',
+        marker=dict(
+            color=f'rgba({r},{g},{b},0.7)',
+            line=dict(color=f'rgba({r},{g},{b},0.9)', width=1)
+        ),
+        text=text_labels,
+        textposition='outside',
+        textfont=dict(size=11),
+        hovertemplate='<b>%{x}</b><br>ROMI: %{text}<extra></extra>'
+    ))
+
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font_color='white',
+        xaxis_title="Kampagne",
+        yaxis_title="ROMI",
+        showlegend=False,
+        height=400,
+        margin=dict(l=70, r=30, t=40, b=100),
+        xaxis=dict(autorange=True, fixedrange=False),
+        yaxis=dict(autorange=True, fixedrange=False)
+    )
+
+    fig.update_xaxes(
+        gridcolor='rgba(255,255,255,0.1)',
+        showgrid=False,
+        tickangle=-25
+    )
+    fig.update_yaxes(
+        tickformat=".1f",
+        ticksuffix="x",
+        gridcolor='rgba(255,255,255,0.1)',
+        showgrid=True
+    )
 
     return fig
 

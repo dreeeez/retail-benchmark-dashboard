@@ -58,7 +58,7 @@ from src.charts.marketing import (
     create_top_campaigns_per_store_chart,
     create_campaign_efficiency_scatter,
     create_campaign_roas_chart,
-    create_romi_monthly_chart,
+    create_romi_per_campaign_chart,
 )
 from src.charts.categories import (
     create_margin_by_category_chart,
@@ -333,8 +333,8 @@ if df is not None and len(df) > 0:
                         fig = create_marketing_revenue_share_chart(active_stores, marketing_kpis)
                         st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
 
-                    # Kampagnen-Daten für CPA und weitere Charts laden
-                    campaign_data = load_marketing_by_campaign()
+                    # Kampagnen-Daten für CPA und weitere Charts laden (mit Monatsfilter)
+                    campaign_data = load_marketing_by_campaign(selected_month)
 
                     # Kampagnen-Effizienz: Top 8 Kampagnen pro Filiale (Kosten vs. Umsatz + ROAS)
                     if campaign_data is not None and not campaign_data.empty:
@@ -355,15 +355,10 @@ if df is not None and len(df) > 0:
                                 st.markdown("<p style='color:#aaa; font-size:0.9em; margin-top:10px;'>📈 <strong>ROAS pro Kampagne</strong> (Umsatz / Kosten)</p>", unsafe_allow_html=True)
                                 fig_roas = create_campaign_roas_chart(campaign_data, store)
                                 st.plotly_chart(fig_roas, use_container_width=True, config=PLOTLY_CONFIG)
-
-                    # ROMI - Return on Marketing Investment (monatlich)
-                    if campaign_data is not None and not campaign_data.empty:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        st.markdown(chart_header("💵 ROMI im Zeitverlauf",
-                            "<strong>Berechnung:</strong> Kampagnen-Profit / Marketing-Kosten pro Monat<br><br>"
-                            "<strong>Nutzen:</strong> Zeigt die Rentabilität des Marketings. ROMI > 0 bedeutet Gewinn, ROMI < 0 bedeutet Verlust. Die gestrichelte Linie markiert den Break-even."), unsafe_allow_html=True)
-                        fig = create_romi_monthly_chart(campaign_data, active_stores)
-                        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
+                                # ROMI pro Kampagne
+                                st.markdown("<p style='color:#aaa; font-size:0.9em; margin-top:10px;'>💵 <strong>ROMI pro Kampagne</strong> (Kampagnen-Profit / Kosten)</p>", unsafe_allow_html=True)
+                                fig_romi = create_romi_per_campaign_chart(campaign_data, store)
+                                st.plotly_chart(fig_romi, use_container_width=True, config=PLOTLY_CONFIG)
 
                 else:
                     st.info("Keine Marketing-Daten verfügbar.")

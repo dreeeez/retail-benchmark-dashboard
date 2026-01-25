@@ -7,7 +7,7 @@ Charts für Tab 4: Produktkategorien
 
 import plotly.graph_objects as go
 from src.charts.base import get_base_layout, get_legend_horizontal_centered
-from src.config.categories import get_category_color
+from src.config.categories import get_category_color, get_category_display_name
 
 
 def create_revenue_distribution_chart(df_filtered, active_stores: list,
@@ -25,6 +25,10 @@ def create_revenue_distribution_chart(df_filtered, active_stores: list,
     Returns:
         Plotly Figure
     """
+    # Kategorie-Namen auf Display-Namen mappen
+    df_filtered = df_filtered.copy()
+    df_filtered[cat_col] = df_filtered[cat_col].apply(get_category_display_name)
+
     all_categories = sorted(df_filtered[cat_col].unique())
 
     # Daten pro Store und Kategorie berechnen
@@ -79,6 +83,10 @@ def create_quantity_heatmap(df_filtered, active_stores: list,
     Returns:
         Plotly Figure
     """
+    # Kategorie-Namen auf Display-Namen mappen
+    df_filtered = df_filtered.copy()
+    df_filtered[cat_col] = df_filtered[cat_col].apply(get_category_display_name)
+
     all_cats = sorted(df_filtered[cat_col].unique())
     store_names = [s['name'] for s in active_stores]
 
@@ -151,6 +159,10 @@ def create_margin_by_category_chart(df_filtered, active_stores: list,
     Returns:
         Plotly Figure
     """
+    # Kategorie-Namen auf Display-Namen mappen
+    df_filtered = df_filtered.copy()
+    df_filtered[cat_col] = df_filtered[cat_col].apply(get_category_display_name)
+
     # Berechne Margen pro Store und Kategorie
     all_margins = {}
     store_margins = {}
@@ -281,6 +293,10 @@ def create_profit_distribution_chart(df_filtered, active_stores: list,
     Returns:
         Plotly Figure
     """
+    # Kategorie-Namen auf Display-Namen mappen
+    df_filtered = df_filtered.copy()
+    df_filtered[cat_col] = df_filtered[cat_col].apply(get_category_display_name)
+
     store_profit_pct = {}
     store_profit_abs = {}
     total_profit_by_cat = {}

@@ -9,12 +9,18 @@ Produktkategorien-Konfiguration
 
 PRODUCT_CATEGORIES = [
     {'name': 'City Bikes', 'short': 'CITY', 'color': '#00d4ff'},
-    {'name': 'E-Trekking', 'short': 'ETRK', 'color': '#7b2cbf'},
+    {'name': 'E-Bike', 'short': 'EBIKE', 'color': '#7b2cbf'},
     {'name': 'Kid Bikes', 'short': 'KIDS', 'color': '#ff6b6b'},
     {'name': 'Mountain Bikes', 'short': 'MTB', 'color': '#00ff88'},
     {'name': 'Race Bikes', 'short': 'RACE', 'color': '#ffd93d'},
     {'name': 'Trekking Bikes', 'short': 'TREK', 'color': '#ff9f43'},
 ]
+
+# Mapping für Anzeigenamen (DB-Name -> Display-Name)
+CATEGORY_DISPLAY_NAMES = {
+    'E-Trakking': 'E-Bike',
+    'E-Trekking': 'E-Bike',
+}
 
 # Farb-Palette für dynamische Zuweisung (falls mehr Stores/Kategorien)
 COLOR_PALETTE = [
@@ -35,9 +41,16 @@ COLOR_PALETTE = [
 # HELPER FUNCTIONS
 # =============================================================================
 
+def get_category_display_name(db_name: str) -> str:
+    """Wandelt DB-Kategorie-Namen in Anzeigenamen um"""
+    return CATEGORY_DISPLAY_NAMES.get(db_name, db_name)
+
+
 def get_category_color(category_name: str) -> str:
     """Gibt Farbe für Produktkategorie zurück"""
-    name_lower = category_name.lower()
+    # Erst auf Display-Namen mappen
+    display_name = get_category_display_name(category_name)
+    name_lower = display_name.lower()
     for cat in PRODUCT_CATEGORIES:
         if cat['name'].lower() in name_lower or name_lower in cat['name'].lower():
             return cat['color']
