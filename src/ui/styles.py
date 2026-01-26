@@ -481,13 +481,27 @@ DASHBOARD_CSS = """
     }
 
     /* Global Selectbox Fix for Light Mode */
-    .stSelectbox [data-baseweb="select"] > div {
+    .stSelectbox [data-baseweb="select"] > div,
+    .stSelectbox > div > div,
+    [data-testid="stSelectbox"] > div > div {
         background-color: #1a1f3a !important;
         border-color: rgba(0, 212, 255, 0.3) !important;
     }
 
-    .stSelectbox [data-baseweb="select"] > div > div {
+    .stSelectbox [data-baseweb="select"] > div > div,
+    .stSelectbox > div > div > div,
+    [data-testid="stSelectbox"] > div > div > div {
         color: white !important;
+    }
+
+    /* Extra aggressive selectors for Cloud */
+    div[data-baseweb="select"] > div {
+        background-color: #1a1f3a !important;
+        border-color: rgba(0, 212, 255, 0.3) !important;
+    }
+
+    div[data-baseweb="input"] {
+        background-color: #1a1f3a !important;
     }
 
     /* Navigation Tabs - Light Mode Fix */
@@ -565,6 +579,27 @@ DASHBOARD_CSS = """
 
     [role="menuitem"]:hover {
         background-color: rgba(0, 212, 255, 0.2) !important;
+    }
+
+    /* Global Input/Form Styling for Cloud Compatibility */
+    input[type="text"],
+    input[type="password"],
+    input[type="email"] {
+        background-color: #1a1f3a !important;
+        border-color: rgba(0, 212, 255, 0.3) !important;
+        color: white !important;
+    }
+
+    /* Streamlit Form Elements */
+    .stForm input,
+    .stForm button {
+        background-color: #1a1f3a !important;
+        color: white !important;
+    }
+
+    .stForm button {
+        background-color: rgba(0, 212, 255, 0.2) !important;
+        border: 1px solid rgba(0, 212, 255, 0.5) !important;
     }
 </style>
 """
