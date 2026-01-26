@@ -22,11 +22,15 @@ def get_base_layout(**kwargs) -> dict:
         'transition': {'duration': 500},
         'xaxis': {
             'autorange': True,
-            'fixedrange': False
+            'fixedrange': False,
+            'gridcolor': 'rgba(255,255,255,0.1)',
+            'linecolor': 'rgba(255,255,255,0.2)'
         },
         'yaxis': {
             'autorange': True,
-            'fixedrange': False
+            'fixedrange': False,
+            'gridcolor': 'rgba(255,255,255,0.1)',
+            'linecolor': 'rgba(255,255,255,0.2)'
         },
         'dragmode': 'zoom',
         'hovermode': 'closest'

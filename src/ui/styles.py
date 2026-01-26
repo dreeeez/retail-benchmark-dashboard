@@ -8,6 +8,71 @@ DASHBOARD_CSS = """
     .stApp {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     }
+
+    /* Top Header/Toolbar - Dark Background für Light Mode */
+    header[data-testid="stHeader"] {
+        background-color: #0a0e27 !important;
+    }
+
+    /* Deploy Button und Toolbar */
+    [data-testid="stToolbar"] {
+        background-color: #0a0e27 !important;
+    }
+
+    /* Sidebar Toggle Arrows - Always White */
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapseButton"] *,
+    [data-testid="stSidebarCollapseButton"] svg,
+    [data-testid="stSidebarCollapseButton"] path {
+        color: white !important;
+        fill: white !important;
+        stroke: white !important;
+    }
+
+    [data-testid="collapsedControl"],
+    [data-testid="collapsedControl"] *,
+    [data-testid="collapsedControl"] svg,
+    [data-testid="collapsedControl"] path {
+        color: white !important;
+        fill: white !important;
+        stroke: white !important;
+    }
+
+    [data-testid="baseButton-headerNoPadding"],
+    [data-testid="baseButton-headerNoPadding"] *,
+    [data-testid="baseButton-headerNoPadding"] svg,
+    [data-testid="baseButton-headerNoPadding"] path {
+        color: white !important;
+        fill: white !important;
+        stroke: white !important;
+    }
+
+    button[kind="headerNoPadding"],
+    button[kind="headerNoPadding"] svg,
+    button[kind="headerNoPadding"] path {
+        color: white !important;
+        fill: white !important;
+        stroke: white !important;
+    }
+
+    /* Collapsed Sidebar Expand Button */
+    [data-testid="stSidebarNav"] button,
+    [data-testid="stSidebarNav"] button svg,
+    [data-testid="stSidebarNav"] button path {
+        color: white !important;
+        fill: white !important;
+        stroke: white !important;
+    }
+
+    [data-testid="stDecoration"] {
+        background-image: none !important;
+        background-color: #0a0e27 !important;
+    }
+
+    /* Status Widget (Running/Stop) */
+    [data-testid="stStatusWidget"] {
+        background-color: #0a0e27 !important;
+    }
     .main-header {
         text-align: center;
         padding: 25px 40px;
@@ -328,6 +393,178 @@ DASHBOARD_CSS = """
     [data-testid="stSidebar"] .stMultiSelect,
     [data-testid="stSidebar"] .stSelectbox {
         color: white;
+    }
+
+    /* Sidebar Labels (Filialen, Zeitraum) */
+    [data-testid="stSidebar"] .stMultiSelect label,
+    [data-testid="stSidebar"] .stSelectbox label {
+        color: white !important;
+    }
+
+    [data-testid="stSidebar"] .stMultiSelect label p,
+    [data-testid="stSidebar"] .stSelectbox label p {
+        color: white !important;
+    }
+
+    /* Sidebar Multiselect - BaseWeb Input Container */
+    [data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] > div {
+        background-color: #1a1f3a !important;
+        border-color: rgba(0, 212, 255, 0.3) !important;
+    }
+
+    [data-testid="stSidebar"] .stMultiSelect [data-baseweb="input"] {
+        background-color: #1a1f3a !important;
+    }
+
+    /* Sidebar Multiselect Selected Tags */
+    [data-testid="stSidebar"] .stMultiSelect span[data-baseweb="tag"] {
+        background-color: rgba(0, 212, 255, 0.3) !important;
+        color: white !important;
+    }
+
+    [data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] span {
+        color: white !important;
+    }
+
+    /* Sidebar Selectbox - BaseWeb Input Container */
+    [data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] > div {
+        background-color: #1a1f3a !important;
+        border-color: rgba(0, 212, 255, 0.3) !important;
+    }
+
+    /* Sidebar Selectbox Text */
+    [data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] > div > div {
+        color: white !important;
+    }
+
+    /* Sidebar Dropdown Menu Background */
+    [data-testid="stSidebar"] [data-baseweb="popover"] {
+        background-color: #1a1f3a !important;
+    }
+
+    [data-testid="stSidebar"] [data-baseweb="menu"] {
+        background-color: #1a1f3a !important;
+    }
+
+    /* Sidebar Dropdown Menu Items */
+    [data-testid="stSidebar"] [data-baseweb="menu"] li {
+        background-color: #1a1f3a !important;
+        color: white !important;
+    }
+
+    [data-testid="stSidebar"] [data-baseweb="menu"] li:hover {
+        background-color: rgba(0, 212, 255, 0.2) !important;
+    }
+
+    /* Global Dropdown/Popover Fix for Light Mode */
+    [data-baseweb="popover"] > div {
+        background-color: #1a1f3a !important;
+    }
+
+    [data-baseweb="select"] [data-baseweb="popover"] {
+        background-color: #1a1f3a !important;
+    }
+
+    /* Global Multiselect Fix for Light Mode */
+    .stMultiSelect [data-baseweb="select"] > div {
+        background-color: #1a1f3a !important;
+        border-color: rgba(0, 212, 255, 0.3) !important;
+    }
+
+    .stMultiSelect [data-baseweb="input"] {
+        background-color: #1a1f3a !important;
+    }
+
+    .stMultiSelect span[data-baseweb="tag"] {
+        background-color: rgba(0, 212, 255, 0.3) !important;
+        color: white !important;
+    }
+
+    /* Global Selectbox Fix for Light Mode */
+    .stSelectbox [data-baseweb="select"] > div {
+        background-color: #1a1f3a !important;
+        border-color: rgba(0, 212, 255, 0.3) !important;
+    }
+
+    .stSelectbox [data-baseweb="select"] > div > div {
+        color: white !important;
+    }
+
+    /* Navigation Tabs - Light Mode Fix */
+    .stTabs [data-baseweb="tab-list"] button {
+        color: white !important;
+    }
+
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: #00d4ff !important;
+    }
+
+    /* Subheader Überschriften (st.subheader) - Light Mode Fix */
+    [data-testid="stSubheader"],
+    [data-testid="stSubheader"] * {
+        color: white !important;
+    }
+
+    .stSubheader,
+    .stSubheader * {
+        color: white !important;
+    }
+
+    /* Streamlit Headings in Main Content */
+    .main [data-testid="stHeading"],
+    .main [data-testid="stHeading"] * {
+        color: white !important;
+    }
+
+    .stHeading,
+    .stHeading * {
+        color: white !important;
+    }
+
+    /* Chart Header Überschriften */
+    .chart-header .chart-title {
+        color: white !important;
+    }
+
+    /* Plotly Chart Legend Text */
+    .js-plotly-plot .legendtext,
+    .js-plotly-plot .legend text {
+        fill: white !important;
+    }
+
+    [data-testid="stPlotlyChart"] .legendtext,
+    [data-testid="stPlotlyChart"] .legend text {
+        fill: white !important;
+    }
+
+    /* Toolbar Dropdown Menu (Rerun, Settings, etc.) */
+    [data-testid="stMainMenu"],
+    [data-testid="stMainMenu"] * {
+        background-color: #1a1f3a !important;
+        color: white !important;
+    }
+
+    [data-testid="stMainMenuPopover"],
+    [data-testid="stMainMenuPopover"] ul,
+    [data-testid="stMainMenuPopover"] li {
+        background-color: #1a1f3a !important;
+        color: white !important;
+    }
+
+    /* Generic Streamlit Menu Styling */
+    [role="menu"],
+    [role="menu"] * {
+        background-color: #1a1f3a !important;
+        color: white !important;
+    }
+
+    [role="menuitem"] {
+        background-color: #1a1f3a !important;
+        color: white !important;
+    }
+
+    [role="menuitem"]:hover {
+        background-color: rgba(0, 212, 255, 0.2) !important;
     }
 </style>
 """

@@ -120,16 +120,6 @@ if df is not None and len(df) > 0:
         # Sidebar mit Filtern rendern
         selected_stores, selected_month = render_sidebar(df, monat_col)
 
-        # Alle verfügbaren Sections definieren
-        dashboard_all_sections = ['KPI-Karten', 'Margen-Vergleich', 'Kostenstruktur']
-        cat_all_sections = ['Bruttogewinn-Anteil (%)', 'Bruttomarge (%)', 'Umsatz-Trend']
-
-        # Session State für Multiselects initialisieren
-        if 'dashboard_multiselect' not in st.session_state:
-            st.session_state['dashboard_multiselect'] = dashboard_all_sections.copy()
-        if 'cat_multiselect' not in st.session_state:
-            st.session_state['cat_multiselect'] = cat_all_sections.copy()
-
         # =================================================================
         # DATEN LADEN MIT SQL-FILTER
         # =================================================================
@@ -168,97 +158,83 @@ if df is not None and len(df) > 0:
             # TAB 1: FINANZPERFORMANCE
             # =============================================================
             with tab_main:
-                col_dash_space, col_dash_settings = st.columns([15, 1])
-                with col_dash_settings:
-                    with st.popover("⚙️"):
-                        st.markdown("**Anzeigeoptionen**")
-                        if st.button("Alle anzeigen", key="reset_dashboard"):
-                            st.session_state['dashboard_multiselect'] = dashboard_all_sections.copy()
-                            st.rerun()
-                        st.multiselect("Bereiche:", options=dashboard_all_sections,
-                                       key="dashboard_multiselect", label_visibility="collapsed")
+                st.subheader("📈 Vergleich Umsatz & Operativer Gewinn")
+                st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
-                selected_sections = st.session_state.get('dashboard_multiselect', dashboard_all_sections)
+                # Responsive Grid: Max 3 Stores pro Zeile
+                num_stores = len(active_stores)
+                stores_per_row = min(3, num_stores)  # Max 3 pro Zeile
 
-                if 'KPI-Karten' in selected_sections:
-                    st.subheader("📈 Vergleich Umsatz & Operativer Gewinn")
-                    st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+                # Zeilen berechnen
+                for row_start in range(0, num_stores, stores_per_row):
+                    row_stores = active_stores[row_start:row_start + stores_per_row]
+                    kpi_cols = st.columns(len(row_stores))
 
-                    # Responsive Grid: Max 3 Stores pro Zeile
-                    num_stores = len(active_stores)
-                    stores_per_row = min(3, num_stores)  # Max 3 pro Zeile
+                    for idx, store in enumerate(row_stores):
+                        with kpi_cols[idx]:
+                            st.markdown(render_store_kpi_card(store, stores_kpis[store['name']]), unsafe_allow_html=True)
 
-                    # Zeilen berechnen
-                    for row_start in range(0, num_stores, stores_per_row):
-                        row_stores = active_stores[row_start:row_start + stores_per_row]
-                        kpi_cols = st.columns(len(row_stores))
+                    if row_start + stores_per_row < num_stores:  # Abstand zwischen Zeilen
+                        st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
 
-                        for idx, store in enumerate(row_stores):
-                            with kpi_cols[idx]:
-                                st.markdown(render_store_kpi_card(store, stores_kpis[store['name']]), unsafe_allow_html=True)
+                # Flächenproduktivität direkt unter KPI-Karten
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown(chart_header("📐 Flächenproduktivität (Umsatz pro m²)",
+                    "<strong>Berechnung:</strong> Gesamtumsatz / Verkaufsfläche in m²<br><br>"
+                    "<strong>Nutzen:</strong> Relativiert absolute Umsatzzahlen zur Filialgröße. Ermöglicht fairen Vergleich zwischen kleinen und großen Filialen. Die gestrichelte Linie zeigt den Durchschnitt aller Filialen."), unsafe_allow_html=True)
+                store_details = load_store_details(selected_month)
+                if store_details is not None and not store_details.empty:
+                    fig = create_productivity_chart(store_details, active_stores)
+                    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="productivity_chart")
+                else:
+                    st.info("Keine Flächendaten verfügbar.")
 
-                        if row_start + stores_per_row < num_stores:  # Abstand zwischen Zeilen
-                            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)
 
-                    # Flächenproduktivität direkt unter KPI-Karten
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown(chart_header("📐 Flächenproduktivität (Umsatz pro m²)",
-                        "<strong>Berechnung:</strong> Gesamtumsatz / Verkaufsfläche in m²<br><br>"
-                        "<strong>Nutzen:</strong> Relativiert absolute Umsatzzahlen zur Filialgröße. Ermöglicht fairen Vergleich zwischen kleinen und großen Filialen. Die gestrichelte Linie zeigt den Durchschnitt aller Filialen."), unsafe_allow_html=True)
-                    store_details = load_store_details(selected_month)
-                    if store_details is not None and not store_details.empty:
-                        fig = create_productivity_chart(store_details, active_stores)
-                        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="productivity_chart")
+                col_chart1, col_chart2 = st.columns(2)
+
+                with col_chart1:
+                    if selected_month == 'all':
+                        st.markdown(chart_header("💰 Umsatzentwicklung",
+                            "<strong>Berechnung:</strong> Summe aller Verkaufserlöse pro Monat<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt Umsatztrends und Saisonalität. Ermöglicht Vergleich der Filialperformance und Erkennung von Wachstums- oder Rückgangsphasen."), unsafe_allow_html=True)
+                        fig = create_revenue_trend_chart(stores_data, active_stores, monat_col)
                     else:
-                        st.info("Keine Flächendaten verfügbar.")
+                        month_name = MONTH_NAMES.get(selected_month, selected_month)
+                        st.markdown(chart_header(f"💰 Umsatzvergleich {month_name}",
+                            "<strong>Berechnung:</strong> Summe aller Verkaufserlöse im Monat<br><br>"
+                            "<strong>Nutzen:</strong> Direkter Filialvergleich für den gewählten Zeitraum. Zeigt welche Filiale am umsatzstärksten ist."), unsafe_allow_html=True)
+                        fig = create_revenue_bar_chart(active_stores, stores_kpis)
+                    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="revenue_chart")
 
-                    st.markdown("<br>", unsafe_allow_html=True)
+                with col_chart2:
+                    if selected_month == 'all':
+                        st.markdown(chart_header("📊 Operativer Gewinn (EBIT) - Entwicklung",
+                            "<strong>Berechnung:</strong> EBIT = Umsatz - Wareneinsatz - Betriebskosten (Personal, Miete, Logistik, Marketing)<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt die tatsächliche operative Profitabilität. Ein negativer EBIT bedeutet Verlust im Kerngeschäft - unabhängig von Finanzierung und Steuern."), unsafe_allow_html=True)
+                    else:
+                        month_name = MONTH_NAMES.get(selected_month, selected_month)
+                        st.markdown(chart_header(f"📊 Operativer Gewinn (EBIT) - Vergleich {month_name}",
+                            "<strong>Berechnung:</strong> EBIT = Umsatz - Wareneinsatz - Betriebskosten (Personal, Miete, Logistik, Marketing)<br><br>"
+                            "<strong>Nutzen:</strong> Zeigt die tatsächliche operative Profitabilität. Ein negativer EBIT bedeutet Verlust im Kerngeschäft - unabhängig von Finanzierung und Steuern."), unsafe_allow_html=True)
+                    fig = create_ebit_chart(stores_data, active_stores, monat_col)
+                    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="ebit_chart")
 
-                    col_chart1, col_chart2 = st.columns(2)
+                col_brutto, col_ebit = st.columns(2)
 
-                    with col_chart1:
-                        if selected_month == 'all':
-                            st.markdown(chart_header("💰 Umsatzentwicklung",
-                                "<strong>Berechnung:</strong> Summe aller Verkaufserlöse pro Monat<br><br>"
-                                "<strong>Nutzen:</strong> Zeigt Umsatztrends und Saisonalität. Ermöglicht Vergleich der Filialperformance und Erkennung von Wachstums- oder Rückgangsphasen."), unsafe_allow_html=True)
-                            fig = create_revenue_trend_chart(stores_data, active_stores, monat_col)
-                        else:
-                            month_name = MONTH_NAMES.get(selected_month, selected_month)
-                            st.markdown(chart_header(f"💰 Umsatzvergleich {month_name}",
-                                "<strong>Berechnung:</strong> Summe aller Verkaufserlöse im Monat<br><br>"
-                                "<strong>Nutzen:</strong> Direkter Filialvergleich für den gewählten Zeitraum. Zeigt welche Filiale am umsatzstärksten ist."), unsafe_allow_html=True)
-                            fig = create_revenue_bar_chart(active_stores, stores_kpis)
-                        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="revenue_chart")
+                with col_brutto:
+                    st.markdown(chart_header("📊 Bruttomarge im Vergleich",
+                        "<strong>Berechnung:</strong> (Umsatz - Wareneinsatz) / Umsatz × 100<br><br>"
+                        "<strong>Nutzen:</strong> Zeigt die Handelsspanne nach Abzug der Warenkosten. Höhere Bruttomarge = mehr Spielraum für Betriebskosten. Niedrige Werte deuten auf Preisdruck oder hohe Einkaufskosten hin."), unsafe_allow_html=True)
+                    fig = create_margin_chart(active_stores, stores_kpis, 'brutto')
+                    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="brutto_margin_chart")
 
-                    with col_chart2:
-                        if selected_month == 'all':
-                            st.markdown(chart_header("📊 Operativer Gewinn (EBIT) - Entwicklung",
-                                "<strong>Berechnung:</strong> EBIT = Umsatz - Wareneinsatz - Betriebskosten (Personal, Miete, Logistik, Marketing)<br><br>"
-                                "<strong>Nutzen:</strong> Zeigt die tatsächliche operative Profitabilität. Ein negativer EBIT bedeutet Verlust im Kerngeschäft - unabhängig von Finanzierung und Steuern."), unsafe_allow_html=True)
-                        else:
-                            month_name = MONTH_NAMES.get(selected_month, selected_month)
-                            st.markdown(chart_header(f"📊 Operativer Gewinn (EBIT) - Vergleich {month_name}",
-                                "<strong>Berechnung:</strong> EBIT = Umsatz - Wareneinsatz - Betriebskosten (Personal, Miete, Logistik, Marketing)<br><br>"
-                                "<strong>Nutzen:</strong> Zeigt die tatsächliche operative Profitabilität. Ein negativer EBIT bedeutet Verlust im Kerngeschäft - unabhängig von Finanzierung und Steuern."), unsafe_allow_html=True)
-                        fig = create_ebit_chart(stores_data, active_stores, monat_col)
-                        st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="ebit_chart")
-
-                    if 'Margen-Vergleich' in selected_sections:
-                        col_brutto, col_ebit = st.columns(2)
-
-                        with col_brutto:
-                            st.markdown(chart_header("📊 Bruttomarge im Vergleich",
-                                "<strong>Berechnung:</strong> (Umsatz - Wareneinsatz) / Umsatz × 100<br><br>"
-                                "<strong>Nutzen:</strong> Zeigt die Handelsspanne nach Abzug der Warenkosten. Höhere Bruttomarge = mehr Spielraum für Betriebskosten. Niedrige Werte deuten auf Preisdruck oder hohe Einkaufskosten hin."), unsafe_allow_html=True)
-                            fig = create_margin_chart(active_stores, stores_kpis, 'brutto')
-                            st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="brutto_margin_chart")
-
-                        with col_ebit:
-                            st.markdown(chart_header("📈 EBIT-Marge im Vergleich",
-                                "<strong>Berechnung:</strong> EBIT / Umsatz × 100<br><br>"
-                                "<strong>Nutzen:</strong> Zeigt wie viel vom Umsatz als operativer Gewinn übrig bleibt. Benchmark für operative Effizienz. Negative Werte = Filiale arbeitet nicht kostendeckend."), unsafe_allow_html=True)
-                            fig = create_margin_chart(active_stores, stores_kpis, 'ebit')
-                            st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="ebit_margin_chart")
+                with col_ebit:
+                    st.markdown(chart_header("📈 EBIT-Marge im Vergleich",
+                        "<strong>Berechnung:</strong> EBIT / Umsatz × 100<br><br>"
+                        "<strong>Nutzen:</strong> Zeigt wie viel vom Umsatz als operativer Gewinn übrig bleibt. Benchmark für operative Effizienz. Negative Werte = Filiale arbeitet nicht kostendeckend."), unsafe_allow_html=True)
+                    fig = create_margin_chart(active_stores, stores_kpis, 'ebit')
+                    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="ebit_margin_chart")
 
             # =============================================================
             # TAB 2: MARKETING
@@ -444,17 +420,6 @@ if df is not None and len(df) > 0:
             # TAB 4: PRODUKTKATEGORIEN
             # =============================================================
             with tab_categories:
-                col_cat_space, col_cat_settings = st.columns([15, 1])
-                with col_cat_settings:
-                    with st.popover("⚙️"):
-                        st.markdown("**Anzeigeoptionen**")
-                        if st.button("Alle anzeigen", key="reset_cat"):
-                            st.session_state['cat_multiselect'] = cat_all_sections.copy()
-                            st.rerun()
-                        st.multiselect("Bereiche:", options=cat_all_sections,
-                                       key="cat_multiselect", label_visibility="collapsed")
-
-                selected_cat_sections = st.session_state.get('cat_multiselect', cat_all_sections)
                 df_sales_agg = load_sales_agg(selected_month)
 
                 if df_sales_agg is not None and len(df_sales_agg) > 0:
@@ -501,14 +466,14 @@ if df is not None and len(df) > 0:
 
                             st.markdown("<br>", unsafe_allow_html=True)
 
-                        if 'Bruttogewinn-Anteil (%)' in selected_cat_sections and profit_col:
+                        if profit_col:
                             st.markdown(chart_header("💰 Bruttogewinn-Anteil je Kategorie (%)",
                                 "<strong>Berechnung:</strong> Bruttogewinn je Kategorie / Gesamtbruttogewinn × 100<br><br>"
                                 "<strong>Nutzen:</strong> Zeigt welche Kategorien am meisten zum Gewinn beitragen. Kombiniert Umsatzvolumen und Marge zu einer Gesamtbewertung."), unsafe_allow_html=True)
                             fig = create_profit_distribution_chart(df_filtered_cat, active_stores, cat_col, profit_col, filter_by_store)
                             st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG, key="profit_distribution_chart")
 
-                        if 'Bruttomarge (%)' in selected_cat_sections and profit_col:
+                        if profit_col:
                             st.markdown(chart_header("📈 Bruttomarge nach Kategorie (%)",
                                 "<strong>Berechnung:</strong> (Umsatz - Wareneinsatz) / Umsatz × 100 je Kategorie<br><br>"
                                 "<strong>Nutzen:</strong> Zeigt welche Kategorien am profitabelsten sind. Hohe Marge = mehr Gewinn pro Euro Umsatz. Basis für Preisstrategien und Sortimentsentscheidungen."), unsafe_allow_html=True)

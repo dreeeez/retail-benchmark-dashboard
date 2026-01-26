@@ -37,6 +37,34 @@ def render_login_screen():
             header[data-testid="stHeader"] {
                 display: none;
             }
+
+            /* Login Input Fields - Dark Background für Light Mode Fix */
+            .stTextInput > div > div > input {
+                background-color: rgba(26, 31, 58, 0.9) !important;
+                border: 1px solid rgba(0, 212, 255, 0.3) !important;
+                color: white !important;
+            }
+
+            .stTextInput > div > div > input::placeholder {
+                color: rgba(255, 255, 255, 0.5) !important;
+            }
+
+            /* Login Button - Dark Background */
+            .stFormSubmitButton > button {
+                background-color: rgba(0, 212, 255, 0.2) !important;
+                border: 1px solid rgba(0, 212, 255, 0.5) !important;
+                color: white !important;
+            }
+
+            .stFormSubmitButton > button:hover {
+                background-color: rgba(0, 212, 255, 0.3) !important;
+                border-color: rgba(0, 212, 255, 0.7) !important;
+            }
+
+            /* Label Farbe */
+            .stTextInput > label {
+                color: rgba(255, 255, 255, 0.7) !important;
+            }
         </style>
     """, unsafe_allow_html=True)
 
