@@ -220,13 +220,6 @@ def create_margin_by_category_chart(df_filtered, active_stores: list,
         ))
 
     # 2. Dots für jeden Standort
-    store_colors = {
-        'Heidelberg': '#00d4ff',
-        'Karlsruhe': '#7b2cbf',
-        'Rosenheim': '#00ff88',
-        'Freiburg': '#ff4757'
-    }
-
     for store in active_stores:
         cat_margin = store_margins[store['name']]
 
@@ -247,7 +240,7 @@ def create_margin_by_category_chart(df_filtered, active_stores: list,
             mode='markers',
             marker=dict(
                 size=10,
-                color=store_colors.get(store['name'], '#999'),
+                color=store['color'],
                 line=dict(color='rgba(255,255,255,0.4)', width=1)
             ),
             hovertemplate='%{text}<extra></extra>',
