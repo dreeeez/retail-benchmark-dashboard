@@ -205,7 +205,7 @@ def create_margin_chart(active_stores: list, stores_kpis: dict, margin_type: str
     ))
 
     fig.update_layout(**get_base_layout(yaxis_title=y_title))
-    fig.update_yaxes(range=[0, 40])
+    fig.update_yaxes(range=[0, 40], autorange=False)
 
     return fig
 
