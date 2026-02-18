@@ -204,9 +204,8 @@ def create_margin_chart(active_stores: list, stores_kpis: dict, margin_type: str
         textposition='outside'
     ))
 
-    y_max = max(margins) if margins else 1
     fig.update_layout(**get_base_layout(yaxis_title=y_title))
-    fig.update_yaxes(range=[0, y_max * 1.2])
+    fig.update_yaxes(range=[0, 40])
 
     return fig
 
