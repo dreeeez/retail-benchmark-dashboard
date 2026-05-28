@@ -1,1 +1,0 @@
-EXEC sp_help 'dbo.V_LIST_MONTHLY_SALES';

@@ -31,10 +31,14 @@ Compares monthly sales, gross profit and product-category mix across multiple bi
 │   ├── stores_config.py         Store registry — add a new store = one entry
 │   ├── styles.py                Dashboard CSS
 │   └── utils.py                 Currency formatters
-├── sql/                         Benchmark view definitions
-├── docs/                        Screenshots & assets
-├── Phase 4 - install-erpdb.sql  ERP demo-DB schema bootstrap
-└── README_BENCHMARK_VIEWS.md    Detailed docs on the SQL view layers
+├── sql/
+│   ├── install-erpdb.sql        ERP demo-DB schema bootstrap
+│   └── GRUPPE_18_BENCHMARK_VIEWS_V2.sql   Benchmark view definitions
+├── docs/
+│   ├── benchmark-views.md       Detailed docs on the SQL view layers
+│   └── screenshot.jpg
+├── config.example.json
+└── requirements.txt
 ```
 
 ## Getting started
@@ -55,7 +59,7 @@ Then open <http://localhost:8501>.
 
 ## Architecture (SQL views)
 
-The dashboard reads from a 5-layer view hierarchy: **Standardisation → Aggregation → KPI → Comparison → Export**. See [`README_BENCHMARK_VIEWS.md`](README_BENCHMARK_VIEWS.md) for the full breakdown of each layer and column.
+The dashboard reads from a 5-layer view hierarchy: **Standardisation → Aggregation → KPI → Comparison → Export**. See [`docs/benchmark-views.md`](docs/benchmark-views.md) for the full breakdown of each layer and column.
 
 ## Course context
 
